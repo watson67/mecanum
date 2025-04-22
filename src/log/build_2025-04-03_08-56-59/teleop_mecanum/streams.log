@@ -1,0 +1,22 @@
+[0.561s] Invoking command in '/home/eswarm/mecanum/src/build/teleop_mecanum': PYTHONPATH=/home/eswarm/mecanum/src/build/teleop_mecanum/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/eswarm/mecanum/src/install/teleop_mecanum/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/eswarm/mecanum/src/build/teleop_mecanum/build --no-deps symlink_data --force
+[0.685s] /home/eswarm/.local/lib/python3.10/site-packages/setuptools/_distutils/dist.py:289: UserWarning: Unknown distribution option: 'tests_require'
+[0.685s]   warnings.warn(msg)
+[0.805s] running develop
+[0.983s] running egg_info
+[0.994s] writing teleop_mecanum.egg-info/PKG-INFO
+[0.994s] writing dependency_links to teleop_mecanum.egg-info/dependency_links.txt
+[0.994s] writing entry points to teleop_mecanum.egg-info/entry_points.txt
+[0.995s] writing requirements to teleop_mecanum.egg-info/requires.txt
+[0.995s] writing top-level names to teleop_mecanum.egg-info/top_level.txt
+[1.017s] reading manifest file 'teleop_mecanum.egg-info/SOURCES.txt'
+[1.017s] writing manifest file 'teleop_mecanum.egg-info/SOURCES.txt'
+[1.029s] running build_ext
+[1.029s] Creating /home/eswarm/mecanum/src/install/teleop_mecanum/lib/python3.10/site-packages/teleop-mecanum.egg-link (link to .)
+[1.030s] Installing teleop_dualshock script to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/teleop_mecanum
+[1.030s] Installing teleop_mecanum script to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/teleop_mecanum
+[1.030s] 
+[1.030s] Installed /home/eswarm/mecanum/src/build/teleop_mecanum
+[1.030s] running symlink_data
+[1.030s] symbolically linking /home/eswarm/mecanum/src/build/teleop_mecanum/resource/teleop_mecanum -> /home/eswarm/mecanum/src/install/teleop_mecanum/share/ament_index/resource_index/packages
+[1.030s] symbolically linking /home/eswarm/mecanum/src/build/teleop_mecanum/package.xml -> /home/eswarm/mecanum/src/install/teleop_mecanum/share/teleop_mecanum
+[1.051s] Invoked command in '/home/eswarm/mecanum/src/build/teleop_mecanum' returned '0': PYTHONPATH=/home/eswarm/mecanum/src/build/teleop_mecanum/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/eswarm/mecanum/src/install/teleop_mecanum/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/eswarm/mecanum/src/build/teleop_mecanum/build --no-deps symlink_data --force

@@ -1,0 +1,5 @@
+[console_scripts]
+follower_mecanum = teleop_mecanum.follower_mecanum:main
+teleop_dualshock = teleop_mecanum.dualshock_mecanum:main
+teleop_mecanum = teleop_mecanum.teleop_mecanum:main
+teleop_mecanum_all = teleop_mecanum.teleop_mecanum_all:main

@@ -1,0 +1,31 @@
+[0.528s] Invoking command in '/home/eswarm/mecanum/src/teleop_mecanum': PYTHONPATH=/home/eswarm/mecanum/src/build/teleop_mecanum/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/eswarm/mecanum/src/install/teleop_mecanum/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../build/teleop_mecanum build --build-base /home/eswarm/mecanum/src/build/teleop_mecanum/build install --record /home/eswarm/mecanum/src/build/teleop_mecanum/install.log --single-version-externally-managed install_data
+[0.643s] /home/eswarm/.local/lib/python3.10/site-packages/setuptools/_distutils/dist.py:289: UserWarning: Unknown distribution option: 'tests_require'
+[0.643s]   warnings.warn(msg)
+[0.704s] running egg_info
+[0.714s] writing ../build/teleop_mecanum/teleop_mecanum.egg-info/PKG-INFO
+[0.714s] writing dependency_links to ../build/teleop_mecanum/teleop_mecanum.egg-info/dependency_links.txt
+[0.715s] writing entry points to ../build/teleop_mecanum/teleop_mecanum.egg-info/entry_points.txt
+[0.715s] writing requirements to ../build/teleop_mecanum/teleop_mecanum.egg-info/requires.txt
+[0.715s] writing top-level names to ../build/teleop_mecanum/teleop_mecanum.egg-info/top_level.txt
+[0.736s] reading manifest file '../build/teleop_mecanum/teleop_mecanum.egg-info/SOURCES.txt'
+[0.737s] writing manifest file '../build/teleop_mecanum/teleop_mecanum.egg-info/SOURCES.txt'
+[0.737s] running build
+[0.737s] running build_py
+[0.737s] copying teleop_mecanum/teleop_mecanum.py -> /home/eswarm/mecanum/src/build/teleop_mecanum/build/lib/teleop_mecanum
+[0.737s] copying teleop_mecanum/__init__.py -> /home/eswarm/mecanum/src/build/teleop_mecanum/build/lib/teleop_mecanum
+[0.737s] copying teleop_mecanum/teleop_mecanum_all.py -> /home/eswarm/mecanum/src/build/teleop_mecanum/build/lib/teleop_mecanum
+[0.737s] copying teleop_mecanum/dualshock_mecanum.py -> /home/eswarm/mecanum/src/build/teleop_mecanum/build/lib/teleop_mecanum
+[0.737s] running install
+[0.740s] running install_lib
+[0.751s] running install_data
+[0.751s] copying resource/teleop_mecanum -> /home/eswarm/mecanum/src/install/teleop_mecanum/share/ament_index/resource_index/packages
+[0.751s] copying package.xml -> /home/eswarm/mecanum/src/install/teleop_mecanum/share/teleop_mecanum
+[0.751s] running install_egg_info
+[0.762s] removing '/home/eswarm/mecanum/src/install/teleop_mecanum/lib/python3.10/site-packages/teleop_mecanum-0.0.0-py3.10.egg-info' (and everything under it)
+[0.762s] Copying ../build/teleop_mecanum/teleop_mecanum.egg-info to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/python3.10/site-packages/teleop_mecanum-0.0.0-py3.10.egg-info
+[0.763s] running install_scripts
+[0.852s] Installing teleop_dualshock script to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/teleop_mecanum
+[0.852s] Installing teleop_mecanum script to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/teleop_mecanum
+[0.852s] Installing teleop_mecanum_all script to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/teleop_mecanum
+[0.853s] writing list of installed files to '/home/eswarm/mecanum/src/build/teleop_mecanum/install.log'
+[0.869s] Invoked command in '/home/eswarm/mecanum/src/teleop_mecanum' returned '0': PYTHONPATH=/home/eswarm/mecanum/src/build/teleop_mecanum/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/eswarm/mecanum/src/install/teleop_mecanum/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../build/teleop_mecanum build --build-base /home/eswarm/mecanum/src/build/teleop_mecanum/build install --record /home/eswarm/mecanum/src/build/teleop_mecanum/install.log --single-version-externally-managed install_data

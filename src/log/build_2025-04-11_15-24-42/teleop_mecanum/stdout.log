@@ -1,0 +1,18 @@
+running develop
+running egg_info
+writing teleop_mecanum.egg-info/PKG-INFO
+writing dependency_links to teleop_mecanum.egg-info/dependency_links.txt
+writing entry points to teleop_mecanum.egg-info/entry_points.txt
+writing requirements to teleop_mecanum.egg-info/requires.txt
+writing top-level names to teleop_mecanum.egg-info/top_level.txt
+reading manifest file 'teleop_mecanum.egg-info/SOURCES.txt'
+writing manifest file 'teleop_mecanum.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/eswarm/mecanum/src/install/teleop_mecanum/lib/python3.10/site-packages/teleop-mecanum.egg-link (link to .)
+Installing follower_mecanum script to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/teleop_mecanum
+Installing teleop_dualshock script to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/teleop_mecanum
+Installing teleop_mecanum script to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/teleop_mecanum
+Installing teleop_mecanum_all script to /home/eswarm/mecanum/src/install/teleop_mecanum/lib/teleop_mecanum
+
+Installed /home/eswarm/mecanum/src/build/teleop_mecanum
+running symlink_data
