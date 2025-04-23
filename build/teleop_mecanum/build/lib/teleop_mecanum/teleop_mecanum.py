@@ -1,231 +1,112 @@
-# Copyright 2011 Brown University Robotics.
-# Copyright 2017 Open Source Robotics Foundation, Inc.
-# All rights reserved.
-#
-# Software License Agreement (BSD License 2.0)
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-#  * Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-#  * Redistributions in binary form must reproduce the above
-#    copyright notice, this list of conditions and the following
-#    disclaimer in the documentation and/or other materials provided
-#    with the distribution.
-#  * Neither the name of the Willow Garage nor the names of its
-#    contributors may be used to endorse or promote products derived
-#    from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+#!/usr/bin/env python3
 
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist
 import sys
+import termios
+import tty
+import select
 import threading
 
-import geometry_msgs.msg
-import rclpy
-
-if sys.platform == 'win32':
-    import msvcrt
-else:
-    import termios
-    import tty
-
-
-msg = """
-This node takes keypresses from the keyboard and publishes them
-as Twist/TwistStamped messages. It works best with a US keyboard layout.
----------------------------
-Moving around:
-   u    i    o
-   j    k    l
-   m    ,    .
-
-For Holonomic mode (strafing), hold down the shift key:
----------------------------
-   U    I    O
-   J    K    L
-   M    <    >
-
-t : up (+z)
-b : down (-z)
-
-anything else : stop
-
-q/z : increase/decrease max speeds by 10%
-w/x : increase/decrease only linear speed by 10%
-e/c : increase/decrease only angular speed by 10%
-
-CTRL-C to quit
-"""
-
-moveBindings = {
-    'i': (1, 0, 0, 0),
-    'o': (1, 0, 0, -1),
-    'j': (0, 0, 0, 1),
-    'l': (0, 0, 0, -1),
-    'u': (1, 0, 0, 1),
-    ',': (-1, 0, 0, 0),
-    '.': (-1, 0, 0, 1),
-    'm': (-1, 0, 0, -1),
-    'O': (1, -1, 0, 0),
-    'I': (1, 0, 0, 0),
-    'J': (0, 1, 0, 0),
-    'L': (0, -1, 0, 0),
-    'U': (1, 1, 0, 0),
-    '<': (-1, 0, 0, 0),
-    '>': (-1, -1, 0, 0),
-    'M': (-1, 1, 0, 0),
-    't': (0, 0, 1, 0),
-    'b': (0, 0, -1, 0),
+# Configuration des touches pour un clavier AZERTY avec boutons dédiés pour les diagonales, virages et déplacements horizontaux
+key_mapping = {
+    'z': (1, 0, 0, 0),    # Avancer
+    's': (-1, 0, 0, 0),   # Reculer
+    'a': (0.707, 0.707, 0, 0),  # Diagonale avant-gauche
+    'e': (0.707, -0.707, 0, 0),  # Diagonale avant-droit
+    'w': (-0.707, 0.707, 0, 0),  # Diagonale arrière-gauche
+    'x': (-0.707, -0.707, 0, 0),  # Diagonale arrière-droit
+    'r': (0, 0, 0, 1),    # Rotation gauche sur place
+    't': (0, 0, 0, -1),   # Rotation droite sur place
+    'f': (0.5, 0, 0, 1),  # Virage avant-gauche
+    'g': (0.5, 0, 0, -1), # Virage avant-droit
+    'c': (-0.5, 0, 0, 1), # Virage arrière-gauche
+    'v': (-0.5, 0, 0, -1),# Virage arrière-droit
+    'q': (0, 1, 0, 0),    # Translation gauche
+    'd': (0, -1, 0, 0),   # Translation droite
+    ' ': (0, 0, 0, 0),    # Stop
 }
 
-speedBindings = {
-    'q': (1.1, 1.1),
-    'z': (.9, .9),
-    'w': (1.1, 1),
-    'x': (.9, 1),
-    'e': (1, 1.1),
-    'c': (1, .9),
-}
-
-
-def getKey(settings):
-    if sys.platform == 'win32':
-        # getwch() returns a string on Windows
-        key = msvcrt.getwch()
-    else:
-        tty.setraw(sys.stdin.fileno())
-        # sys.stdin.read() returns a string on Linux
-        key = sys.stdin.read(1)
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
+def get_key():
+    """Lit une touche clavier sans bloquer et restaure le terminal correctement."""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    
+    try:
+        tty.setraw(fd)
+        dr, _, _ = select.select([sys.stdin], [], [], 0.01)  # Réduire le délai ici
+        if dr:
+            key = sys.stdin.read(1)  # Lire une seule touche à la fois
+        else:
+            key = ""
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)  # Toujours restaurer les réglages
+    
     return key
 
+class TeleopMecanum(Node):
+    def __init__(self, topic_name):
+        super().__init__('teleop_mecanum')
+        self.publisher = self.create_publisher(Twist, topic_name, 1)
+        self.get_logger().info(f'Teleop Mecanum prêt. Publie sur {topic_name}')
+        self.running = True
 
-def saveTerminalSettings():
-    if sys.platform == 'win32':
-        return None
-    return termios.tcgetattr(sys.stdin)
+    def spin_thread(self):
+        """Thread pour exécuter rclpy.spin."""
+        while self.running:
+            rclpy.spin_once(self, timeout_sec=0.01)
 
+    def run(self):
+        spin_thread = threading.Thread(target=self.spin_thread)
+        spin_thread.start()
 
-def restoreTerminalSettings(old_settings):
-    if sys.platform == 'win32':
-        return
-    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+        try:
+            while rclpy.ok():
+                key = get_key()
+                twist = Twist()
 
-
-def vels(speed, turn):
-    return 'currently:\tspeed %s\tturn %s ' % (speed, turn)
-
-
-def main():
-    settings = saveTerminalSettings()
-
-    rclpy.init()
-
-    node = rclpy.create_node('teleop_twist_keyboard')
-
-    # parameters
-    stamped = node.declare_parameter('stamped', False).value
-    frame_id = node.declare_parameter('frame_id', '').value
-    if not stamped and frame_id:
-        raise Exception("'frame_id' can only be set when 'stamped' is True")
-
-    if stamped:
-        TwistMsg = geometry_msgs.msg.TwistStamped
-    else:
-        TwistMsg = geometry_msgs.msg.Twist
-
-    pub = node.create_publisher(TwistMsg, 'cmd_vel', 10)
-
-    spinner = threading.Thread(target=rclpy.spin, args=(node,))
-    spinner.start()
-
-    speed = 0.5
-    turn = 1.0
-    x = 0.0
-    y = 0.0
-    z = 0.0
-    th = 0.0
-    status = 0.0
-
-    twist_msg = TwistMsg()
-
-    if stamped:
-        twist = twist_msg.twist
-        twist_msg.header.stamp = node.get_clock().now().to_msg()
-        twist_msg.header.frame_id = frame_id
-    else:
-        twist = twist_msg
-
-    try:
-        print(msg)
-        print(vels(speed, turn))
-        while True:
-            key = getKey(settings)
-            if key in moveBindings.keys():
-                x = moveBindings[key][0]
-                y = moveBindings[key][1]
-                z = moveBindings[key][2]
-                th = moveBindings[key][3]
-            elif key in speedBindings.keys():
-                speed = speed * speedBindings[key][0]
-                turn = turn * speedBindings[key][1]
-
-                print(vels(speed, turn))
-                if (status == 14):
-                    print(msg)
-                status = (status + 1) % 15
-            else:
-                x = 0.0
-                y = 0.0
-                z = 0.0
-                th = 0.0
-                if (key == '\x03'):
+                if key == '\x03':  # CTRL+C pour quitter
                     break
 
-            if stamped:
-                twist_msg.header.stamp = node.get_clock().now().to_msg()
+                if key in key_mapping:
+                    dx, dy, _, dth = key_mapping[key]
+                    twist.linear.x = dx * 0.5
+                    twist.linear.y = dy * 0.5
+                    twist.angular.z = dth * 1.0
 
-            twist.linear.x = x * speed
-            twist.linear.y = y * speed
-            twist.linear.z = z * speed
-            twist.angular.x = 0.0
-            twist.angular.y = 0.0
-            twist.angular.z = th * turn
-            pub.publish(twist_msg)
+                    # Ajouter un log pour afficher les valeurs publiées
+                    self.get_logger().info(
+                        f'Publication Twist: linear.x={twist.linear.x}, linear.y={twist.linear.y}, angular.z={twist.angular.z}'
+                    )
+                    self.publisher.publish(twist)
+                elif key:  # Si une touche non définie est pressée
+                    twist.linear.x = 0.0
+                    twist.linear.y = 0.0
+                    twist.angular.z = 0.0
 
-    except Exception as e:
-        print(e)
+                    # Ajouter un log pour afficher les valeurs publiées
+                    self.get_logger().info(
+                        f'Publication Twist: linear.x={twist.linear.x}, linear.y={twist.linear.y}, angular.z={twist.angular.z}'
+                    )
+                    self.publisher.publish(twist)
+                # Si aucune touche n'est pressée, ne rien envoyer
+        except Exception as e:
+            self.get_logger().error(f'Erreur: {e}')
+        finally:
+            self.running = False
+            spin_thread.join()
 
+def main(args=None):
+    rclpy.init()
+    topic = sys.argv[1] if len(sys.argv) > 1 else '/cmd_vel'
+    node = TeleopMecanum(topic)
+    
+    try:
+        node.run()
     finally:
-        if stamped:
-            twist_msg.header.stamp = node.get_clock().now().to_msg()
-
-        twist.linear.x = 0.0
-        twist.linear.y = 0.0
-        twist.linear.z = 0.0
-        twist.angular.x = 0.0
-        twist.angular.y = 0.0
-        twist.angular.z = 0.0
-        pub.publish(twist_msg)
+        node.destroy_node()
         rclpy.shutdown()
-        spinner.join()
-
-        restoreTerminalSettings(settings)
-
 
 if __name__ == '__main__':
     main()

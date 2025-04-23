@@ -49,11 +49,11 @@ class TeleopMecanum(Node):
     def __init__(self):
         super().__init__('teleop_mecanum')
         self.topic_publishers = {  # Renommer publishers en topic_publishers
-            'porthos': self.create_publisher(Twist, '/porthos/cmd_vel', 1),
-            'athos': self.create_publisher(Twist, '/athos/cmd_vel', 1),
-            'aramis': self.create_publisher(Twist, '/aramis/cmd_vel', 1),
+            'porthos': self.create_publisher(Twist, '/Porthos/cmd_vel', 1),
+            'athos': self.create_publisher(Twist, '/Athos/cmd_vel', 1),
+            'aramis': self.create_publisher(Twist, '/Aramis/cmd_vel', 1),
         }
-        self.get_logger().info('Teleop Mecanum prêt. Publie sur /porthos/cmd_vel, /athos/cmd_vel, /aramis/cmd_vel')
+        self.get_logger().info('Teleop Mecanum prêt. Publie sur /Porthos/cmd_vel, /Athos/cmd_vel, /Aramis/cmd_vel')
         self.running = True
 
     def spin_thread(self):
