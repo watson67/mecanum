@@ -1,0 +1,15 @@
+# Fichiers générés par ROS2
+log/
+build/
+install/
+
+# Logs ROS2
+src/log/
+
+# Fichiers temporaires
+*.log
+*.pyc
+__pycache__/
+
+# VSCode ou autres éditeurs
+.vscode/

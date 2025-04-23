@@ -1,3 +1,0 @@
-[0.000000] (-) TimerEvent: {}
-[0.000367] (-) JobUnselected: {'identifier': 'teleop_mecanum'}
-[0.000397] (-) EventReactorShutdown: {}
