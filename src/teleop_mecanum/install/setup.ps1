@@ -27,6 +27,7 @@ _colcon_prefix_chain_powershell_source_script "/home/eswarm/install\local_setup.
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/crazyflie_mapping_demo/ros2_ws/src/install\local_setup.ps1"
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/crazyflie_mapping_demo/ros2_ws/install\local_setup.ps1"
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/ros2_ws/install\local_setup.ps1"
+_colcon_prefix_chain_powershell_source_script "/home/eswarm/mocap/src/vrpn_mocap/install\local_setup.ps1"
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/mecanum/install\local_setup.ps1"
 
 # source this prefix

@@ -6,6 +6,7 @@ from geometry_msgs.msg import Twist
 from inputs import get_gamepad
 import sys
 import threading
+import time  # Add this import for sleep
 
 class TeleopDualShock4(Node):
     def __init__(self, topic):
@@ -36,17 +37,11 @@ class TeleopDualShock4(Node):
             return 0.0
         return value
 
-    def spin_thread(self):
-        """Thread to handle ROS spinning."""
-        while self.running:
-            rclpy.spin_once(self, timeout_sec=0.01)
-
     def run(self):
-        spin_thread = threading.Thread(target=self.spin_thread)
-        spin_thread.start()
-
         try:
             while self.running:
+                rclpy.spin_once(self, timeout_sec=0.01)  # Handle ROS events
+
                 twist = Twist()
                 try:
                     events = get_gamepad()  # Read gamepad events
@@ -81,11 +76,12 @@ class TeleopDualShock4(Node):
                 self.get_logger().info(
                     f"cmd_vel: linear=({twist.linear.x}, {twist.linear.y}, {twist.linear.z}), angular=({twist.angular.z})"
                 )
+
+                time.sleep(0.05)  # Add a small delay to reduce the publishing rate
         except KeyboardInterrupt:
             self.get_logger().info("Shutting down...")
         finally:
             self.running = False
-            spin_thread.join()
 
     def stop_robot(self):
         twist = Twist()

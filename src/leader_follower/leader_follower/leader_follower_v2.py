@@ -41,6 +41,10 @@ class Follower(Node):
         self.target_dist = 0.5  # Target distance to leader
         self.target_dist_between_followers = 0.5  # Target distance between followers
 
+        # Target angles for triangular formation (in radians)
+        self.target_angle_follower1 = math.radians(30)  # Example: 30 degrees
+        self.target_angle_follower2 = math.radians(-30)  # Example: -30 degrees
+
         # Variables pour le calcul PID
         self.integral_x1 = 0.0
         self.integral_y1 = 0.0
@@ -51,6 +55,13 @@ class Follower(Node):
         self.integral_y2 = 0.0
         self.prev_error_x2 = 0.0
         self.prev_error_y2 = 0.0
+
+        # PID variables for angle control
+        self.integral_angle1 = 0.0
+        self.prev_error_angle1 = 0.0
+
+        self.integral_angle2 = 0.0
+        self.prev_error_angle2 = 0.0
 
         self.pose_leader = None
         self.pose_follower1 = None
@@ -122,6 +133,15 @@ class Follower(Node):
 
         return vx, vy, integral_x, integral_y, error_x, error_y
 
+    def compute_pid_angle(self, error_angle, integral_angle, prev_error_angle):
+        # PID control for angle
+        up = self.Kp * error_angle
+        ud = self.Kd * (error_angle - prev_error_angle) / self.dt
+        integral_angle += self.Ki * error_angle * self.dt
+
+        angular_z = up + ud + integral_angle
+        return angular_z, integral_angle, error_angle
+
     def timer_callback(self):
         # Vérifier si les positions du leader et des followers sont disponibles
         if self.pose_leader is None or self.pose_follower1 is None or self.pose_follower2 is None:
@@ -164,6 +184,17 @@ class Follower(Node):
             error_x1, error_y1, self.integral_x1, self.integral_y1, self.prev_error_x1, self.prev_error_y1
         )
 
+        # Compute angle errors for follower1
+        angle_leader_follower1 = math.atan2(error_y1_leader, error_x1_leader)
+        error_angle1 = self.target_angle_follower1 - angle_leader_follower1
+
+        # Normalize angle error to [-pi, pi]
+        error_angle1 = (error_angle1 + math.pi) % (2 * math.pi) - math.pi
+
+        angular_z1, self.integral_angle1, self.prev_error_angle1 = self.compute_pid_angle(
+            error_angle1, self.integral_angle1, self.prev_error_angle1
+        )
+
         # Calculer les commandes pour le follower2
         # Distance avec le leader
         error_x2_leader = x_leader - x_follower2
@@ -189,17 +220,28 @@ class Follower(Node):
             error_x2, error_y2, self.integral_x2, self.integral_y2, self.prev_error_x2, self.prev_error_y2
         )
 
+        # Compute angle errors for follower2
+        angle_leader_follower2 = math.atan2(error_y2_leader, error_x2_leader)
+        error_angle2 = self.target_angle_follower2 - angle_leader_follower2
+
+        # Normalize angle error to [-pi, pi]
+        error_angle2 = (error_angle2 + math.pi) % (2 * math.pi) - math.pi
+
+        angular_z2, self.integral_angle2, self.prev_error_angle2 = self.compute_pid_angle(
+            error_angle2, self.integral_angle2, self.prev_error_angle2
+        )
+
         # Publier les commandes pour les deux followers
         twist1 = Twist()
         twist1.linear.x = max(min(vx1, 0.5), -0.5)
         twist1.linear.y = max(min(vy1, 0.5), -0.5)
-        twist1.angular.z = 0.0
+        twist1.angular.z = max(min(angular_z1, 1.0), -1.0)  
         self.publisher_cmd1.publish(twist1)
 
         twist2 = Twist()
         twist2.linear.x = max(min(vx2, 0.5), -0.5)
         twist2.linear.y = max(min(vy2, 0.5), -0.5)
-        twist2.angular.z = 0.0
+        twist2.angular.z = max(min(angular_z2, 1.0), -1.0)  
         self.publisher_cmd2.publish(twist2)
 
 def main(args=None):

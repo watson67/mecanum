@@ -10,7 +10,10 @@ build/teleop_mecanum/teleop_mecanum.egg-info/top_level.txt
 build/teleop_mecanum/teleop_mecanum.egg-info/zip-safe
 resource/teleop_mecanum
 teleop_mecanum/__init__.py
+teleop_mecanum/dualshock_mecanum.py
+teleop_mecanum/follower_mecanum.py
 teleop_mecanum/teleop_mecanum.py
+teleop_mecanum/teleop_mecanum_all.py
 test/test_copyright.py
 test/test_flake8.py
 test/test_pep257.py

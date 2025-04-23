@@ -38,8 +38,8 @@ class Follower(Node):
         self.Ki = 0.02
         self.Kd = 0.3
         self.dt = 0.1
-        self.target_dist = 0.5  # Target distance to leader
-        self.target_dist_between_followers = 0.5  # Target distance between followers
+        self.target_dist = 0.5  
+        self.target_dist_between_followers = 0.5  
 
         # Angle
         self.target_angle_follower1 = math.radians(30)  
@@ -134,7 +134,6 @@ class Follower(Node):
         return vx, vy, integral_x, integral_y, error_x, error_y
 
     def compute_pid_angle(self, error_angle, integral_angle, prev_error_angle):
-        # PID control for angle
         up = self.Kp * error_angle
         ud = self.Kd * (error_angle - prev_error_angle) / self.dt
         integral_angle += self.Ki * error_angle * self.dt
@@ -220,7 +219,7 @@ class Follower(Node):
         angle_leader_follower2 = math.atan2(y_leader - y_follower2, x_leader - x_follower2)
         error_angle2 = self.target_angle_follower2 - angle_leader_follower2
 
-        # Normalize angle error to [-pi, pi]
+        # Normalisation de l'angle
         error_angle2 = (error_angle2 + math.pi) % (2 * math.pi) - math.pi
 
         # Publier les commandes pour les deux followers
@@ -237,7 +236,6 @@ class Follower(Node):
         self.publisher_cmd2.publish(twist2)
 
 def main(args=None):
-    # Initialiser le nœud
     rclpy.init(args=args)
     node = Follower()
     rclpy.spin(node)

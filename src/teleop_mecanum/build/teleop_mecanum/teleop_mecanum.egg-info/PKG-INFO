@@ -1,10 +1,10 @@
 Metadata-Version: 2.2
 Name: teleop_mecanum
-Version: 0.0.1
-Summary: Téléopération pour robots à roues Mecanum en ROS2 (clavier AZERTY)
-Maintainer: ton_nom
-Maintainer-email: ton_email@example.com
-License: BSD
+Version: 0.0.0
+Summary: TODO: Package description
+Maintainer: eswarm
+Maintainer-email: augustin.bonnel@insa-strasbourg.fr
+License: TODO: License declaration
 Requires-Dist: setuptools
 Dynamic: license
 Dynamic: maintainer
