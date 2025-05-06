@@ -35,11 +35,15 @@ class Follower(Node):
 
         # Paramètres PID
         self.Kp = 1
-        self.Ki = 0.02
+        self.Ki = 0.001
         self.Kd = 0.3
         self.dt = 0.1
         self.target_dist = 0.5  
-        self.target_dist_between_followers = 0.5  
+        self.target_dist_between_followers = 1 
+        self.get_logger().info(
+            f'Kp : {self.Kp}, Ki={self.Ki}, Kd={self.Kd}'
+        )
+        self.eps=1e-3
 
         # Angle
         self.target_angle_follower1 = math.radians(30)  
@@ -163,7 +167,7 @@ class Follower(Node):
         error_x1_leader = x_leader - x_follower1
         error_y1_leader = y_leader - y_follower1
         dist1_leader = math.hypot(error_x1_leader, error_y1_leader)
-        if dist1_leader > 1e-6:
+        if dist1_leader > self.eps:
             error_x1_leader = (error_x1_leader / dist1_leader) * (self.target_dist - dist1_leader)
             error_y1_leader = (error_y1_leader / dist1_leader) * (self.target_dist - dist1_leader)
 
@@ -171,7 +175,7 @@ class Follower(Node):
         error_x1_follower2 = x_follower2 - x_follower1
         error_y1_follower2 = y_follower2 - y_follower1
         dist1_follower2 = math.hypot(error_x1_follower2, error_y1_follower2)
-        if dist1_follower2 > 1e-6:
+        if dist1_follower2 > self.eps:
             error_x1_follower2 = (error_x1_follower2 / dist1_follower2) * (self.target_dist_between_followers - dist1_follower2)
             error_y1_follower2 = (error_y1_follower2 / dist1_follower2) * (self.target_dist_between_followers - dist1_follower2)
 
@@ -195,7 +199,7 @@ class Follower(Node):
         error_x2_leader = x_leader - x_follower2
         error_y2_leader = y_leader - y_follower2
         dist2_leader = math.hypot(error_x2_leader, error_y2_leader)
-        if dist2_leader > 1e-6:
+        if dist2_leader > self.eps:
             error_x2_leader = (error_x2_leader / dist2_leader) * (self.target_dist - dist2_leader)
             error_y2_leader = (error_y2_leader / dist2_leader) * (self.target_dist - dist2_leader)
 
@@ -203,7 +207,7 @@ class Follower(Node):
         error_x2_follower1 = x_follower1 - x_follower2
         error_y2_follower1 = y_follower1 - y_follower2
         dist2_follower1 = math.hypot(error_x2_follower1, error_y2_follower1)
-        if dist2_follower1 > 1e-6:
+        if dist2_follower1 > self.eps:
             error_x2_follower1 = (error_x2_follower1 / dist2_follower1) * (self.target_dist_between_followers - dist2_follower1)
             error_y2_follower1 = (error_y2_follower1 / dist2_follower1) * (self.target_dist_between_followers - dist2_follower1)
 

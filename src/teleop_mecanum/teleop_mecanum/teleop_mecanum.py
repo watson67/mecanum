@@ -11,21 +11,21 @@ import threading
 
 # Configuration des touches pour un clavier AZERTY avec boutons dédiés pour les diagonales, virages et déplacements horizontaux
 key_mapping = {
-    'z': (1, 0, 0, 0),    # Avancer
-    's': (-1, 0, 0, 0),   # Reculer
-    'a': (0.707, 0.707, 0, 0),  # Diagonale avant-gauche
-    'e': (0.707, -0.707, 0, 0),  # Diagonale avant-droit
-    'w': (-0.707, 0.707, 0, 0),  # Diagonale arrière-gauche
-    'x': (-0.707, -0.707, 0, 0),  # Diagonale arrière-droit
-    'r': (0, 0, 0, 1),    # Rotation gauche sur place
-    't': (0, 0, 0, -1),   # Rotation droite sur place
-    'f': (0.5, 0, 0, 1),  # Virage avant-gauche
-    'g': (0.5, 0, 0, -1), # Virage avant-droit
-    'c': (-0.5, 0, 0, 1), # Virage arrière-gauche
-    'v': (-0.5, 0, 0, -1),# Virage arrière-droit
-    'q': (0, 1, 0, 0),    # Translation gauche
-    'd': (0, -1, 0, 0),   # Translation droite
-    ' ': (0, 0, 0, 0),    # Stop
+    'z': (0.14, 0.0, 0.0, 0.0),    # Avancer
+    's': (-0.14, 0.0, 0.0, 0.0),   # Reculer
+    'a': (0.099, 0.099, 0.0, 0.0),  # Diagonale avant-gauche
+    'e': (0.099, -0.099, 0.0, 0.0),  # Diagonale avant-droit
+    'w': (-0.099, 0.099, 0.0, 0.0),  # Diagonale arrière-gauche
+    'x': (-0.099, -0.099, 0.0, 0.0),  # Diagonale arrière-droit
+    'r': (0.0, 0.0, 0.0, 1.0),    # Rotation gauche sur place
+    't': (0.0, 0.0, 0.0, -1.0),   # Rotation droite sur place
+    'f': (0.07, 0.0, 0.0, 1.0),  # Virage avant-gauche
+    'g': (0.07, 0.0, 0.0, -1.0), # Virage avant-droit
+    'c': (-0.07, 0.0, 0.0, 1.0), # Virage arrière-gauche
+    'v': (-0.07, 0.0, 0.0, -1.0),# Virage arrière-droit
+    'q': (0.0, 0.14, 0.0, 0.0),    # Translation gauche
+    'd': (0.0, -0.14, 0.0, 0.0),   # Translation droite
+    ' ': (0.0, 0.0, 0.0, 0.0),    # Stop
 }
 
 def get_key():
@@ -71,8 +71,8 @@ class TeleopMecanum(Node):
 
                 if key in key_mapping:
                     dx, dy, _, dth = key_mapping[key]
-                    twist.linear.x = dx * 0.5
-                    twist.linear.y = dy * 0.5
+                    twist.linear.x = dx
+                    twist.linear.y = dy
                     twist.angular.z = dth * 1.0
 
                     # Ajouter un log pour afficher les valeurs publiées

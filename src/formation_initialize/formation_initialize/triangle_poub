@@ -1,0 +1,332 @@
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist, PoseStamped
+import math
+import numpy as np
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+
+class FormationInitializer(Node):
+    def __init__(self):
+        super().__init__('formation_initializer')
+
+        self.robot_names = ["Aramis", "Athos", "Porthos"]
+
+        # Topics
+        self.pose_topics = [f"/vrpn_mocap/{name}/pose" for name in self.robot_names]
+        self.cmd_vel_topics = [f"/{name}/cmd_vel" for name in self.robot_names]
+        
+        self.qos_profile = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST
+        )
+
+        # Publishers pour les vitesses
+        self.cmd_publishers = []
+        for topic in self.cmd_vel_topics:
+            pub = self.create_publisher(Twist, topic, 10)
+            self.cmd_publishers.append(pub)
+
+        # Souscriptions aux poses
+        self.positions = {name: None for name in self.robot_names}
+        self.velocities = {name: (0.0, 0.0) for name in self.robot_names}  # Pour stocker les vitesses actuelles
+        self.prev_positions = {name: None for name in self.robot_names}    # Pour calculer les vitesses
+        self.last_update_time = {name: None for name in self.robot_names}  # Pour calculer les vitesses
+        
+        for i, topic in enumerate(self.pose_topics):
+            self.create_subscription(PoseStamped, topic, 
+                                     self.pose_callback_factory(self.robot_names[i]),
+                                    qos_profile=self.qos_profile)
+
+        # Positions cibles
+        self.targets = {
+            "Aramis": (-0.5, 0),
+            "Athos": (0.5, -0.5),
+            "Porthos": (0.5, 0.5)
+        }
+
+        self.timer = self.create_timer(0.1, self.control_loop)
+
+        # Variable pour suivre l'état de la formation
+        self.formation_complete = False
+
+        # Paramètres pour évitement de collision
+        self.safety_distance = 0.25     # Ajusté
+        self.collision_gain = 3.5      # Augmenté
+        self.detection_radius = 1.5    
+        self.velocity_prediction_time = 0.8
+        self.tangential_gain = 2.0     # Nouveau: gain pour la composante tangentielle
+        self.post_avoidance_speed_factor = 1.8  # Augmenté: facteur d'accélération après évitement
+        
+        # Ajout de variables pour suivre l'état d'évitement des robots
+        self.in_avoidance_mode = {name: False for name in self.robot_names}
+        self.avoidance_cooldown = {name: 0 for name in self.robot_names}
+        self.cooldown_ticks = 15  # Augmenté: plus de temps à vitesse accélérée après évitement
+        
+        # Priorités pour éviter les deadlocks (le plus petit numéro a la priorité la plus élevée)
+        self.robot_priorities = {
+            "Aramis": 1, 
+            "Athos": 2, 
+            "Porthos": 3
+        }
+
+        # Paramètres de vitesse pour différents modes
+        self.normal_speed = 1.2        # Augmenté: vitesse normale plus élevée
+        self.avoidance_speed = 1.0     # Vitesse pendant l'évitement
+        self.recovery_speed = 1.5      # Augmenté: vitesse après évitement
+        self.k_p_normal = 0.8          # Augmenté: gain proportionnel en mode normal
+        self.k_p_avoidance = 0.5       # Gain proportionnel en mode évitement
+
+    def pose_callback_factory(self, name):
+        def callback(msg):
+            current_time = self.get_clock().now()
+            current_pos = (msg.pose.position.x, msg.pose.position.y)
+            
+            # Calculer la vitesse si on a une position précédente
+            if self.prev_positions[name] is not None and self.last_update_time[name] is not None:
+                dt = (current_time - self.last_update_time[name]).nanoseconds / 1e9
+                if dt > 0:
+                    vx = (current_pos[0] - self.prev_positions[name][0]) / dt
+                    vy = (current_pos[1] - self.prev_positions[name][1]) / dt
+                    self.velocities[name] = (vx, vy)
+            
+            self.positions[name] = current_pos
+            self.prev_positions[name] = current_pos
+            self.last_update_time[name] = current_time
+            
+        return callback
+
+    def is_formation_complete(self):
+        """Vérifie si tous les robots ont atteint leur cible"""
+        if any(position is None for position in self.positions.values()):
+            return False
+            
+        for name, position in self.positions.items():
+            target = self.targets[name]
+            distance = math.hypot(target[0] - position[0], target[1] - position[1])
+            if distance > 0.05:  # même tolérance que dans control_loop
+                return False
+        
+        return True
+
+    def predict_position(self, robot_name, time_horizon):
+        """Prédit la position future d'un robot en fonction de sa vitesse actuelle"""
+        position = self.positions[robot_name]
+        velocity = self.velocities[robot_name]
+        
+        if position is None:
+            return None
+            
+        # Prédiction linéaire simple
+        predicted_x = position[0] + velocity[0] * time_horizon
+        predicted_y = position[1] + velocity[1] * time_horizon
+        
+        return (predicted_x, predicted_y)
+
+    def calculate_repulsive_force(self, robot_name, robot_pos):
+        """Calcule les forces répulsives pour éviter les collisions entre robots"""
+        repulsive_fx = 0.0
+        repulsive_fy = 0.0
+        collision_detected = False
+        
+        # Priorité de ce robot
+        my_priority = self.robot_priorities[robot_name]
+        
+        # Vérifier les distances avec les autres robots
+        for other_name, other_pos in self.positions.items():
+            if other_name == robot_name or other_pos is None:
+                continue
+                
+            other_priority = self.robot_priorities[other_name]
+                
+            # Calculer la distance actuelle
+            dx = robot_pos[0] - other_pos[0]
+            dy = robot_pos[1] - other_pos[1]
+            distance = math.hypot(dx, dy)
+            
+            # Prédire la collision future
+            my_future_pos = self.predict_position(robot_name, self.velocity_prediction_time)
+            other_future_pos = self.predict_position(other_name, self.velocity_prediction_time)
+            
+            future_collision_risk = False
+            if my_future_pos and other_future_pos:
+                future_dx = my_future_pos[0] - other_future_pos[0]
+                future_dy = my_future_pos[1] - other_future_pos[1]
+                future_distance = math.hypot(future_dx, future_dy)
+                
+                if future_distance < self.safety_distance:
+                    future_collision_risk = True
+            
+            # Si les robots sont trop proches ou risquent de l'être prochainement
+            if distance < self.detection_radius or future_collision_risk:
+                collision_detected = True
+                
+                # Calculer la vitesse relative
+                my_vel = self.velocities[robot_name]
+                other_vel = self.velocities[other_name]
+                rel_vx = my_vel[0] - other_vel[0]
+                rel_vy = my_vel[1] - other_vel[1]
+                
+                # Vecteur de la position relative
+                if distance > 0.01:  # Éviter division par zéro
+                    direction_x = dx / distance
+                    direction_y = dy / distance
+                else:
+                    direction_x = 1.0 if dx >= 0 else -1.0
+                    direction_y = 1.0 if dy >= 0 else -1.0
+                
+                # Déterminer si les robots se rapprochent
+                approaching = (rel_vx * (-direction_x) + rel_vy * (-direction_y)) > 0
+                
+                # Force de base inversement proportionnelle à la distance
+                magnitude = self.collision_gain * (self.safety_distance / (distance + 0.01) - 0.5)
+                
+                # Augmenter la force s'ils se rapprochent et moduler selon la priorité
+                if approaching:
+                    magnitude *= 2.0
+                    
+                    # Si ce robot a une priorité inférieure (numéro plus élevé), il cède davantage
+                    if my_priority > other_priority:
+                        magnitude *= 1.5
+                    
+                if magnitude > 0:  # Force répulsive seulement si positive
+                    # Force répulsive standard (s'éloigner l'un de l'autre)
+                    radial_fx = magnitude * direction_x
+                    radial_fy = magnitude * direction_y
+                    
+                    # Nouvelle composante: mouvement perpendiculaire (tangentiel)
+                    # Pour créer un mouvement de contournement
+                    tangential_magnitude = self.tangential_gain * magnitude
+                    
+                    # IMPORTANT: Garantir que les robots se contournent en sens opposés
+                    # Pour chaque paire de robots (A,B), si A tourne dans le sens horaire autour de B,
+                    # alors B doit tourner dans le sens anti-horaire autour de A.
+                    
+                    # Cette logique garantit que deux robots en interaction auront toujours 
+                    # des mouvements tangentiels opposés
+                    if (robot_name < other_name):  # Utiliser une comparaison stable pour la cohérence
+                        # Premier robot: sens horaire
+                        tangential_fx = tangential_magnitude * (-direction_y)
+                        tangential_fy = tangential_magnitude * direction_x
+                    else:
+                        # Second robot: sens anti-horaire
+                        tangential_fx = tangential_magnitude * direction_y
+                        tangential_fy = tangential_magnitude * (-direction_x)
+                    
+                    # Ajouter la composante tangentielle à la force répulsive
+                    repulsive_fx += radial_fx + tangential_fx
+                    repulsive_fy += radial_fy + tangential_fy
+                    
+                    # Marquer que ce robot est en mode évitement
+                    self.in_avoidance_mode[robot_name] = True
+                    self.avoidance_cooldown[robot_name] = self.cooldown_ticks
+        
+        return repulsive_fx, repulsive_fy, collision_detected
+
+    def control_loop(self):
+        all_robots_on_target = True
+        
+        for i, name in enumerate(self.robot_names):
+            position = self.positions[name]
+            if position is None:
+                all_robots_on_target = False
+                continue  # On n'a pas encore la pose de ce robot
+
+            target = self.targets[name]
+            error_x = target[0] - position[0]
+            error_y = target[1] - position[1]
+
+            distance = math.hypot(error_x, error_y)
+            cmd = Twist()
+
+            if distance > 0.05:  # tolérance de 5cm
+                all_robots_on_target = False
+                
+                # Contrôle proportionnel vers la cible avec gain adaptatif
+                if self.in_avoidance_mode[name]:
+                    k_p = self.k_p_avoidance  # Gain plus faible en évitement pour plus de précision
+                else:
+                    k_p = self.k_p_normal     # Gain plus élevé en mode normal pour plus de vitesse
+                
+                # Si le robot vient de sortir du mode d'évitement, on augmente temporairement la vitesse
+                if not self.in_avoidance_mode[name] and self.avoidance_cooldown[name] > 0:
+                    k_p *= self.post_avoidance_speed_factor
+                    self.avoidance_cooldown[name] -= 1
+                    self.get_logger().info(f"{name} in post-avoidance mode: speed increased, cooldown: {self.avoidance_cooldown[name]}")
+                
+                target_vx = k_p * error_x
+                target_vy = k_p * error_y
+                
+                # Calcul des forces répulsives pour éviter les collisions
+                repulsive_fx, repulsive_fy, collision_risk = self.calculate_repulsive_force(name, position)
+                
+                # Réinitialiser le mode évitement si aucun risque de collision n'est détecté
+                if not collision_risk and self.in_avoidance_mode[name]:
+                    self.in_avoidance_mode[name] = False
+                    self.get_logger().info(f"{name} exiting avoidance mode, entering recovery")
+                
+                # Prioriser l'évitement de collision sur le suivi de trajectoire
+                if collision_risk:
+                    # Mélanger les deux composantes, avec priorité à l'évitement si risque détecté
+                    collision_weight = 0.9  # Augmenté pour donner plus d'importance à l'évitement
+                    target_weight = 1.0 - collision_weight
+                    
+                    cmd.linear.x = target_weight * target_vx + collision_weight * repulsive_fx
+                    cmd.linear.y = target_weight * target_vy + collision_weight * repulsive_fy
+                    
+                    self.get_logger().info(f"Collision avoidance for {name}: fx={repulsive_fx:.2f}, fy={repulsive_fy:.2f}")
+                else:
+                    # Pas de risque, suivre la cible
+                    cmd.linear.x = target_vx
+                    cmd.linear.y = target_vy
+                
+                # Limiter la vitesse si nécessaire
+                speed = math.hypot(cmd.linear.x, cmd.linear.y)
+                
+                # Définir la vitesse maximale en fonction du contexte
+                if self.in_avoidance_mode[name]:
+                    max_speed = self.avoidance_speed
+                elif self.avoidance_cooldown[name] > 0:
+                    max_speed = self.recovery_speed
+                else:
+                    max_speed = self.normal_speed
+                
+                if speed > max_speed:
+                    cmd.linear.x = (cmd.linear.x / speed) * max_speed
+                    cmd.linear.y = (cmd.linear.y / speed) * max_speed
+                
+                cmd.linear.z = 0.0
+                cmd.angular.z = 0.0
+                
+            else:
+                # Si on est arrivé, on arrête les robots
+                cmd.linear.x = 0.0
+                cmd.linear.y = 0.0
+                cmd.angular.z = 0.0
+                # Réinitialiser les états d'évitement
+                self.in_avoidance_mode[name] = False
+                self.avoidance_cooldown[name] = 0
+
+            self.cmd_publishers[i].publish(cmd)
+            
+            # Afficher des informations plus détaillées pour le débogage
+            state = "AVOID" if self.in_avoidance_mode[name] else ("RECOV" if self.avoidance_cooldown[name] > 0 else "NORMAL")
+            self.get_logger().info(f"{name} [{state}]: pos=({position[0]:.2f}, {position[1]:.2f}), cmd=({cmd.linear.x:.2f}, {cmd.linear.y:.2f})")
+        
+        # Vérifie si tous les robots ont atteint leurs cibles
+        if all_robots_on_target:
+            self.get_logger().info("Formation complete! Program is stopped")
+            self.formation_complete = True
+            rclpy.shutdown()
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = FormationInitializer()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()

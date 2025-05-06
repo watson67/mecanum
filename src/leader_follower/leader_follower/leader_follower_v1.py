@@ -30,13 +30,27 @@ class Follower(Node):
         )
 
         # Paramètres PID
-        self.Kp = 1  # Gain proportionnel
-        self.Ki = 0.02  # Gain intégral
-        self.Kd = 0.3  # Gain dérivé
-        self.dt = 0.1  # Intervalle de temps
-        self.target_dist = 0.5  # Distance cible
+        self.K = 1.0         # Gain principal
+        self.Ti = 50.0       # Temps intégral
+        self.Td = 0.3        # Temps dérivatif
+        self.beta = 1.0      # Pondération consigne
+        self.N = 10.0        # Coeff. filtre dérivé
+        self.dt = 0.1        # Période
+        self.gamma = 1.0     # Pondération intégrale
+        
+        self.target_dist = 0.5  # Distance à maintenir
+        self.get_logger().info(
+            f'K : {self.K}, Ti={self.Ti}, Td={self.Td}'
+        )
 
         # Variables pour le calcul PID
+        self.ui_x = 0.0
+        self.ui_y = 0.0
+        self.ud_x = 0.0
+        self.ud_y = 0.0
+        self.y_old_x = 0.0
+        self.y_old_y = 0.0
+
         self.integral_x = 0.0
         self.integral_y = 0.0
         self.prev_error_x = 0.0
@@ -94,54 +108,51 @@ class Follower(Node):
         dy = y1 - y2
         dist = math.hypot(dx, dy)
 
-        if dist < 1e-6:
+        if dist < 1e-3:
             return
 
-        # Calculer la direction et l'erreur
         dir_x = dx / dist
         dir_y = dy / dist
-        error = self.target_dist - dist  # Inverser le calcul de l'erreur
-        error_x = dir_x * error
-        error_y = dir_y * error
+        y = dist
+        ysp = self.target_dist
+        e = ysp - y
 
-        # Logs des erreurs
-        self.get_logger().info(f"Erreur X: {error_x}, Erreur Y: {error_y}")
+        y_output_x = y * dir_x
+        y_output_y = y * dir_y
+        ysp_output_x = ysp * dir_x
+        ysp_output_y = ysp * dir_y
+        e_x = ysp_output_x - y_output_x
+        e_y = ysp_output_y - y_output_y
 
-        # Calculs de la commande avec le PID
-        # Constantes
-        beta = 1.0  # Supposons que beta est égal à 1 pour simplifier
-        N = 10.0  # Coefficient de filtre
-        hact = self.dt  # Temps d'échantillonnage
+        # Proportionnel (avec beta)
+        up_x = self.K * (self.beta * ysp_output_x - y_output_x)
+        up_y = self.K * (self.beta * ysp_output_y - y_output_y)
 
-        # Terme proportionnel
-        up_x = self.Kp * error_x
-        up_y = self.Kp * error_y
+        # Dérivé (filtré)
+        self.ud_x = (self.Td / (self.N * self.dt + self.Td)) * self.ud_x \
+                    - self.K * self.Td * self.N / (self.N * self.dt + self.Td) * (y_output_x - self.y_old_x)
+        self.ud_y = (self.Td / (self.N * self.dt + self.Td)) * self.ud_y \
+                    - self.K * self.Td * self.N / (self.N * self.dt + self.Td) * (y_output_y - self.y_old_y)
 
-        # Terme dérivé
-        ud_x = (self.Kd * N * (error_x - self.prev_error_x) - self.Kd * self.prev_error_x) / (N * hact + self.Kd)
-        ud_y = (self.Kd * N * (error_y - self.prev_error_y) - self.Kd * self.prev_error_y) / (N * hact + self.Kd)
+        # Intégrale
+        self.ui_x += self.K / self.Ti * self.gamma * self.dt * e_x
+        self.ui_y += self.K / self.Ti * self.gamma * self.dt * e_y
 
-        # Terme intégral
-        self.integral_x += self.Ki * hact * error_x
-        self.integral_y += self.Ki * hact * error_y
+        # Commande PID
+        vx = -(up_x + self.ui_x + self.ud_x)
+        vy = -(up_y + self.ui_y + self.ud_y)
 
-        # Commande
-        vx = -(up_x + self.integral_x + ud_x)
-        vy = -(up_y + self.integral_y + ud_y)
+        self.get_logger().info(f"Vx: {vx:.3f}, Vy: {vy:.3f}")
 
-        # Logs des vitesses
-        self.get_logger().info(f"Vx: {vx}, Vy: {vy}")
+        # Mise à jour des états
+        self.y_old_x = y_output_x
+        self.y_old_y = y_output_y
 
-        # Mettre à jour les erreurs précédentes
-        self.prev_error_x = error_x
-        self.prev_error_y = error_y
-
-        # Limiter la vitesse maximale
+        # Limite de vitesse
         max_speed = 0.5
         vx = max(min(vx, max_speed), -max_speed)
         vy = max(min(vy, max_speed), -max_speed)
 
-        # Publier la commande Twist
         twist = Twist()
         twist.linear.x = vx
         twist.linear.y = vy

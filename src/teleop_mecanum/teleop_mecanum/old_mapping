@@ -1,0 +1,17 @@
+key_mapping = {
+    'z': (1, 0, 0, 0),    # Avancer
+    's': (-1, 0, 0, 0),   # Reculer
+    'a': (0.707, 0.707, 0, 0),  # Diagonale avant-gauche
+    'e': (0.707, -0.707, 0, 0),  # Diagonale avant-droit
+    'w': (-0.707, 0.707, 0, 0),  # Diagonale arrière-gauche
+    'x': (-0.707, -0.707, 0, 0),  # Diagonale arrière-droit
+    'r': (0, 0, 0, 1),    # Rotation gauche sur place
+    't': (0, 0, 0, -1),   # Rotation droite sur place
+    'f': (0.5, 0, 0, 1),  # Virage avant-gauche
+    'g': (0.5, 0, 0, -1), # Virage avant-droit
+    'c': (-0.5, 0, 0, 1), # Virage arrière-gauche
+    'v': (-0.5, 0, 0, -1),# Virage arrière-droit
+    'q': (0, 1, 0, 0),    # Translation gauche
+    'd': (0, -1, 0, 0),   # Translation droite
+    ' ': (0, 0, 0, 0),    # Stop
+}

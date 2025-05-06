@@ -1,4 +1,5 @@
 from setuptools import find_packages, setup
+from glob import glob
 
 package_name = 'consensus'
 
@@ -7,9 +8,7 @@ setup(
     version='0.0.0',
     packages=find_packages(exclude=['test']),
     data_files=[
-        ('share/ament_index/resource_index/packages',
-            ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/launch', glob('launch/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -20,6 +19,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'master = consensus.master:main',
+            'consensus_v1 = consensus.consensus_v1:main',
+            'consensus_v2 = consensus.consensus_v2:main',
+            'consensus_v3 = consensus.consensus_v2:main',
         ],
     },
 )
