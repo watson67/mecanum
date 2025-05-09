@@ -1,5 +1,27 @@
 # Mecanum
 
+## Téléchargement du package
+
+L'ensemble des programmes pour utiliser les robots Mecanum se trouvent sur Github. Pour les utiliser, cloner le repository suivant :
+
+```bash
+git clone https://github.com/watson/mecanum.git
+```
+
+Puis, se placer dans le dossier cloné, et *build* :
+
+```bash
+cd mecanum
+colcon build
+source install/setup.bash
+```
+
+Pour ne pas avoir à sourcer le fichier `setup.bash` à chaque ouverture de terminal, utiliser la commande suivante :
+
+```bash
+echo "source ~/mecanum/install/setup.bash" >> ~/.bashrc
+```
+
 ## Installation du package `vrpn_mocap`
 
 La section suivante décrit comment récupérer, sur un topic ROS2, la position des *Rigid Bodies* détectés par le système de Motion Capture Motive.
@@ -89,28 +111,6 @@ La nouvelle commande à utiliser pour lancer le noeud sera alors :
 ros2 launch vrpn_mocap client.launch.yaml
 ```
 
-## Téléchargement du package
-
-L'ensemble des programmes pour utiliser les robots Mecanum se trouvent sur Github. Pour les utiliser, cloner le repository suivant :
-
-```bash
-git clone https://github.com/watson/mecanum.git
-```
-
-Puis, se placer dans le dossier cloné, et *build* :
-
-```bash
-cd mecanum
-colcon build
-source install/setup.bash
-```
-
-Pour ne pas avoir à sourcer le fichier `setup.bash` à chaque ouverture de terminal, utiliser la commande suivante :
-
-```bash
-echo "source ~/mecanum/install/setup.bash" >> ~/.bashrc
-```
-
 ## Utilisation du package
 
 ### Sous dossier `Matlab_Simulink`
@@ -123,100 +123,10 @@ ros2 launch vrpn_mocap client.launch.yaml
 
 Pour piloter le robot *Leader*, utiliser un programme mentionné dans la sous-section [teleop_mecanum](#teleop_mecanum).
 
-### Sous dossier `teleop_mecanum`
-#### `teleop_mecanum.py`
+### Sous dossier `src`
 
-Ce programme permet de piloter un robot à l'aide d'un clavier, en publiant un message `Twist`. Pour utiliser ce programme, entrer la commande suivante :
+Ce dossier contient l'ensemble des packages ROS2. 
 
-```bash
-ros2 run teleop_mecanum teleop_mecanum {nom du topic}
-```
+### Sous dossier `holonome_mecanum_ros2`
 
-Mettre le nom du topic sur lequel publier à la fin de la commande. Par exemple, pour piloter le robot *Aramis*, la commande sera la suivante :
-
-```bash
-ros2 run teleop_mecanum teleop_mecanum Aramis/cmd_vel
-```
-
-Ne pas hésiter à vérifier le nom des topics avec :
-
-```bash
-ros2 topic list
-```
-
-Voici le tableau des commandes :
-
-| **Touche** | **Action**                |
-|------------|---------------------------|
-| `z`        | Avancer                   |
-| `s`        | Reculer                   |
-| `q`        | Translation gauche        |
-| `d`        | Translation droite        |
-| `a`        | Diagonale avant-gauche    |
-| `e`        | Diagonale avant-droite    |
-| `w`        | Diagonale arrière-gauche  |
-| `x`        | Diagonale arrière-droite  |
-| `r`        | Rotation gauche           |
-| `t`        | Rotation droite           |
-| `f`        | Virage arrière-droit      |
-| `g`        | Virage arrière-gauche     |
-| `c`        | Virage avant-gauche       |
-| `v`        | Virage avant-droit        |
-| Autre      | Stop                      |
-
-#### `teleop_mecanum_all.py`
-
-Ce programme permet de piloter les 3 robots Mecanum simultanément (avec les mêmes commandes que `teleop_mecanum.py`), en publiant la même donnée sur 3 topics :
-- `/Aramis/cmd_vel`
-- `/Athos/cmd_vel`
-- `/Porthos/cmd_vel`
-
-Pour lancer le programme, utiliser la commande suivante :
-
-```bash
-ros2 run teleop_mecanum teleop_mecanum_all
-```
-
-#### `teleop_dualshock.py`
-
-Ce programme permet de piloter un robot à l'aide d'une manette Dualshock 4 branchée en USB.
-
-Pour lancer le programme, utiliser la commande suivante :
-
-```bash
-ros2 run teleop_mecanum teleop_dualshock {nom du topic}
-```
-
-**Note :** À l'heure actuelle, ce programme est victime de forts délais (le robot se déplace deux à trois secondes après que les sticks aient été bougés), le rendant difficilement utilisable.
-
-### Sous dossier `leader_follower`
-
-Ce package contient différentes versions d'algorithme *leader-follower*. Ces programmes nécessitent le système de Motion Capture, il faut donc lancer le noeud suivant au préalable :
-
-```bash
-ros2 launch vrpn_mocap client.launch.yaml
-```
-
-#### `leader_follower_v1.py`
-
-```bash
-ros2 run leader_follower leader_follower_v1 --ros-args -p leader:=Aramis -p follower:=Athos
-```
-
-#### `leader_follower_v2.py`
-
-```bash
-ros2 run leader_follower leader_follower_v2 --ros-args -p leader:=Aramis -p follower1:=Athos -p follower2:=Porthos
-```
-
-#### `leader_follower_v3.py`
-
-```bash
-ros2 run leader_follower leader_follower_v3 --ros-args -p leader:=Aramis -p follower1:=Athos -p follower2:=Porthos
-```
-
-### Sous dossier `consensus`
-
-**Work in progress**
-
-Ce package contient des algorithmes d'essaim basés sur la loi de consensus.
+Ce dossier contient les codes Arduino à téléverser dans l'OpenCR.

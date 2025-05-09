@@ -20,9 +20,6 @@ ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
 # TOPICS ROS pour les poses des robots
 POSE_TOPICS = [f"/vrpn_mocap/{name}/pose" for name in ROBOT_NAMES]
 
-# TOPICS ROS pour piloter les robots
-CMD_VEL_TOPICS = [f"/{name}/cmd_vel" for name in ROBOT_NAMES]
-
 # Configuration des touches pour un clavier AZERTY avec commandes dans le repère global
 key_mapping = {
     'z': (0.14, 0.0, 0.0, 0.0),         # Avancer
@@ -86,21 +83,28 @@ def euler_from_quaternion(x, y, z, w):
 
     return roll, pitch, yaw
 
-class MultiRobotTeleop(Node):
-    def __init__(self):
-        super().__init__('multi_robot_teleop')
+class VRPNTeleop(Node):
+    def __init__(self, cmd_vel_topic, robot_name):
+        super().__init__('global_frame_teleop')
         
-        # Initialize all instance attributes explicitly
-        # Définir les frames globales et locales
-        self.global_frame_id = "mocap"
-        self.publishers = {}  # Dictionary for publishers
-        self.poses = {}       # Dictionary for poses
-        self.robot_frames = {} # Dictionary for robot frames
-        self.running = True   # Flag for thread control
+        # Vérifier que le nom du robot est valide parmis les 3 robots disponibles
+        if robot_name not in ROBOT_NAMES:
+            self.get_logger().error(f"Le nom du robot doit être l'un des suivants : {', '.join(ROBOT_NAMES)}")
+            raise ValueError(f"Nom de robot invalide : {robot_name}")
         
-        # Déclaration des paramètres pour permettre une configuration dynamique
-        self.declare_parameter('global_frame_id', self.global_frame_id)
-        self.global_frame_id = self.get_parameter('global_frame_id').get_parameter_value().string_value
+        self.robot_name = robot_name
+        self.pose_topic = f"/vrpn_mocap/{robot_name}/pose"
+        
+        # Création du publisher pour envoyer les commandes de vitesse
+        self.publisher = self.create_publisher(Twist, cmd_vel_topic, 1)
+        
+        # Abonnement au topic de pose du robot
+        self.subscription = self.create_subscription(
+            PoseStamped, 
+            self.pose_topic, 
+            self.pose_callback, 
+            qos_profile  # QoS adapté pour VRPN
+        )
         
         # Initialisation de TF2 pour gérer les transformations entre frames
         self.tf_buffer = Buffer()
@@ -108,40 +112,52 @@ class MultiRobotTeleop(Node):
         
         # Ajout d'un broadcaster TF pour publier les transformations
         self.tf_broadcaster = TransformBroadcaster(self)
-        
-        # Mise en place des publishers et subscribers pour chaque robot
-        for i, robot_name in enumerate(ROBOT_NAMES):
-            # Frames pour chaque robot
-            robot_frame_id = f"{robot_name}/base_link"
-            self.robot_frames[robot_name] = robot_frame_id
-            
-            # Création du publisher pour envoyer les commandes de vitesse
-            self.publishers[robot_name] = self.create_publisher(Twist, CMD_VEL_TOPICS[i], 1)
-            
-            # Abonnement au topic de pose du robot
-            self.create_subscription(
-                PoseStamped, 
-                POSE_TOPICS[i], 
-                lambda msg, rname=robot_name: self.pose_callback(msg, rname), 
-                qos_profile
-            )
-            
-            self.get_logger().info(f'Configuration pour {robot_name}: frame={robot_frame_id}, cmd_vel={CMD_VEL_TOPICS[i]}, pose={POSE_TOPICS[i]}')
-        
-        self.get_logger().info('Téléopération multi-robots prête')
-        
-    def pose_callback(self, msg, robot_name):
+
+        # Définir les frames globales et locales
+        self.global_frame_id = "mocap"
+        self.robot_frame_id = f"{robot_name}/base_link"
+
+        # Déclaration des paramètres pour permettre une configuration dynamique
+        self.declare_parameter('global_frame_id', self.global_frame_id)
+        self.declare_parameter('robot_frame_id', self.robot_frame_id)
+
+        # Mise à jour des frames à partir des paramètres si disponibles
+        self.global_frame_id = self.get_parameter('global_frame_id').get_parameter_value().string_value
+        self.robot_frame_id = self.get_parameter('robot_frame_id').get_parameter_value().string_value
+
+        # Variables pour stocker les données de pose et d'orientation du robot
+        self.pose = None
+        self.yaw = 0.0
+        self.last_pose_time = self.get_clock().now()
+
+        # Journalisation pour indiquer que le nœud est prêt
+        self.get_logger().info(f'Téléopération prête. Publie sur {cmd_vel_topic}')
+        self.get_logger().info(f'Utilise {self.global_frame_id} comme frame globale et {self.robot_frame_id} comme frame du robot')
+
+        # Indique si le nœud est en cours d'exécution
+        self.running = True
+
+    def pose_callback(self, msg):
         """
-        Callback pour les messages de pose des robots.
-        Publie la transformation entre le repère global et le repère de chaque robot.
+        Callback pour les messages de pose du robot.
+        Publie la transformation entre le repère global et le repère du robot.
         """
-        self.poses[robot_name] = msg
+        self.pose = msg
+        self.last_pose_time = self.get_clock().now()
+        
+        # Extraire l'orientation (yaw) du quaternion pour les logs
+        _, _, self.yaw = euler_from_quaternion(
+            msg.pose.orientation.x,
+            msg.pose.orientation.y,
+            msg.pose.orientation.z,
+            msg.pose.orientation.w
+        )
         
         # Créer et publier la transformation TF
         transform = TransformStamped()
         transform.header.stamp = self.get_clock().now().to_msg()
         transform.header.frame_id = self.global_frame_id
-        transform.child_frame_id = self.robot_frames[robot_name]
+        transform.child_frame_id = self.robot_frame_id
         
         # Copier les données de position
         transform.transform.translation.x = msg.pose.position.x
@@ -157,34 +173,35 @@ class MultiRobotTeleop(Node):
         # Publier la transformation
         self.tf_broadcaster.sendTransform(transform)
         
-        # Log pour confirmer la publication de la transformation (en debug pour éviter trop de messages)
-        self.get_logger().debug(f'Transformation publiée pour {robot_name}: {self.global_frame_id} -> {self.robot_frames[robot_name]}')
+        # Log pour confirmer la publication de la transformation
+        self.get_logger().debug(f'Transformation publiée: {self.global_frame_id} -> {self.robot_frame_id}')
 
-    def transform_velocity_for_robot(self, robot_name, global_lin_x, global_lin_y, global_ang_z):
+    def transform_velocity(self, global_lin_x, global_lin_y, global_ang_z):
         """
-        Transforme les vitesses du repère global au repère d'un robot spécifique.
+        Transforme les vitesses du repère global au repère du robot en utilisant TF2.
         """
         try:
-            if robot_name not in self.robot_frames:
-                self.get_logger().error(f'Robot {robot_name} non configuré')
-                return global_lin_x, global_lin_y, global_ang_z
-                
-            # Créer un vecteur estampillé pour représenter la vitesse globale
+            # les entrées sont des floats
+            global_lin_x = float(global_lin_x)
+            global_lin_y = float(global_lin_y)
+            global_ang_z = float(global_ang_z)
+            
+            # créer un vecteur estampillé (Vector3Stamped) pour représenter la vitesse globale
             global_vel = Vector3Stamped()
             global_vel.header.frame_id = self.global_frame_id
             global_vel.header.stamp = self.get_clock().now().to_msg()
-            global_vel.vector.x = float(global_lin_x)
-            global_vel.vector.y = float(global_lin_y)
+            global_vel.vector.x = global_lin_x
+            global_vel.vector.y = global_lin_y
             global_vel.vector.z = 0.0 
             
             # Récupérer la transformation entre les frames
             try:
                 now = rclpy.time.Time()
                 transform = self.tf_buffer.lookup_transform(
-                    self.robot_frames[robot_name],  # Frame cible (robot)
+                    self.robot_frame_id,  # Frame cible (robot)
                     self.global_frame_id,  # Frame source (globale)
                     now,  # Temps de la transformation
-                    timeout=rclpy.duration.Duration(seconds=0.1)
+                    timeout=rclpy.duration.Duration(seconds=0.1)  # Timeout augmenté
                 )
                 
                 # Appliquer la transformation au vecteur de vitesse
@@ -194,35 +211,17 @@ class MultiRobotTeleop(Node):
                 return robot_vel.vector.x, robot_vel.vector.y, global_ang_z
                 
             except TransformException as ex:
-                # Si TF2 échoue, loguer une erreur
-                self.get_logger().warning(f'Échec de transformation TF2 pour {robot_name}: {ex}')
+                # Si TF2 échoue, loguer une erreur détaillée
+                self.get_logger().error(f'Échec de la transformation TF2 : {ex}')
+                self.get_logger().info(f'Verifiez que la transformation entre {self.global_frame_id} et {self.robot_frame_id} est disponible dans le tf_tree')
+                
+                # Si pas de transformation disponible, retourner les vitesses globales
                 return global_lin_x, global_lin_y, global_ang_z
             
         except Exception as e:
-            self.get_logger().error(f'Erreur dans transform_velocity pour {robot_name}: {e}')
+            # Loguer toute autre erreur
+            self.get_logger().error(f'Erreur dans transform_velocity : {e}')
             return global_lin_x, global_lin_y, global_ang_z
-
-    def send_command_to_all_robots(self, global_dx, global_dy, global_dth):
-        """
-        Transforme et envoie les commandes de vitesse à tous les robots.
-        """
-        for robot_name in ROBOT_NAMES:
-            twist = Twist()
-            
-            # Transformer les vitesses du repère global au repère du robot
-            robot_dx, robot_dy, robot_dth = self.transform_velocity_for_robot(
-                robot_name, global_dx, global_dy, global_dth
-            )
-            
-            # Créer le message Twist avec les vitesses dans le repère du robot
-            twist.linear.x = robot_dx
-            twist.linear.y = robot_dy
-            twist.angular.z = robot_dth
-            
-            # Publier la commande
-            if robot_name in self.publishers:
-                self.publishers[robot_name].publish(twist)
-                self.get_logger().debug(f'{robot_name}: Vitesse robot: x={robot_dx:.3f}, y={robot_dy:.3f}, th={robot_dth:.3f}')
 
     def spin_thread(self):
         """Thread pour exécuter rclpy.spin."""
@@ -236,6 +235,7 @@ class MultiRobotTeleop(Node):
         try:
             while rclpy.ok():
                 key = get_key()
+                twist = Twist()
 
                 if key == '\x03':  # CTRL+C pour quitter
                     break
@@ -243,18 +243,34 @@ class MultiRobotTeleop(Node):
                 if key in key_mapping:
                     global_dx, global_dy, _, global_dth = key_mapping[key]
                     
-                    # Afficher les commandes globales
-                    self.get_logger().info(f'Commande globale: x={global_dx:.3f}, y={global_dy:.3f}, th={global_dth:.3f} (touche={key})')
+                    # Transformer les vitesses du repère global au repère du robot
+                    robot_dx, robot_dy, robot_dth = self.transform_velocity(global_dx, global_dy, global_dth)
                     
-                    # Envoyer les commandes à tous les robots
-                    self.send_command_to_all_robots(global_dx, global_dy, global_dth)
+                    # Créer le message Twist avec les vitesses dans le repère du robot
+                    twist.linear.x = robot_dx
+                    twist.linear.y = robot_dy
+                    twist.angular.z = robot_dth * 1.0
+
+                    # Ajouter un log pour afficher les vitesses globales et les vitesses du robot sur deux lignes
+                    self.get_logger().info(
+                        f'Global: linear.x={global_dx}, linear.y={global_dy}, angular.z={global_dth}'
+                    )
+                    self.get_logger().info(
+                        f'Robot: linear.x={twist.linear.x}, linear.y={twist.linear.y}, angular.z={twist.angular.z}'
+                    )
+                    self.publisher.publish(twist)
                 elif key:  # Si une touche non définie est pressée
-                    # Envoyer commande d'arrêt à tous les robots
-                    self.get_logger().info(f'Touche non reconnue: {key} - Arrêt des robots')
-                    self.send_command_to_all_robots(0.0, 0.0, 0.0)
+                    twist.linear.x = 0.0
+                    twist.linear.y = 0.0
+                    twist.angular.z = 0.0
+
+                    self.get_logger().info(
+                        f'Publication Twist: linear.x={twist.linear.x}, linear.y={twist.linear.y}, angular.z={twist.angular.z}'
+                    )
+                    self.publisher.publish(twist)
                 # Si aucune touche n'est pressée, ne rien envoyer
         except Exception as e:
-            self.get_logger().error(f'Erreur dans la boucle principale: {e}')
+            self.get_logger().error(f'Erreur: {e}')
         finally:
             self.running = False
             spin_thread.join()
@@ -262,16 +278,29 @@ class MultiRobotTeleop(Node):
 def main(args=None):
     rclpy.init(args=args)
     
-    # Créer un seul nœud qui gère tous les robots
-    multi_teleop = MultiRobotTeleop()
+    # Récupérer les paramètres de ligne de commande
+    if len(sys.argv) < 2:
+        print(f"Usage: ros2 run teleop_mecanum tf2_teleop [robot_name]")
+        print(f"  où robot_name est l'un des suivants: {', '.join(ROBOT_NAMES)}")
+        rclpy.shutdown()
+        return
+
+    robot_name = sys.argv[1]
+    
+    if robot_name not in ROBOT_NAMES:
+        print(f"Erreur: Nom du robot invalide. Le nom doit être l'un des suivants: {', '.join(ROBOT_NAMES)}")
+        rclpy.shutdown()
+        return
+
+    # Définir le topic de publication basé sur le nom du robot
+    cmd_vel_topic = f"/{robot_name}/cmd_vel"
     
     try:
-        multi_teleop.run()
-    except Exception as e:
-        multi_teleop.get_logger().error(f'Erreur dans le nœud multi-robot: {e}')
+        node = VRPNTeleop(cmd_vel_topic, robot_name)
+        node.run()
+    except ValueError as e:
+        print(str(e))
     finally:
-        # Cleanup
-        multi_teleop.destroy_node()
         rclpy.shutdown()
 
 if __name__ == '__main__':
