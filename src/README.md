@@ -57,7 +57,7 @@ Pour changer le **ROS_DOMAIN_ID**, utiliser la commande suivante :
   ```bash
   export ROS_DOMAIN_ID=10
   ```
-(Mettre un nombre différent du ROS_DOMAIN_ID des terminaux communiquant avec les robots réels)
+Mettre un nombre différent du ROS_DOMAIN_ID des terminaux communiquant avec les robots réels
 ---
 
 ## Notes

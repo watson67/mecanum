@@ -134,8 +134,6 @@ Ce dossier contient différents fichiers Simulink permettant de réaliser un ess
 ros2 launch vrpn_mocap client.launch.yaml
 ```
 
-Pour piloter le robot *Leader*, utiliser un programme mentionné dans la sous-section [teleop_mecanum](#teleop_mecanum).
-
 ### Sous dossier `src`
 
 Ce dossier contient l'ensemble des packages ROS2. 
