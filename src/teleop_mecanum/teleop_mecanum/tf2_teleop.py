@@ -107,10 +107,13 @@ class VRPNTeleop(Node):
         )
         
         # Initialisation de TF2 pour gérer les transformations entre frames
+        # tf2 permet de connaître la position et l'orientation d'un repère (frame) par rapport à un autre à tout instant.
+        # Il permet de convertir des positions, vitesses, etc. entre repères.
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
         # Ajout d'un broadcaster TF pour publier les transformations
+        # Le broadcaster permet d'annoncer la position du robot dans le repère global à tout le système ROS.
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # Définir les frames globales et locales
@@ -142,6 +145,9 @@ class VRPNTeleop(Node):
         Callback pour les messages de pose du robot.
         Publie la transformation entre le repère global et le repère du robot.
         """
+        # À chaque réception d'une nouvelle pose, on publie une transformation TF entre le repère global (mocap)
+        # et le repère du robot (base_link). Cela permet à tf2 de connaître la position du robot dans le monde.
+        # Cette information sera utilisée pour transformer des commandes de vitesse ou des points de consigne.
         self.pose = msg
         self.last_pose_time = self.get_clock().now()
         
@@ -154,6 +160,7 @@ class VRPNTeleop(Node):
         )
         
         # Créer et publier la transformation TF
+        # La transformation contient la position et l'orientation du robot dans le repère global.
         transform = TransformStamped()
         transform.header.stamp = self.get_clock().now().to_msg()
         transform.header.frame_id = self.global_frame_id
@@ -180,6 +187,8 @@ class VRPNTeleop(Node):
         """
         Transforme les vitesses du repère global au repère du robot en utilisant TF2.
         """
+        # tf2 permet de transformer des vecteurs (ici une vitesse exprimée dans le repère global)
+        # vers un autre repère (ici le repère du robot) en utilisant la dernière transformation connue.
         try:
             # les entrées sont des floats
             global_lin_x = float(global_lin_x)
@@ -196,22 +205,24 @@ class VRPNTeleop(Node):
             
             # Récupérer la transformation entre les frames
             try:
+                # On demande à tf2 la transformation entre le repère global et le repère du robot à l'instant présent.
+                # tf2 va utiliser l'arbre des transformations pour calculer la conversion.
                 now = rclpy.time.Time()
                 transform = self.tf_buffer.lookup_transform(
-                    self.robot_frame_id,  # Frame cible (robot)
-                    self.global_frame_id,  # Frame source (globale)
-                    now,  # Temps de la transformation
+                    self.robot_frame_id,            # Frame cible (robot)
+                    self.global_frame_id,           # Frame source (globale)
+                    now,                            # Temps de la transformation
                     timeout=rclpy.duration.Duration(seconds=0.1)  # Timeout augmenté
                 )
                 
-                # Appliquer la transformation au vecteur de vitesse
+                # On applique la transformation à la vitesse globale pour obtenir la vitesse dans le repère du robot.
                 robot_vel = tf2_geometry_msgs.do_transform_vector3(global_vel, transform)
                 
                 # Retourner les vitesses transformées
                 return robot_vel.vector.x, robot_vel.vector.y, global_ang_z
                 
             except TransformException as ex:
-                # Si TF2 échoue, loguer une erreur détaillée
+                # Si tf2 ne trouve pas la transformation, on log l'erreur et on utilise les vitesses globales par défaut.
                 self.get_logger().error(f'Échec de la transformation TF2 : {ex}')
                 self.get_logger().info(f'Verifiez que la transformation entre {self.global_frame_id} et {self.robot_frame_id} est disponible dans le tf_tree')
                 

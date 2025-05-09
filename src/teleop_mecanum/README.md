@@ -61,21 +61,23 @@ Note : programme soumis à des problèmes de délais
 
 ## Mappage des touches (clavier AZERTY)
 
-- `z` : Avancer
-- `s` : Reculer
-- `q` : Translation gauche
-- `d` : Translation droite
-- `a` : Diagonale avant-gauche
-- `e` : Diagonale avant-droit
-- `w` : Diagonale arrière-gauche
-- `x` : Diagonale arrière-droit
-- `r` : Rotation gauche sur place
-- `t` : Rotation droite sur place
-- `f` : Virage avant-gauche
-- `g` : Virage avant-droit
-- `c` : Virage arrière-gauche
-- `v` : Virage arrière-droit
-- `espace` : Stop
+| **Touche** | **Action**                |
+|------------|---------------------------|
+| `z`        | Avancer                   |
+| `s`        | Reculer                   |
+| `q`        | Translation gauche        |
+| `d`        | Translation droite        |
+| `a`        | Diagonale avant-gauche    |
+| `e`        | Diagonale avant-droite    |
+| `w`        | Diagonale arrière-gauche  |
+| `x`        | Diagonale arrière-droite  |
+| `r`        | Rotation gauche           |
+| `t`        | Rotation droite           |
+| `f`        | Virage arrière-droit      |
+| `g`        | Virage arrière-gauche     |
+| `c`        | Virage avant-gauche       |
+| `v`        | Virage avant-droit        |
+| Autre      | Stop                      |
 
 ## Prérequis
 
