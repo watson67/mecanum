@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import PoseStamped
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+# Noms des robots dans l'essaim
+ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
+
+# Sujets ROS pour les poses des robots
+POSE_TOPICS = [f"/vrpn_mocap/{name}/pose" for name in ROBOT_NAMES]
+
+class PoseMonitor(Node):
+    def __init__(self):
+        super().__init__('pose_monitor')
+
+        # Configuration QoS optimisée pour la compatibilité et fiabilité maximale
+        self.qos_profile = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # Pour les données temps réel
+            durability=DurabilityPolicy.VOLATILE,      # Pas besoin d'historique
+            history=HistoryPolicy.KEEP_LAST           # Conserver uniquement les derniers messages
+        )
+        
+        # Pour stocker la dernière fois que nous avons reçu un message
+        self.last_received = {name: None for name in ROBOT_NAMES}
+        
+        # Pour stocker les positions des robots
+        self.positions = {name: None for name in ROBOT_NAMES}
+        
+        # Compteurs pour vérifier si des messages sont reçus
+        self.message_counts = {name: 0 for name in ROBOT_NAMES}
+        
+        # Flag pour savoir si on a déjà affiché la première position
+        self.position_displayed = {name: False for name in ROBOT_NAMES}
+
+        # Abonnements aux sujets des poses des robots avec des callbacks explicites
+        self.create_subscription(
+            PoseStamped,
+            "/vrpn_mocap/Aramis/pose",
+            self.aramis_callback,
+            qos_profile=self.qos_profile
+        )
+        
+        self.create_subscription(
+            PoseStamped,
+            "/vrpn_mocap/Athos/pose",
+            self.athos_callback,
+            qos_profile=self.qos_profile
+        )
+        
+        self.create_subscription(
+            PoseStamped,
+            "/vrpn_mocap/Porthos/pose", 
+            self.porthos_callback,
+            qos_profile=self.qos_profile
+        )
+
+        # Ajout de journaux pour déboguer - uniquement à l'initialisation
+        self.get_logger().info("PoseMonitor node initialized with optimized QoS settings")
+        self.get_logger().info(f"Subscribed to topics: {POSE_TOPICS}")
+        self.get_logger().info("Waiting for initial positions...")
+
+    # Callbacks pour chaque robot 
+    def aramis_callback(self, msg):
+        self.message_counts["Aramis"] += 1
+        self.process_pose("Aramis", msg)
+        
+    def athos_callback(self, msg):
+        self.message_counts["Athos"] += 1
+        self.process_pose("Athos", msg)
+        
+    def porthos_callback(self, msg):
+        self.message_counts["Porthos"] += 1
+        self.process_pose("Porthos", msg)
+        
+    # Traitement commun des messages de pose - avec affichage initial
+    def process_pose(self, name, msg):
+        if not isinstance(msg, PoseStamped):
+            self.get_logger().error(f"Received invalid message type for {name}: {type(msg)}")
+            return
+        
+        x = msg.pose.position.x
+        y = msg.pose.position.y
+        self.positions[name] = (x, y)
+        self.last_received[name] = self.get_clock().now()
+        
+        # Affiche la position seulement la première fois
+        if not self.position_displayed[name]:
+            self.get_logger().info(f"Initial position for {name}: x={x:.3f}, y={y:.3f}")
+            self.position_displayed[name] = True
+            
+            # Vérifier si on a reçu la position de tous les robots
+            if all(self.position_displayed.values()):
+                self.get_logger().info("Received initial positions for all robots.")
+
+# Point d'entrée principal du script
+def main(args=None):
+    rclpy.init(args=args)
+    node = PoseMonitor()
+    rclpy.spin(node)  # Exécution du nœud ROS 2
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

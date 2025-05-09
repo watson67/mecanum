@@ -22,6 +22,19 @@ Pour ne pas avoir à sourcer le fichier `setup.bash` à chaque ouverture de term
 echo "source ~/mecanum/install/setup.bash" >> ~/.bashrc
 ```
 
+Si cela ne fonctionne pas, essayer : 
+```bash
+cd mecanum/src
+colcon build
+source install/setup.bash
+```
+
+Pour ne pas avoir à sourcer le fichier `setup.bash` à chaque ouverture de terminal, utiliser la commande suivante :
+
+```bash
+echo "source ~/mecanum/src/install/setup.bash" >> ~/.bashrc
+```
+
 ## Installation du package `vrpn_mocap`
 
 La section suivante décrit comment récupérer, sur un topic ROS2, la position des *Rigid Bodies* détectés par le système de Motion Capture Motive.

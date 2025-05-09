@@ -44,6 +44,21 @@ Ce package est dédié à la visualisation des données des robots, telles que l
   - Affichage des données en temps réel.
 
 ---
+### 6. `turtle_swarm`
+Ce package permet de simuler sur turtlesim le système. Les tortues et topics utilisés auront le même nom que les robots réels, ce qui permet de tester sans modification particulière chaque programme sur turtlesim.
+
+- **Fonctionnalités :**
+  - Simulation du système sur turtlesim
+  - Topics utilisés sur turtlesim ont les mêmes noms que ceux pour les turtlebots réels
+
+**Note :** Si les robots réels sont allumés et que vous souhaitez utiliser turtlesim pour tester un programme en même temps, il est nécessaire de changer le **ROS_DOMAIN_ID** de chaque terminal. Cela permet d'éviter les conflits entre les topics des robots réels et ceux des tortues simulées sur turtlesim, car ROS2 utilise le **ROS_DOMAIN_ID** pour isoler les communications entre différents systèmes. En attribuant un **ROS_DOMAIN_ID** différent à chaque environnement (robots réels et turtlesim), vous vous assurez que les messages publiés et souscrits ne se mélangent pas.
+
+Pour changer le **ROS_DOMAIN_ID**, utiliser la commande suivante : 
+  ```bash
+  export ROS_DOMAIN_ID=10
+  ```
+(Mettre un nombre différent du ROS_DOMAIN_ID des terminaux communiquant avec les robots réels)
+---
 
 ## Notes
 - Tous les packages nécessitent ROS2 (testé avec Humble).

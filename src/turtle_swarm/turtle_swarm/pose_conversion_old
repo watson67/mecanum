@@ -1,0 +1,96 @@
+import rclpy
+from rclpy.node import Node
+from turtlesim.msg import Pose as TurtlesimPose
+from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import Header
+import numpy as np
+
+class PoseConverter(Node):
+    def __init__(self):
+        super().__init__('pose_converter')
+
+        # Subscribers
+        self.athos_pose_sub = self.create_subscription(
+            TurtlesimPose,
+            '/Athos/pose',
+            self.athos_pose_callback,
+            10
+        )
+        self.porthos_pose_sub = self.create_subscription(
+            TurtlesimPose,
+            '/Porthos/pose',
+            self.porthos_pose_callback,
+            10
+        )
+        self.aramis_pose_sub = self.create_subscription(
+            TurtlesimPose,
+            '/Aramis/pose',
+            self.aramis_pose_callback,
+            10
+        )
+
+        # Publishers (changed to PoseStamped to match consensus.py)
+        self.athos_pose_pub = self.create_publisher(
+            PoseStamped,
+            '/vrpn_mocap/Athos/pose',
+            10
+        )
+        self.porthos_pose_pub = self.create_publisher(
+            PoseStamped,
+            '/vrpn_mocap/Porthos/pose',
+            10
+        )
+        self.aramis_pose_pub = self.create_publisher(
+            PoseStamped,
+            '/vrpn_mocap/Aramis/pose',
+            10
+        )
+        
+        # Seulement le log d'initialisation
+        self.get_logger().info("Pose converter initialized - Converting to PoseStamped")
+
+    def athos_pose_callback(self, msg):
+        converted_msg = self.convert_pose(msg)
+        self.athos_pose_pub.publish(converted_msg)
+
+    def porthos_pose_callback(self, msg):
+        converted_msg = self.convert_pose(msg)
+        self.porthos_pose_pub.publish(converted_msg)
+
+    def aramis_pose_callback(self, msg):
+        converted_msg = self.convert_pose(msg)
+        self.aramis_pose_pub.publish(converted_msg)
+
+    def convert_pose(self, turtlesim_pose):
+        # Convert turtlesim/msg/Pose to geometry_msgs/msg/PoseStamped
+        pose_stamped = PoseStamped()
+        
+        # Add header with timestamp
+        pose_stamped.header = Header()
+        pose_stamped.header.stamp = self.get_clock().now().to_msg()
+        pose_stamped.header.frame_id = "world"
+        
+        # Set position and orientation
+        pose_stamped.pose.position.x = turtlesim_pose.x
+        pose_stamped.pose.position.y = turtlesim_pose.y
+        pose_stamped.pose.position.z = 0.0  # Turtlesim is 2D, so z is 0
+        pose_stamped.pose.orientation.z = np.sin(turtlesim_pose.theta / 2.0)  # Correct quaternion conversion
+        pose_stamped.pose.orientation.w = np.cos(turtlesim_pose.theta / 2.0)
+        pose_stamped.pose.orientation.x = 0.0
+        pose_stamped.pose.orientation.y = 0.0
+        
+        return pose_stamped
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = PoseConverter()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
