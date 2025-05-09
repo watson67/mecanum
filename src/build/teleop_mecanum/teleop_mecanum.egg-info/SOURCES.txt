@@ -9,6 +9,7 @@ teleop_mecanum/follower_mecanum_test.py
 teleop_mecanum/global_teleop.py
 teleop_mecanum/teleop_mecanum.py
 teleop_mecanum/teleop_mecanum_all.py
+teleop_mecanum/tf2_manager.py
 teleop_mecanum/tf2_teleop.py
 teleop_mecanum/tf2_teleop_all.py
 teleop_mecanum/tf2_test.py

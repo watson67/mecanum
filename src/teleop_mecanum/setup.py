@@ -28,6 +28,7 @@ setup(
             'follower_mecanum = teleop_mecanum.follower_mecanum:main',
             'tf2_teleop = teleop_mecanum.tf2_teleop:main',
             'tf2_teleop_all = teleop_mecanum.tf2_teleop_all:main',
+            'tf2_manager = teleop_mecanum.tf2_manager:main',
             'global_teleop = teleop_mecanum.global_teleop:main',  
         ],
     },

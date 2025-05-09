@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, PoseStamped, TransformStamped, Vector3
+from geometry_msgs.msg import Twist, PoseStamped, TransformStamped, Vector3, Vector3Stamped
 import sys
 import termios
 import tty
@@ -11,7 +11,7 @@ import threading
 import math
 import queue
 import time
-from tf2_ros import Buffer, TransformListener, TransformException
+from tf2_ros import Buffer, TransformListener, TransformBroadcaster, TransformException
 import tf2_geometry_msgs
 from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
 
@@ -104,22 +104,26 @@ class RobotCommandThread(threading.Thread):
         self.command_queue = queue.Queue()
         self.running = True
         self.daemon = True  # Le thread s'arrêtera quand le thread principal s'arrête
+        
+        # Ajouter un timeout plus court pour les opérations TF
+        self.tf_timeout = 0.05  # 50 ms instead of 100 ms
     
     def run(self):
         """Boucle principale du thread de commande du robot."""
         while self.running:
             try:
-                # Attendre une commande avec timeout pour permettre de vérifier self.running
+                # Attendre une commande avec timeout plus court
                 try:
-                    command = self.command_queue.get(timeout=0.1)
+                    command = self.command_queue.get(timeout=0.05)  # Réduire à 50ms
                 except queue.Empty:
                     continue
                 
                 global_dx, global_dy, global_dth = command
                 
                 # Transformer les vitesses du repère global au repère du robot
+                # avec un timeout plus court
                 robot_dx, robot_dy, robot_dth = self.node.transform_velocity(
-                    global_dx, global_dy, global_dth, self.robot_name
+                    global_dx, global_dy, global_dth, self.robot_name, self.tf_timeout
                 )
                 
                 # Créer le message Twist avec les vitesses dans le repère du robot
@@ -128,10 +132,10 @@ class RobotCommandThread(threading.Thread):
                 twist.linear.y = robot_dy 
                 twist.angular.z = robot_dth * 1.0
                 
-                # Log pour ce robot spécifique
-                self.node.get_logger().info(
-                    f'{self.robot_name}: linear.x={twist.linear.x}, linear.y={twist.linear.y}, angular.z={twist.angular.z}'
-                )
+                # Log pour ce robot spécifique (à commenter pour réduire la charge)
+                # self.node.get_logger().info(
+                #     f'{self.robot_name}: linear.x={twist.linear.x}, linear.y={twist.linear.y}, angular.z={twist.angular.z}'
+                # )
                 
                 # Publier la commande pour ce robot
                 self.node.cmd_vel_publishers[self.robot_name].publish(twist)
@@ -185,8 +189,11 @@ class VRPNTeleop(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
+        # Ajout d'un broadcaster TF pour publier les transformations
+        self.tf_broadcaster = TransformBroadcaster(self)
+        
         # Configuration des frames
-        self.global_frame_id = "odom"
+        self.global_frame_id = "mocap"
         self.robot_frame_ids = {name: f"{name}/base_link" for name in ROBOT_NAMES}
         
         # Déclaration des paramètres
@@ -215,6 +222,13 @@ class VRPNTeleop(Node):
             self.robot_threads[name].start()
             self.get_logger().info(f"Thread de commande démarré pour {name}")
 
+        # Ajout d'un contrôle de rate pour les publications TF
+        self.tf_publish_rate = 30.0  # Hz
+        self.last_tf_publish = {name: self.get_clock().now() for name in ROBOT_NAMES}
+        
+        # Cache pour les transformations
+        self.last_transform = {name: None for name in ROBOT_NAMES}
+
     def make_pose_callback(self, robot_name):
         """
         Factory de callback pour les messages de pose des robots.
@@ -231,46 +245,41 @@ class VRPNTeleop(Node):
                 msg.pose.orientation.z,
                 msg.pose.orientation.w
             )
+            
+            # Limiter la fréquence de publication des transformations
+            current_time = self.get_clock().now()
+            time_diff = (current_time - self.last_tf_publish[robot_name]).nanoseconds / 1e9
+            
+            if time_diff >= (1.0 / self.tf_publish_rate):
+                # Créer et publier la transformation TF
+                transform = TransformStamped()
+                transform.header.stamp = current_time.to_msg()
+                transform.header.frame_id = self.global_frame_id
+                transform.child_frame_id = self.robot_frame_ids[robot_name]
+                
+                # Copier les données de position
+                transform.transform.translation.x = msg.pose.position.x
+                transform.transform.translation.y = msg.pose.position.y
+                transform.transform.translation.z = msg.pose.position.z
+                
+                # Copier les données d'orientation (quaternion)
+                transform.transform.rotation.x = msg.pose.orientation.x
+                transform.transform.rotation.y = msg.pose.orientation.y
+                transform.transform.rotation.z = msg.pose.orientation.z
+                transform.transform.rotation.w = msg.pose.orientation.w
+                
+                # Stocker la transformation et la publier
+                self.last_transform[robot_name] = transform
+                self.tf_broadcaster.sendTransform(transform)
+                
+                # Mettre à jour le temps de dernière publication
+                self.last_tf_publish[robot_name] = current_time
         
         return callback
 
-    def manual_transform_velocity(self, global_lin_x, global_lin_y, global_ang_z, robot_name):
+    def transform_velocity(self, global_lin_x, global_lin_y, global_ang_z, robot_name, timeout=0.1):
         """
-        Transforme manuellement les vitesses globales en vitesses dans le repère du robot
-        en utilisant les données de pose VRPN pour le robot spécifié.
-        """
-        try:
-            # Vérifier si nous avons des données de pose pour ce robot
-            if self.poses[robot_name] is None:
-                return global_lin_x, global_lin_y, global_ang_z
-            
-            # Calculer le temps écoulé depuis la dernière mise à jour de la pose
-            time_diff = (self.get_clock().now() - self.last_pose_times[robot_name]).nanoseconds / 1e9
-            if time_diff > 1.0:  # Si la dernière pose date de plus d'une seconde
-                self.get_logger().warning_throttle(5, f'{robot_name}: Les données de pose sont obsolètes ({time_diff:.2f}s). Utilisation des vitesses globales.')
-                return global_lin_x, global_lin_y, global_ang_z
-            
-            # Utiliser le yaw de la pose VRPN pour la transformation
-            yaw = self.yaws[robot_name]
-            cos_yaw = math.cos(yaw)
-            sin_yaw = math.sin(yaw)
-            
-            # Transformer du repère global au repère du robot
-            robot_lin_x = global_lin_x * cos_yaw + global_lin_y * sin_yaw
-            robot_lin_y = -global_lin_x * sin_yaw + global_lin_y * cos_yaw
-            
-            # La vitesse angulaire reste inchangée
-            robot_ang_z = global_ang_z
-            
-            return robot_lin_x, robot_lin_y, robot_ang_z
-                
-        except Exception as e:
-            self.get_logger().error(f'{robot_name}: Manual transformation error: {e}')
-            return global_lin_x, global_lin_y, global_ang_z
-
-    def transform_velocity(self, global_lin_x, global_lin_y, global_ang_z, robot_name):
-        """
-        Transforme les vitesses du repère global au repère du robot spécifié.
+        Transforme les vitesses du repère global au repère du robot spécifié en utilisant TF2.
         """
         try:
             # les entrées sont des floats
@@ -278,24 +287,26 @@ class VRPNTeleop(Node):
             global_lin_y = float(global_lin_y)
             global_ang_z = float(global_ang_z)
             
-            # Création d'un vecteur pour représenter la vitesse globale
-            global_vel = Vector3()
-            global_vel.x = global_lin_x
-            global_vel.y = global_lin_y
-            global_vel.z = 0.0  # Pas de mouvement en Z
+            # créer un vecteur estampillé (Vector3Stamped) pour représenter la vitesse globale
+            global_vel = Vector3Stamped()
+            global_vel.header.frame_id = self.global_frame_id
+            global_vel.header.stamp = self.get_clock().now().to_msg()
+            global_vel.vector.x = global_lin_x
+            global_vel.vector.y = global_lin_y
+            global_vel.vector.z = 0.0
             
             # TF2 pour transformer les vitesses
             try:
-                # Récupérer la transformation entre les frames
+                # Récupérer la transformation entre les frames avec timeout spécifié
                 now = rclpy.time.Time()
                 transform = self.tf_buffer.lookup_transform(
                     self.robot_frame_ids[robot_name],  # Frame cible (robot)
                     self.global_frame_id,  # Frame source (globale)
                     now,
-                    timeout=rclpy.duration.Duration(seconds=0.05)
+                    timeout=rclpy.duration.Duration(seconds=timeout)
                 )
                 
-                # Si TF2 fonctionne, loguer une confirmation
+                # Si TF2 fonctionne, loguer une confirmation (uniquement la première fois)
                 if not self.tf2_working[robot_name]:
                     self.tf2_working[robot_name] = True
                     self.get_logger().info(f'{robot_name}: Transformation TF2 réussie entre {self.global_frame_id} et {self.robot_frame_ids[robot_name]}')
@@ -304,27 +315,26 @@ class VRPNTeleop(Node):
                 robot_vel = tf2_geometry_msgs.do_transform_vector3(global_vel, transform)
                 
                 # Retourner les vitesses transformées
-                return robot_vel.x, robot_vel.y, global_ang_z
+                return robot_vel.vector.x, robot_vel.vector.y, global_ang_z
                 
             except TransformException as ex:
-                # Si TF2 échoue, loguer une erreur et passer au fallback manuel
+                # Si TF2 échoue, loguer une erreur détaillée (mais pas trop souvent)
                 if self.tf2_working[robot_name]:
                     self.tf2_working[robot_name] = False
                     self.get_logger().error(f'{robot_name}: Échec de la transformation TF2 : {ex}')
-                    self.get_logger().info(f'{robot_name}: Utilisation de la transformation manuelle basée sur les données VRPN')
                 
-                # Fallback manuel
-                return self.manual_transform_velocity(global_lin_x, global_lin_y, global_ang_z, robot_name)
+                # Si pas de transformation disponible, retourner les vitesses globales
+                return global_lin_x, global_lin_y, global_ang_z
             
         except Exception as e:
-            # Loguer toute autre erreur
+            # Loguer toute autre erreur (mais pas trop souvent)
             self.get_logger().error(f'{robot_name}: Erreur dans transform_velocity : {e}')
             return global_lin_x, global_lin_y, global_ang_z
 
     def spin_thread(self):
-        """Thread pour exécuter rclpy.spin."""
+        """Thread pour exécuter rclpy.spin avec délai réduit."""
         while self.running:
-            rclpy.spin_once(self, timeout_sec=0.01)
+            rclpy.spin_once(self, timeout_sec=0.005)  # Réduire à 5ms
 
     def run(self):
         spin_thread = threading.Thread(target=self.spin_thread)
@@ -340,21 +350,27 @@ class VRPNTeleop(Node):
                 if key in key_mapping:
                     global_dx, global_dy, _, global_dth = key_mapping[key]
                     
-                    self.get_logger().info(
-                        f'Commande globale: linear.x={global_dx*0.5}, linear.y={global_dy*0.5}, angular.z={global_dth*1.0}'
+                    # Log réduit pour moins encombrer la console
+                    self.get_logger().debug(
+                        f'Commande globale: linear.x={global_dx}, linear.y={global_dy}, angular.z={global_dth}'
                     )
                     
                     # Dispatch des commandes aux threads individuels des robots
-                    for robot_name in ROBOT_NAMES:
-                        self.robot_threads[robot_name].send_command(global_dx, global_dy, global_dth)
+                    # Traiter Porthos en premier pour réduire sa latence
+                    robot_order = ["Porthos", "Aramis", "Athos"] if "Porthos" in ROBOT_NAMES else ROBOT_NAMES
+                    for robot_name in robot_order:
+                        if robot_name in self.robot_threads:
+                            self.robot_threads[robot_name].send_command(global_dx, global_dy, global_dth)
                         
                 elif key:  # Si une touche non définie est pressée
                     # Envoyer une commande d'arrêt à tous les robots
                     for robot_name in ROBOT_NAMES:
-                        self.get_logger().info(f'{robot_name}: Arrêt')
                         self.robot_threads[robot_name].send_command(0, 0, 0)
                         
                 # Si aucune touche n'est pressée, ne rien envoyer
+                # Ajouter un court délai pour réduire l'utilisation CPU
+                time.sleep(0.005)
+        
         except Exception as e:
             self.get_logger().error(f'Erreur: {e}')
         finally:
