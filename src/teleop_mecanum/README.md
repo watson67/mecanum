@@ -47,18 +47,7 @@ Téléopération de tous les robots dans le repère global. Utilise des threads 
 ros2 run teleop_mecanum tf2_teleop_all
 ```
 
-### 5. follower_mecanum et follower_mecanum_test
-
-Implémentation d'un comportement de suivi où Athos suit Aramis en maintenant une distance constante.
-
-**Commande pour lancer :**
-```bash
-ros2 run teleop_mecanum follower_mecanum
-# ou
-ros2 run teleop_mecanum follower_mecanum_test
-```
-
-### 7. teleop_dualshock
+### 6. teleop_dualshock
 
 Contrôle d'un robot en utilisant une manette DualShock 4.
 
