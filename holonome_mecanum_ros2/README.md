@@ -15,7 +15,7 @@ https://emanual.robotis.com/docs/en/parts/controller/opencr10/
 
 Ouvrir le le programme `holonome_mecanum_ros2.ino` dans l'IDE Arduino puis téléverser le programme. 
 
-**Note : ** `holonome_mecanum_ros2.ino` doit se trouver dans un dossier contenant également : 
+**Note :**, `holonome_mecanum_ros2.ino` doit se trouver dans un dossier contenant également : 
 - `turtlebot3_mecanum_motor_driver.cpp`
 - `turtlebot3_mecanum_motor_driver.h`
 - `turtlebot3_mecanum.h`

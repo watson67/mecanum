@@ -58,8 +58,8 @@ Pour changer le **ROS_DOMAIN_ID**, utiliser la commande suivante :
   export ROS_DOMAIN_ID=10
   ```
 Mettre un nombre différent du ROS_DOMAIN_ID des terminaux communiquant avec les robots réels
----
 
+---
 ## Notes
 - Tous les packages nécessitent ROS2 (testé avec Humble).
 - Certains packages, comme `leader_follower` et `consensus`, nécessitent un système de Motion Capture pour fonctionner correctement.
