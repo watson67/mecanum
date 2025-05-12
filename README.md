@@ -11,7 +11,7 @@ git clone https://github.com/watson/mecanum.git
 Puis, se placer dans le dossier cloné, et *build* :
 
 ```bash
-cd mecanum
+cd ~/mecanum
 colcon build
 source install/setup.bash
 ```
@@ -24,7 +24,7 @@ echo "source ~/mecanum/install/setup.bash" >> ~/.bashrc
 
 Si cela ne fonctionne pas, essayer : 
 ```bash
-cd mecanum/src
+cd ~/mecanum/src
 colcon build
 source install/setup.bash
 ```
