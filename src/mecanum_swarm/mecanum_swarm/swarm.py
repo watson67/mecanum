@@ -1,47 +1,58 @@
+#!/usr/bin/env python3
+
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from rclpy.qos import QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Int32
 import math
 import tf2_ros
-from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import TransformStamped, Point
+# Import formules.py
+from mecanum_swarm.formules import *
 
-ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
-GLOBAL_FRAME = "mocap"
+'''
+Ce programme est un contrôleur d'essaim de robots utilisant ROS2.
+Il suit le papier suivant :
+"Consensus-based formation control and obstacle avoidance for nonholonomic 
+multi-robot system"  (Daravuth Koung; Isabelle Fantoni; Olivier Kermorgant; 
+Lamia Belouaer )
+'''
 
-qos_profile = QoSProfile(
-    reliability=ReliabilityPolicy.BEST_EFFORT,
-    depth=10
-)
+#--------------------------------------------------------------------
+# Variables globales
+#--------------------------------------------------------------------
+# Liste des noms des robots
+ROBOT_NAMES = ["Aramis", "Athos", "Porthos"] # Possibilité d'ajouter d'autres robots
+GLOBAL_FRAME = "mocap" # nom du repère global, celui ci est défini dans tf2_manager
+#--------------------------------------------------------------------
 
 class SwarmController(Node):
     def __init__(self):
         super().__init__('swarm_controller')
-        self.pose_data = {}
-        self.last_cmd_vel = Twist()
-        self.last_barycenter = None
+
+        #--------------------------------------------------------------------
+        # Variables TF2 pour les positions des robots 
+        #--------------------------------------------------------------------
+
+        self.tf_buffer = tf2_ros.Buffer() # Buffer pour stocker les transformations
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self) # Listener pour recevoir les transformations
+
+        #--------------------------------------------------------------------
+        # Publishers 
+        #--------------------------------------------------------------------
+
+        # Publishers pour piloter chaque robot
         self.cmd_vel_publishers = {}
-
-        self.formation_offsets = None
-        self.barycenter_yaw = 0.0
-        self.offsets_initialized = False
-        self.init_time = None
-        self.formation_yaw_offset = None
-
-        # contrôle via /master et /formation
-        self.active = False
-        self.formation_recorded = False
-
-        # TF2
-        self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
-
         for name in ROBOT_NAMES:
             self.cmd_vel_publishers[name] = self.create_publisher(
                 Twist, f"/{name}/cmd_vel", 10
             )
 
+        #--------------------------------------------------------------------
+        # Subscribers 
+        #--------------------------------------------------------------------
+
+        # Souscription au topic de pilotage de l'essaim
         self.create_subscription(
             Twist,
             "/Swarm/cmd_vel",
@@ -49,7 +60,7 @@ class SwarmController(Node):
             10
         )
 
-        # Souscription au topic /master (active/désactive le contrôle)
+        # Souscription au topic de contrôle de l'essaim (arret ou démarrage)
         self.create_subscription(
             Int32,
             "/master",
@@ -57,336 +68,226 @@ class SwarmController(Node):
             10
         )
 
-        # Souscription au topic /formation (déclenche l'enregistrement de la formation)
-        self.create_subscription(
-            Int32,
-            "/formation",
-            self.formation_callback,
-            10
-        )
+        #--------------------------------------------------------------------
+        # Variables de classe 
+        #--------------------------------------------------------------------
 
-        self.create_timer(0.05, self.control_loop)  # 20 Hz
+        self.active = False
 
-        # Variables pour le contrôle de la rotation
-        self.current_cmd_vel = Twist()  # Commande actuelle (pas forcément la dernière reçue)
-        self.cmd_vel_timeout = 0.5  # Temps en secondes après lequel on considère qu'il n'y a plus de commande
-        self.last_cmd_time = None
+        # Paramètres de contrôle de consensus
+        self.Kp = 0.2   # Gain proportionnel
+        self.Ki = 0.05  # Gain intégral
+        
+        # Les distances initiales entre les robots seront retenues
+        self.desired_distances = {}  # tableau pour stocker les distances désirées entre les paires de robots
+        
+        # Cache des positions des robots
+        self.robot_positions = [{'x': 0, 'y': 0} for _ in ROBOT_NAMES]
+        
+        # Point de but pour l'essaim
+        self.goal_point = (0, 0)
+        self.goal_point_set = False  # Ajouter un flag pour vérifier si un but a été défini
+        
+        # La formation désirée sera définie en fonction des positions initiales
+        self.desired_formation = None
+        self.formation_initialized = False
+        
+        # Stockage des termes intégraux pour chaque robot
+        self.integral_terms = [None for _ in ROBOT_NAMES]
+        
+        # Pas de temps pour l'intégration
+        self.dt = 0.1
 
-        # Variables pour le contrôle de la stabilité
-        self.robots_initial_poses = None  # Pour stocker les positions initiales exactes des robots
-        self.stabilization_phase = False  # Indique si nous sommes dans la phase de stabilisation
-        self.stabilization_duration = 2.0  # Durée de la phase de stabilisation en secondes
-        self.stabilization_start_time = None
+        # Timer pour l'affichage périodique des positions et le contrôle
+        self.create_timer(self.dt, self.timer_callback)
+
+    #--------------------------------------------------------------------
+    # callbacks pour le topic de contrôle /master
+    #--------------------------------------------------------------------
 
     def master_callback(self, msg):
-        was_active = self.active
+        ''' 
+        Callback pour le topic de contrôle
+
+        Si 1 est reçu, le contrôle de consensus est activé.
+        Si 0 est reçu, le contrôle de consensus est désactivé et tous les robots sont arrêtés.
+        Penser à lancer le noeud swarm_master.py dans un autre terminal avant de lancer celui-ci.
+        
+        :param msg: message reçu
+        '''
         self.active = (msg.data == 1)
-        
-        if self.active and not was_active:
-            self.get_logger().info("Contrôle actif - Démarrage de la phase de stabilisation")
-            # Réinitialiser les commandes de vitesse pour éviter les mouvements non désirés
-            self.current_cmd_vel = Twist()
-            self.last_cmd_vel = Twist()
-            
-            # Activer la phase de stabilisation
-            self.stabilization_phase = True
-            self.stabilization_start_time = self.get_clock().now()
-            
-            # Capturer les positions initiales exactes des robots
-            self.robots_initial_poses = {}
-            for name in ROBOT_NAMES:
-                pose = self.get_robot_pose(name)
-                if pose is not None:
-                    self.robots_initial_poses[name] = pose
-        
-        elif not self.active and was_active:
+        if self.active:
+            self.get_logger().info("Contrôle actif")
+        else:
             self.get_logger().info("Contrôle désactivé")
-            self.stabilization_phase = False
-            self.robots_initial_poses = None
+            # Arrêter tous les robots lorsque le contrôle est désactivé
+            self.stop_all_robots()
 
-    def formation_callback(self, msg):
-        # Si msg.data == 1, afficher la position et les distances une seule fois
-        if msg.data == 1 and not self.formation_recorded:
-            self.display_positions_and_distances()
-            self.record_formation()
-            self.formation_recorded = True
-        elif msg.data == 0:
-            self.formation_recorded = False
-            self.offsets_initialized = False
-            self.formation_offsets = None
-            self.formation_yaw_offset = None
-
-    def display_positions_and_distances(self):
-        # Récupère et affiche la position de chaque robot et les distances mutuelles
-        poses = []
-        for name in ROBOT_NAMES:
-            pose = self.get_robot_pose(name)
-            if pose is None:
-                self.get_logger().warn(f"Impossible d'obtenir la pose de {name} pour affichage formation.")
-                return
-            poses.append((name, pose))
-        # Affichage des positions
-        self.get_logger().info("Positions des robots pour la formation :")
-        for name, (x, y, q) in poses:
-            self.get_logger().info(f"{name}: x={x:.3f}, y={y:.3f}")
-        # Affichage des distances mutuelles
-        self.get_logger().info("Distances entre robots :")
-        for i in range(len(poses)):
-            for j in range(i+1, len(poses)):
-                name1, (x1, y1, _) = poses[i]
-                name2, (x2, y2, _) = poses[j]
-                dist = math.hypot(x2 - x1, y2 - y1)
-                self.get_logger().info(f"{name1} <-> {name2}: {dist:.3f} m")
-
-    def get_robot_pose(self, robot_name):
-        try:
-            trans: TransformStamped = self.tf_buffer.lookup_transform(
-                GLOBAL_FRAME, f"{robot_name}/base_link", rclpy.time.Time())
-            x = trans.transform.translation.x
-            y = trans.transform.translation.y
-            q = trans.transform.rotation
-            return x, y, q
-        except Exception as e:
-            self.get_logger().warn(f"TF2 lookup failed for {robot_name}: {e}")
-            return None
-
-    def record_formation(self):
-        poses = []
-        for name in ROBOT_NAMES:
-            pose = self.get_robot_pose(name)
-            if pose is None:
-                return
-            poses.append(pose)
-        x = round(sum(p[0] for p in poses) / len(poses), 6)
-        y = round(sum(p[1] for p in poses) / len(poses), 6)
-        self.formation_offsets = {}
-        for idx, name in enumerate(ROBOT_NAMES):
-            rx, ry, _ = poses[idx]
-            ox = rx - x
-            oy = ry - y
-            self.formation_offsets[name] = (ox, oy)
-        
-        # Calculer l'orientation moyenne des robots pour établir l'orientation initiale
-        yaw_sum = 0.0
-        for pose in poses:
-            q = pose[2]
-            yaw = self.quaternion_to_yaw(q.x, q.y, q.z, q.w)
-            yaw_sum += yaw
-        
-        avg_yaw = yaw_sum / len(poses)
-        self.formation_yaw_offset = avg_yaw
-        self.barycenter_yaw = avg_yaw  # Initialiser la direction du barycentre avec la moyenne
-        self.offsets_initialized = True
-        self.get_logger().info(f"Formation enregistrée: barycentre à ({x:.2f}, {y:.2f}), orientation: {self.barycenter_yaw:.2f}")
-
+    #--------------------------------------------------------------------
+    # callback pour le topic de pilotage de l'essaim /Swarm/cmd_vel
+    #--------------------------------------------------------------------
     def cmd_vel_callback(self, msg):
-        self.last_cmd_vel = msg
-        self.last_cmd_time = self.get_clock().now()
-        self.get_logger().debug(f"Reçu cmd_vel: vx={msg.linear.x:.2f}, vy={msg.linear.y:.2f}, wz={msg.angular.z:.2f}")
-
-    def control_loop(self):
-        # Ne rien faire si non actif
+        # A revoir
+        
         if not self.active:
+            # Si le contrôle n'est pas actif, ignorer les commandes
             return
 
-        # Vérifier si nous sommes en phase de stabilisation
-        if self.stabilization_phase:
-            current_time = self.get_clock().now()
-            if self.stabilization_start_time is not None:
-                elapsed = (current_time - self.stabilization_start_time).nanoseconds / 1e9
-                if elapsed >= self.stabilization_duration:
-                    self.stabilization_phase = False
-                    self.get_logger().info("Phase de stabilisation terminée - Contrôle normal activé")
-                else:
-                    # Pendant la phase de stabilisation, forcer les robots à rester sur leurs positions initiales
-                    self._apply_stabilization_control()
-                    return
+        # Mettre à jour le point de but en fonction de la commande reçue
+        # Mettre à l'échelle la vitesse linéaire pour définir un point de but dans la direction souhaitée
+        scale_factor = 5.0  # Ajuster si nécessaire
+        self.goal_point = (msg.linear.x * scale_factor, msg.linear.y * scale_factor)
+        self.goal_point_set = True  # Marquer que nous avons reçu une commande de but
+        self.get_logger().info(f"New goal point: {self.goal_point}")
 
-        # Vérifier si nous avons reçu des commandes récemment
-        current_time = self.get_clock().now()
-        if self.last_cmd_time is not None:
-            dt_since_cmd = (current_time - self.last_cmd_time).nanoseconds / 1e9
-            cmd_active = dt_since_cmd < self.cmd_vel_timeout
-        else:
-            cmd_active = False
+    #--------------------------------------------------------------------
+    # callback pour le timer
+    #--------------------------------------------------------------------
+    def timer_callback(self):
+        # Mettre à jour les positions des robots
+        self.update_robot_positions()
         
-        # Si aucune commande récente, utiliser une commande nulle
-        if cmd_active:
-            self.current_cmd_vel = self.last_cmd_vel
-        else:
-            # Réduire progressivement la vitesse si aucune commande n'est reçue
-            decay_factor = 0.8  # Facteur de décroissance
-            self.current_cmd_vel.linear.x *= decay_factor
-            self.current_cmd_vel.linear.y *= decay_factor
-            self.current_cmd_vel.angular.z *= decay_factor
+        # Initialiser la formation si ce n'est pas déjà fait
+        if not self.formation_initialized and all(pos['x'] != 0 or pos['y'] != 0 for pos in self.robot_positions):
+            self.initialize_formation()
+            self.formation_initialized = True
+            self.get_logger().info("Formation initialized ")
             
-            # Mettre à zéro les très petites valeurs
-            if abs(self.current_cmd_vel.linear.x) < 0.01: self.current_cmd_vel.linear.x = 0.0
-            if abs(self.current_cmd_vel.linear.y) < 0.01: self.current_cmd_vel.linear.y = 0.0
-            if abs(self.current_cmd_vel.angular.z) < 0.01: self.current_cmd_vel.angular.z = 0.0
+        # Appliquer le contrôle de consensus si actif
+        if self.active and self.formation_initialized:
+            self.apply_consensus_control()
 
-        poses = []
-        for name in ROBOT_NAMES:
-            pose = self.get_robot_pose(name)
-            if pose is None:
-                return
-            poses.append(pose)
-        x = sum(p[0] for p in poses) / len(poses)
-        y = sum(p[1] for p in poses) / len(poses)
-        self.last_barycenter = (x, y)
+    #--------------------------------------------------------------------
+    # Mise à jour des positions des robots
+    #--------------------------------------------------------------------
+    def update_robot_positions(self):
+        for i, robot_name in enumerate(ROBOT_NAMES): # Pour chaque robot
+            try:
+                trans: TransformStamped = self.tf_buffer.lookup_transform(
+                    GLOBAL_FRAME, f"{robot_name}/base_link", rclpy.time.Time()
+                ) # Obtenir la transformation du repère body du robot vers le repère global
+                pos = trans.transform.translation
+                self.robot_positions[i] = {'x': pos.x, 'y': pos.y}
 
-        # Enregistrer la formation uniquement si demandé via /formation
-        if not self.offsets_initialized and self.formation_recorded:
-            self.record_formation()
+                #self.get_logger().info(
+                #    f"{robot_name}: x={pos.x:.3f}, y={pos.y:.3f}, z={pos.z:.3f}"
+                # ) # Afficher la position du robot
 
-        # Ne rien faire tant que la formation n'est pas initialisée
-        if not self.offsets_initialized:
-            return
-
-        # Mise à jour de l'orientation du barycentre en fonction de la commande angulaire
-        dt = 0.05
-        vx = self.current_cmd_vel.linear.x
-        vy = self.current_cmd_vel.linear.y
-        wz = self.current_cmd_vel.angular.z
-        
-        # Ne mettre à jour l'orientation que si une commande angulaire significative est reçue
-        if abs(wz) > 0.01:
-            self.barycenter_yaw += wz * dt
-        
-        bx, by = self.last_barycenter
-
-        # Si aucune commande de mouvement, maintenir la position actuelle du barycentre
-        if abs(vx) < 0.01 and abs(vy) < 0.01 and abs(wz) < 0.01:
-            bx_target = bx
-            by_target = by
-        else:
-            # Conversion des vitesses dans le repère global
-            vx_global = vx * math.cos(self.barycenter_yaw) - vy * math.sin(self.barycenter_yaw)
-            vy_global = vx * math.sin(self.barycenter_yaw) + vy * math.cos(self.barycenter_yaw)
-            
-            # Mise à jour de la position cible du barycentre
-            bx_target = bx + vx_global * dt
-            by_target = by + vy_global * dt
-
-        # Log de debug uniquement si on a un mouvement significatif
-        if abs(vx) > 0.01 or abs(vy) > 0.01 or abs(wz) > 0.01:
-            self.get_logger().info(f"Barycentre: ({bx:.2f}, {by:.2f}) -> ({bx_target:.2f}, {by_target:.2f}), orientation: {self.barycenter_yaw:.2f}")
-
-        for idx, name in enumerate(ROBOT_NAMES):
-            rx, ry, q = poses[idx]
-            yaw = self.quaternion_to_yaw(q.x, q.y, q.z, q.w)
-
-            # Offset de formation pour ce robot (dans le repère du barycentre)
-            ox, oy = self.formation_offsets[name]
-            # Rotation de l'offset selon l'orientation du barycentre actuelle
-            oxg = math.cos(self.barycenter_yaw) * ox - math.sin(self.barycenter_yaw) * oy
-            oyg = math.sin(self.barycenter_yaw) * ox + math.cos(self.barycenter_yaw) * oy
-
-            # Position cible pour ce robot
-            tx = bx_target + oxg
-            ty = by_target + oyg
-
-            # Erreur dans le repère global
-            ex = tx - rx
-            ey = ty - ry
-
-            # Transformation de l'erreur dans le repère local du robot
-            ex_local = math.cos(-yaw) * ex - math.sin(-yaw) * ey
-            ey_local = math.sin(-yaw) * ex + math.cos(-yaw) * ey
-
-            # Calcul d'erreur angulaire pour l'orientation des robots
-            target_yaw = self.barycenter_yaw
-            yaw_error = self.normalize_angle(target_yaw - yaw)
-            
-            cmd = Twist()
-            
-            # Gain proportionnel adaptatif: plus petit pour des petites erreurs
-            # pour éviter les oscillations
-            error_magnitude = math.sqrt(ex_local**2 + ey_local**2)
-            if error_magnitude < 0.05:  # Si l'erreur est très petite
-                Kp = 0.8  # Gain plus faible pour stabiliser
-            else:
-                Kp = 1.5  # Gain normal pour des mouvements plus importants
-                
-            cmd.linear.x = Kp * ex_local
-            cmd.linear.y = Kp * ey_local
-            
-            # Contrôle d'orientation avec gain adaptatif selon la situation
-            if abs(wz) > 0.01:  # Si une commande angulaire est active
-                cmd.angular.z = wz  # Appliquer directement la commande
-            else:
-                # Gain plus faible pour le maintien de l'orientation quand pas de commande
-                # et adaptation selon l'erreur angulaire pour éviter les oscillations
-                if abs(yaw_error) < 0.1:  # 5.7 degrés environ
-                    K_yaw = 0.3  # Très faible pour éviter les micro-oscillations
-                else:
-                    K_yaw = 0.5  # Gain modéré pour les corrections plus importantes
-                cmd.angular.z = K_yaw * yaw_error
-            
-            self.cmd_vel_publishers[name].publish(cmd)
-
-    def _apply_stabilization_control(self):
+            except Exception as e:
+                self.get_logger().warn(
+                    f"Echec TF2 {robot_name}: {e}"
+                )
+    #--------------------------------------------------------------------
+    # Calcul du contrôle de consensus
+    #--------------------------------------------------------------------
+    def initialize_formation(self):
         """
-        Applique un contrôle strict pour maintenir les robots sur leurs positions initiales
-        pendant la phase de stabilisation.
+        Initialise la formation désirée basée sur les positions actuelles des robots
+        et capture les distances initiales entre robots
         """
-        if not self.robots_initial_poses:
-            return
-            
-        for name in ROBOT_NAMES:
-            if name not in self.robots_initial_poses:
-                continue
+        # Calculer le centre de l'essaim
+        center = self.compute_swarm_center()
+        
+        # Calculer les positions relatives par rapport au centre
+        self.desired_formation = []
+        for pos in self.robot_positions:
+            rel_x = pos['x'] 
+            rel_y = pos['y']
+            self.desired_formation.append((rel_x, rel_y))
+        
+        # Calculer et stocker les distances initiales entre chaque paire de robots
+        for i in range(len(ROBOT_NAMES)):
+            for j in range(i+1, len(ROBOT_NAMES)):  # Stocker chaque paire une seule fois
+                pos_i = self.robot_positions[i]
+                pos_j = self.robot_positions[j]
                 
-            # Récupérer la position actuelle et la position initiale
-            current_pose = self.get_robot_pose(name)
-            if current_pose is None:
-                continue
+                # Calculer la distance entre les robots i et j
+                dist = math.sqrt((pos_i['x'] - pos_j['x'])**2 + (pos_i['y'] - pos_j['y'])**2)
                 
-            initial_pose = self.robots_initial_poses[name]
-            rx, ry, _ = current_pose
-            target_x, target_y, q_initial = initial_pose
-            
-            # Orientation actuelle et initiale
-            current_yaw = self.quaternion_to_yaw(current_pose[2].x, current_pose[2].y, current_pose[2].z, current_pose[2].w)
-            initial_yaw = self.quaternion_to_yaw(q_initial.x, q_initial.y, q_initial.z, q_initial.w)
-            
-            # Erreur dans le repère global
-            ex = target_x - rx
-            ey = target_y - ry
-            
-            # Transformation de l'erreur dans le repère local du robot
-            ex_local = math.cos(-current_yaw) * ex - math.sin(-current_yaw) * ey
-            ey_local = math.sin(-current_yaw) * ex + math.cos(-current_yaw) * ey
-            
-            # Erreur d'orientation
-            yaw_error = self.normalize_angle(initial_yaw - current_yaw)
-            
-            # Appliquer un contrôle forte pour stabiliser rapidement
-            cmd = Twist()
-            Kp_stab = 2.0  # Gain fort pour la stabilisation
-            K_yaw_stab = 1.0  # Gain fort pour l'orientation
-            
-            cmd.linear.x = Kp_stab * ex_local
-            cmd.linear.y = Kp_stab * ey_local
-            cmd.angular.z = K_yaw_stab * yaw_error
-            
-            self.cmd_vel_publishers[name].publish(cmd)
+                self.desired_distances[(i, j)] = dist
+                self.desired_distances[(j, i)] = dist  # Stocker les deux directions
+        
+        self.get_logger().info(f"Desired formation set to initial positions: {self.desired_formation}")
+        self.get_logger().info(f"Initial inter-robot distances captured: {self.desired_distances}")
 
-    @staticmethod
-    def quaternion_to_yaw(x, y, z, w):
-        # Conversion quaternion -> yaw
-        siny_cosp = 2.0 * (w * z + x * y)
-        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-        return math.atan2(siny_cosp, cosy_cosp)
-    
-    @staticmethod
-    def normalize_angle(angle):
-        # Normalise un angle entre -π et π
-        while angle > math.pi:
-            angle -= 2.0 * math.pi
-        while angle < -math.pi:
-            angle += 2.0 * math.pi
-        return angle
+    def compute_swarm_center(self):
+        """
+        Calcule le centre de masse de l'essaim
+        
+        :return: Coordonnées du centre (x, y)
+        """
+        total_x = sum(robot['x'] for robot in self.robot_positions)
+        total_y = sum(robot['y'] for robot in self.robot_positions)
+        return [total_x / len(self.robot_positions), total_y / len(self.robot_positions)]
+
+    def apply_consensus_control(self):
+        """
+        Applique le contrôle de consensus à tous les robots en utilisant
+        la fonction control importée de formules.py
+        """
+        # Calcul du centre de masse actuel comme référence
+        swarm_center = self.compute_swarm_center()
+        
+        # Point de référence (pr) - utiliser le but ou le centre de l'essaim si pas de but
+        pr = np.array(self.goal_point) if self.goal_point_set else np.array(swarm_center)
+        
+        # Pour chaque robot
+        for i, robot_name in enumerate(ROBOT_NAMES):
+            # Position du robot courant (pi)
+            pi = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
+            
+            # Liste des positions des voisins (pj_array)
+            pj_array = []
+            # Liste des distances désirées aux voisins (dij_list)
+            dij_list = []
+            
+            # Pour chaque voisin j du robot i
+            for j, neighbor_name in enumerate(ROBOT_NAMES):
+                if j != i:  # Exclure le robot lui-même
+                    # Position du voisin j
+                    pj = np.array([self.robot_positions[j]['x'], self.robot_positions[j]['y']])
+                    pj_array.append(pj)
+                    
+                    # Distance désirée entre i et j (utiliser la distance initiale ou une valeur par défaut)
+                    dij = self.desired_distances.get((i, j), 2.0)  # Valeur par défaut si non trouvée
+                    dij_list.append(dij)
+            
+            # Appliquer la fonction de contrôle
+            control_vector, updated_integral = control(
+                pj_array=pj_array,
+                pi=pi,
+                dij_list=dij_list,
+                pr=pr,
+                dt=self.dt,
+                integral_term=self.integral_terms[i]
+            )
+            
+            # Mettre à jour le terme intégral pour ce robot
+            self.integral_terms[i] = updated_integral
+            
+            # Conversion en message Twist
+            twist_msg = Twist()
+            twist_msg.linear.x = float(control_vector[0])
+            twist_msg.linear.y = float(control_vector[1])
+            
+            # Limiter la vitesse
+            max_speed = 0.14  # m/s
+            speed = math.sqrt(twist_msg.linear.x**2 + twist_msg.linear.y**2)
+            if speed > max_speed:
+                scaling = max_speed / speed
+                twist_msg.linear.x *= scaling
+                twist_msg.linear.y *= scaling
+            
+            # Publier la commande
+            self.cmd_vel_publishers[robot_name].publish(twist_msg)
+            self.get_logger().info(f"Robot {robot_name}: control vector = {control_vector}")
+
+    def stop_all_robots(self):
+        # Créer une commande de vitesse nulle
+        stop_cmd = Twist()
+        # Publier à tous les robots
+        for robot_name in ROBOT_NAMES:
+            self.cmd_vel_publishers[robot_name].publish(stop_cmd)
 
 def main(args=None):
     rclpy.init(args=args)

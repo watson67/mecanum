@@ -25,6 +25,7 @@ setup(
             'spawn_3turtles = turtle_swarm.spawn_3turtles:main',
             'pose_conversion = turtle_swarm.pose_conversion:main',
             'pose_conversion2 = turtle_swarm.pose_conversion2:main',
+            'turtle_resetter = turtle_swarm.reset_swarm:main',
             'consensus = turtle_swarm.consensus:main',
         ],
     },
