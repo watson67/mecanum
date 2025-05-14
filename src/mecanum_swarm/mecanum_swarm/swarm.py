@@ -6,7 +6,9 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Int32
 import math
 import tf2_ros
-from geometry_msgs.msg import TransformStamped, Point
+from geometry_msgs.msg import TransformStamped, Point, Vector3Stamped
+import tf2_geometry_msgs
+from tf2_ros import TransformException
 # Import formules.py
 from mecanum_swarm.formules import *
 
@@ -24,6 +26,8 @@ Lamia Belouaer )
 # Liste des noms des robots
 ROBOT_NAMES = ["Aramis", "Athos", "Porthos"] # Possibilité d'ajouter d'autres robots
 GLOBAL_FRAME = "mocap" # nom du repère global, celui ci est défini dans tf2_manager
+
+
 #--------------------------------------------------------------------
 
 class SwarmController(Node):
@@ -73,19 +77,15 @@ class SwarmController(Node):
         #--------------------------------------------------------------------
 
         self.active = False
-
-        # Paramètres de contrôle de consensus
-        self.Kp = 0.2   # Gain proportionnel
-        self.Ki = 0.05  # Gain intégral
         
         # Les distances initiales entre les robots seront retenues
         self.desired_distances = {}  # tableau pour stocker les distances désirées entre les paires de robots
         
-        # Cache des positions des robots
+        # Positions des robots
         self.robot_positions = [{'x': 0, 'y': 0} for _ in ROBOT_NAMES]
         
-        # Point de but pour l'essaim
-        self.goal_point = (0, 0)
+        # Objectifs de l'essaim
+        self.goal_point = (0.5,-0.5)
         self.goal_point_set = False  # Ajouter un flag pour vérifier si un but a été défini
         
         # La formation désirée sera définie en fonction des positions initiales
@@ -127,18 +127,28 @@ class SwarmController(Node):
     # callback pour le topic de pilotage de l'essaim /Swarm/cmd_vel
     #--------------------------------------------------------------------
     def cmd_vel_callback(self, msg):
-        # A revoir
-        
+        """
+        Callback pour le topic de pilotage de l'essaim via cmd_vel.
+        Utilise les vitesses reçues pour déplacer l'essaim dans la direction souhaitée.
+        """
         if not self.active:
             # Si le contrôle n'est pas actif, ignorer les commandes
             return
 
-        # Mettre à jour le point de but en fonction de la commande reçue
-        # Mettre à l'échelle la vitesse linéaire pour définir un point de but dans la direction souhaitée
-        scale_factor = 5.0  # Ajuster si nécessaire
-        self.goal_point = (msg.linear.x * scale_factor, msg.linear.y * scale_factor)
-        self.goal_point_set = True  # Marquer que nous avons reçu une commande de but
-        self.get_logger().info(f"New goal point: {self.goal_point}")
+        # Obtenir le centre actuel de l'essaim
+        current_center = self.compute_swarm_center()
+        
+        # Calculer l'offset basé sur la vitesse reçue
+        # Plus la vitesse est élevée, plus l'offset sera grand
+        velocity_scale = 2.0  # Facteur d'échelle pour convertir la vitesse en distance
+        offset_x = msg.linear.x * velocity_scale
+        offset_y = msg.linear.y * velocity_scale
+        
+        
+        self.goal_point = (current_center[0] + offset_x, current_center[1] + offset_y)
+        self.goal_point_set = True
+        
+        self.get_logger().info(f"goal point set to: {self.goal_point}")
 
     #--------------------------------------------------------------------
     # callback pour le timer
@@ -216,9 +226,72 @@ class SwarmController(Node):
         
         :return: Coordonnées du centre (x, y)
         """
-        total_x = sum(robot['x'] for robot in self.robot_positions)
-        total_y = sum(robot['y'] for robot in self.robot_positions)
-        return [total_x / len(self.robot_positions), total_y / len(self.robot_positions)]
+        try:
+            trans: TransformStamped = self.tf_buffer.lookup_transform(
+                GLOBAL_FRAME, f"barycenter", rclpy.time.Time()
+            ) # Obtenir la transformation du repère body du robot vers le repère global
+            pos = trans.transform.translation
+
+            #self.get_logger().info(
+            #    f"barycentre : x={pos.x:.3f}, y={pos.y:.3f}, z={pos.z:.3f}"
+            #    ) # Afficher la position du robot
+            return [pos.x, pos.y]
+        except Exception as e:
+            self.get_logger().warn(
+                f"Echec TF2 barycentre {e}"
+            )
+            total_x = sum(robot['x'] for robot in self.robot_positions)
+            total_y = sum(robot['y'] for robot in self.robot_positions)
+            return [total_x / len(self.robot_positions), total_y / len(self.robot_positions)]
+     
+
+    def transform_velocity(self, global_lin_x, global_lin_y, robot_name):
+        """
+        Transforme les vitesses du repère global au repère du robot en utilisant TF2.
+        
+        :param global_lin_x: Composante x de la vitesse dans le repère global
+        :param global_lin_y: Composante y de la vitesse dans le repère global
+        :param robot_name: Nom du robot pour lequel transformer la vitesse
+        :return: Tuple (robot_lin_x, robot_lin_y) contenant les vitesses dans le repère du robot
+        """
+        try:
+            # Convertir les entrées en float
+            global_lin_x = float(global_lin_x)
+            global_lin_y = float(global_lin_y)
+            
+            # Créer un vecteur estampillé pour représenter la vitesse globale
+            global_vel = Vector3Stamped()
+            global_vel.header.frame_id = GLOBAL_FRAME
+            global_vel.header.stamp = self.get_clock().now().to_msg()
+            global_vel.vector.x = global_lin_x
+            global_vel.vector.y = global_lin_y
+            global_vel.vector.z = 0.0
+            
+            # Récupérer la transformation entre les frames
+            try:
+                now = rclpy.time.Time()
+                robot_frame_id = f"{robot_name}/base_link"
+                
+                transform = self.tf_buffer.lookup_transform(
+                    robot_frame_id,            # Frame cible (robot)
+                    GLOBAL_FRAME,              # Frame source (globale)
+                    now,                       # Temps de la transformation
+                    timeout=rclpy.duration.Duration(seconds=0.1)
+                )
+                
+                # Appliquer la transformation à la vitesse globale
+                robot_vel = tf2_geometry_msgs.do_transform_vector3(global_vel, transform)
+                
+                return robot_vel.vector.x, robot_vel.vector.y
+                #return global_lin_x, global_lin_y
+            except TransformException as ex:
+                self.get_logger().error(f'Échec de la transformation TF2 pour {robot_name}: {ex}')
+                self.get_logger().info(f'Utilisation des vitesses globales par défaut')
+                return global_lin_x, global_lin_y
+            
+        except Exception as e:
+            self.get_logger().error(f'Erreur dans transform_velocity: {e}')
+            return global_lin_x, global_lin_y
 
     def apply_consensus_control(self):
         """
@@ -229,8 +302,13 @@ class SwarmController(Node):
         swarm_center = self.compute_swarm_center()
         
         # Point de référence (pr) - utiliser le but ou le centre de l'essaim si pas de but
-        pr = np.array(self.goal_point) if self.goal_point_set else np.array(swarm_center)
-        
+        pr = np.array(self.goal_point) #if self.goal_point_set else np.array(swarm_center)
+        self.get_logger().info(
+                f"Goal point : X:{pr[0]:.3f} ; Y:{pr[1]:.3f}"
+            )
+        self.get_logger().info(
+                f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
+            )
         # Pour chaque robot
         for i, robot_name in enumerate(ROBOT_NAMES):
             # Position du robot courant (pi)
@@ -248,7 +326,7 @@ class SwarmController(Node):
                     pj = np.array([self.robot_positions[j]['x'], self.robot_positions[j]['y']])
                     pj_array.append(pj)
                     
-                    # Distance désirée entre i et j (utiliser la distance initiale ou une valeur par défaut)
+                    # Distance désirée entre i et j (utiliser la distance initiale)
                     dij = self.desired_distances.get((i, j), 2.0)  # Valeur par défaut si non trouvée
                     dij_list.append(dij)
             
@@ -265,10 +343,17 @@ class SwarmController(Node):
             # Mettre à jour le terme intégral pour ce robot
             self.integral_terms[i] = updated_integral
             
-            # Conversion en message Twist
+            # Transformer les vitesses du repère global au repère du robot
+            robot_lin_x, robot_lin_y = self.transform_velocity(
+                control_vector[0], 
+                control_vector[1],
+                robot_name
+            )
+            
+            # Conversion en message Twist avec les vitesses transformées
             twist_msg = Twist()
-            twist_msg.linear.x = float(control_vector[0])
-            twist_msg.linear.y = float(control_vector[1])
+            twist_msg.linear.x = float(robot_lin_x)
+            twist_msg.linear.y = float(robot_lin_y)
             
             # Limiter la vitesse
             max_speed = 0.14  # m/s
@@ -280,7 +365,10 @@ class SwarmController(Node):
             
             # Publier la commande
             self.cmd_vel_publishers[robot_name].publish(twist_msg)
-            self.get_logger().info(f"Robot {robot_name}: control vector = {control_vector}")
+            self.get_logger().info(
+                f"Robot {robot_name}: Global:{control_vector[0]:.3f},{control_vector[1]:.3f} -> Robot:{twist_msg.linear.x:.3f},{twist_msg.linear.y:.3f}"
+            )
+            
 
     def stop_all_robots(self):
         # Créer une commande de vitesse nulle

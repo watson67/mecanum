@@ -20,10 +20,9 @@ a = 1
 b = 1
 e = abs(a-b)/math.sqrt(4*a*b)
 Kp = 0.2
-Kd = 0.05
-Ki = 0.3  # Gain for integral term
-x_min = 0.5
-x_max = 1.5
+Ki = 0.05  
+x_min = 0.3
+x_max = 2
 
 def sigma_norm(z):
     """
@@ -41,7 +40,7 @@ def sigma_epsilon(z):
     z / (1 + epsilon*sigma_norm(epsilon,z))
 
     """
-    return z / (1 + epsilon*sigma_norm(z))
+    return z / (1 + epsilon * sigma_norm(z))
 
 def rho_h(s):
     """
@@ -60,7 +59,7 @@ def rho_h(s):
         return 0
     
 def sigma_1(s):
-    return s/math.sqrt(1+s**2)
+    return s/math.sqrt(1+s*s)
 
 def phi_alpha(s,d):
     """
@@ -110,7 +109,8 @@ def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_ter
         
         # Appliquer l'intégrale au contrôle
         ui_alpha += Kp * phi_alpha(sigma_norm(pj-pi),dij) * nij(pj,pi) + Ki * integral_term[idx]
-    ui_gamma + -sat(c1_gamma * (pi - pr))
+    ui_gamma = -(c1_gamma * (pi - pr))
+
 
     return ui_alpha + ui_gamma, integral_term
 
