@@ -3,12 +3,14 @@ log/
 build/
 install/
 
-# Logs ROS2
 src/log/
+src/build/
+src/install/
 
 # Fichiers temporaires
 *.log
 *.pyc
+*.slx
 __pycache__/
 
 # VSCode ou autres éditeurs

@@ -11,20 +11,7 @@ git clone https://github.com/watson/mecanum.git
 Puis, se placer dans le dossier cloné, et *build* :
 
 ```bash
-cd ~/mecanum
-colcon build
-source install/setup.bash
-```
-
-Pour ne pas avoir à sourcer le fichier `setup.bash` à chaque ouverture de terminal, utiliser la commande suivante :
-
-```bash
-echo "source ~/mecanum/install/setup.bash" >> ~/.bashrc
-```
-
-Si cela ne fonctionne pas, essayer : 
-```bash
-cd ~/mecanum/src
+cd ~/mecanum/src/
 colcon build
 source install/setup.bash
 ```
