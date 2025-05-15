@@ -2,11 +2,11 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Point
 from std_msgs.msg import Int32
 import math
 import tf2_ros
-from geometry_msgs.msg import TransformStamped, Point, Vector3Stamped
+from geometry_msgs.msg import TransformStamped, Vector3Stamped
 import tf2_geometry_msgs
 from tf2_ros import TransformException
 # Import formules.py
@@ -51,24 +51,29 @@ class SwarmController(Node):
             self.cmd_vel_publishers[name] = self.create_publisher(
                 Twist, f"/{name}/cmd_vel", 10
             )
+            
+        # Publisher pour indiquer si la cible est atteinte
+        self.target_reached_publisher = self.create_publisher(
+            Int32, "/target_reached", 10
+        )
 
         #--------------------------------------------------------------------
         # Subscribers 
         #--------------------------------------------------------------------
-
-        # Souscription au topic de pilotage de l'essaim
-        self.create_subscription(
-            Twist,
-            "/Swarm/cmd_vel",
-            self.cmd_vel_callback,
-            10
-        )
 
         # Souscription au topic de contrôle de l'essaim (arret ou démarrage)
         self.create_subscription(
             Int32,
             "/master",
             self.master_callback,
+            10
+        )
+
+        # Souscription au topic de position cible
+        self.create_subscription(
+            Point,
+            "/goal_point",
+            self.goal_point_callback,
             10
         )
 
@@ -85,8 +90,8 @@ class SwarmController(Node):
         self.robot_positions = [{'x': 0, 'y': 0} for _ in ROBOT_NAMES]
         
         # Objectifs de l'essaim
-        self.goal_point = (0.5,-0.5)
-        self.goal_point_set = False  # Ajouter un flag pour vérifier si un but a été défini
+        self.goal_point = (0.0,0.0)
+        self.goal_point_set = True  # Ajouter un flag pour vérifier si un but a été défini
         
         # La formation désirée sera définie en fonction des positions initiales
         self.desired_formation = None
@@ -97,6 +102,12 @@ class SwarmController(Node):
         
         # Pas de temps pour l'intégration
         self.dt = 0.1
+        
+        # Tolérance pour considérer que la cible est atteinte (en mètres)
+        self.target_tolerance = 0.15
+        
+        # État actuel d'atteinte de la cible
+        self.is_target_reached_state = False
 
         # Timer pour l'affichage périodique des positions et le contrôle
         self.create_timer(self.dt, self.timer_callback)
@@ -124,33 +135,6 @@ class SwarmController(Node):
             self.stop_all_robots()
 
     #--------------------------------------------------------------------
-    # callback pour le topic de pilotage de l'essaim /Swarm/cmd_vel
-    #--------------------------------------------------------------------
-    def cmd_vel_callback(self, msg):
-        """
-        Callback pour le topic de pilotage de l'essaim via cmd_vel.
-        Utilise les vitesses reçues pour déplacer l'essaim dans la direction souhaitée.
-        """
-        if not self.active:
-            # Si le contrôle n'est pas actif, ignorer les commandes
-            return
-
-        # Obtenir le centre actuel de l'essaim
-        current_center = self.compute_swarm_center()
-        
-        # Calculer l'offset basé sur la vitesse reçue
-        # Plus la vitesse est élevée, plus l'offset sera grand
-        velocity_scale = 2.0  # Facteur d'échelle pour convertir la vitesse en distance
-        offset_x = msg.linear.x * velocity_scale
-        offset_y = msg.linear.y * velocity_scale
-        
-        
-        self.goal_point = (current_center[0] + offset_x, current_center[1] + offset_y)
-        self.goal_point_set = True
-        
-        self.get_logger().info(f"goal point set to: {self.goal_point}")
-
-    #--------------------------------------------------------------------
     # callback pour le timer
     #--------------------------------------------------------------------
     def timer_callback(self):
@@ -166,6 +150,51 @@ class SwarmController(Node):
         # Appliquer le contrôle de consensus si actif
         if self.active and self.formation_initialized:
             self.apply_consensus_control()
+            
+            # Vérifier si la cible est atteinte
+            if self.goal_point_set:
+                # Obtenir le centre de l'essaim
+                swarm_center = self.compute_swarm_center()
+                
+                # Vérifier si la cible est atteinte
+                current_state = self.is_target_reached(swarm_center, self.goal_point)
+                
+                # Si l'état a changé, mettre à jour et publier
+                if current_state != self.is_target_reached_state:
+                    self.is_target_reached_state = current_state
+                    self.publish_target_reached(1 if current_state else 0)
+                    
+                    if current_state:
+                        self.get_logger().info("Target reached!")
+                    else:
+                        self.get_logger().info("Target not reached")
+
+    #--------------------------------------------------------------------
+    # Méthodes liées à l'atteinte de la cible
+    #--------------------------------------------------------------------
+    def is_target_reached(self, swarm_center, goal):
+        """
+        Vérifie si le barycentre de l'essaim est suffisamment proche du point cible.
+        
+        :param swarm_center: Position actuelle du barycentre [x, y]
+        :param goal: Position cible (x, y)
+        :return: True si la cible est atteinte, False sinon
+        """
+        # Calculer la distance entre le barycentre et le point cible
+        distance = math.sqrt((swarm_center[0] - goal[0])**2 + (swarm_center[1] - goal[1])**2)
+        self.get_logger().info(f"distance to goal: {distance:.3f}")
+        # Vérifier si la distance est inférieure à la tolérance
+        return distance <= self.target_tolerance
+    
+    def publish_target_reached(self, status):
+        """
+        Publie un message indiquant si la cible est atteinte.
+        
+        :param status: 1 si la cible est atteinte, 0 sinon
+        """
+        msg = Int32()
+        msg.data = status
+        self.target_reached_publisher.publish(msg)
 
     #--------------------------------------------------------------------
     # Mise à jour des positions des robots
@@ -195,8 +224,6 @@ class SwarmController(Node):
         Initialise la formation désirée basée sur les positions actuelles des robots
         et capture les distances initiales entre robots
         """
-        # Calculer le centre de l'essaim
-        center = self.compute_swarm_center()
         
         # Calculer les positions relatives par rapport au centre
         self.desired_formation = []
@@ -376,6 +403,19 @@ class SwarmController(Node):
         # Publier à tous les robots
         for robot_name in ROBOT_NAMES:
             self.cmd_vel_publishers[robot_name].publish(stop_cmd)
+
+    def goal_point_callback(self, msg):
+        """
+        Callback pour le topic de position cible.
+        Met à jour la position cible pour l'essaim.
+        
+        :param msg: Position cible (Point)
+        """
+        self.goal_point = (msg.x, msg.y)
+        self.goal_point_set = True
+        self.is_target_reached_state = False  # Réinitialiser l'état
+        self.publish_target_reached(0)        # Indiquer que la cible n'est pas encore atteinte
+        self.get_logger().info(f"New goal point set: x={msg.x:.4f}, y={msg.y:.4f}")
 
 def main(args=None):
     rclpy.init(args=args)

@@ -25,6 +25,8 @@ setup(
             'swarm = mecanum_swarm.swarm:main',
             'tf2_visu = mecanum_swarm.tf2_visu:main',
             'swarm_master = mecanum_swarm.swarm_master:main',
+            'circle = mecanum_swarm.circle:main',
+            'square = mecanum_swarm.square:main',
         ],
     },
 )
