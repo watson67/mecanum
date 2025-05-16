@@ -33,12 +33,16 @@ class DistributedSwarmController(Node):
     def __init__(self):
         # Déterminer le nom du robot à partir du hostname
         hostname = socket.gethostname().lower()
+        # Supprimer le suffixe '-desktop' si présent
+        if hostname.endswith('-desktop'):
+            hostname = hostname[:-8]
         self.robot_name = hostname.capitalize()  # Première lettre en majuscule
-        
+        #self.robot_name="Aramis"  # Pour le test, forcer le nom du robot à Aramis
+
         # Vérifier si le nom est dans la liste des robots connus
         if self.robot_name not in ALL_ROBOT_NAMES:
-            self.robot_name = "Unknown"  # Fallback au cas où
             print(f"Warning: Robot name '{self.robot_name}' not in known robot list {ALL_ROBOT_NAMES}")
+            self.robot_name = "Unknown"  # Fallback au cas où
         
         super().__init__(f'distributed_swarm_controller_{self.robot_name.lower()}')
         self.get_logger().info(f"Starting distributed swarm controller for robot: {self.robot_name}")
