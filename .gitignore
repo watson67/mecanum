@@ -15,3 +15,5 @@ __pycache__/
 
 # VSCode ou autres éditeurs
 .vscode/
+
+slprj/
