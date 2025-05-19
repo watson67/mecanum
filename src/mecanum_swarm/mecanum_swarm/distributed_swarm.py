@@ -43,12 +43,11 @@ class DistributedSwarmController(Node):
     def __init__(self):
         # Déterminer le nom du robot à partir du hostname
         hostname = socket.gethostname().lower()
-        hostname = "athos-desktop"  # Pour le test, forcer le nom du robot à Aramis
+        hostname = "aramis-desktop"  # Pour le test, forcer le nom du robot à Aramis
         # Supprimer le suffixe '-desktop' si présent
         if hostname.endswith('-desktop'):
             hostname = hostname[:-8]
         self.robot_name = hostname.capitalize()  # Première lettre en majuscule
-
         # Vérifier si le nom est dans la liste des robots connus
         if self.robot_name not in ALL_ROBOT_NAMES:
             print(f"Warning: Robot name '{self.robot_name}' not in known robot list {ALL_ROBOT_NAMES}")
@@ -116,15 +115,15 @@ class DistributedSwarmController(Node):
         # Les distances désirées entre robots
         self.desired_distances = {}
         
-        # Ma position actuelle
+        # Position actuelle du robot
         self.my_position = {'x': 0.0, 'y': 0.0}
         
         # Position des autres robots (mise à jour via TF2)
         self.other_robot_positions = {}
         
         # Objectif de l'essaim
-        self.goal_point = (0.0, 0.0)
-        self.goal_point_set = True
+        self.goal_point = None  # None tant qu'aucune valeur reçue
+        self.goal_point_set = False
         
         self.formation_initialized = False
         
@@ -197,19 +196,24 @@ class DistributedSwarmController(Node):
             self.formation_initialized = True
             self.get_logger().info("Formation initialized")
             
+        # Déterminer le goal point à utiliser
+        if self.goal_point is not None:
+            goal_point = self.goal_point
+        else:
+            barycentre = self.compute_swarm_center()
+            goal_point = (barycentre[0], barycentre[1])
+
         # Appliquer le contrôle de consensus si actif
         if self.active and self.formation_initialized:
-            self.apply_consensus_control()
+            self.apply_consensus_control(goal_point)
             
             # Vérifier si la cible est atteinte
-            if self.goal_point_set:
-                # Vérifier si ce robot est proche de sa cible
+            if True:  # Toujours vérifier, car goal_point est toujours défini
                 swarm_center = self.compute_swarm_center()
-                # Afficher la position du barycentre
                 self.get_logger().info(
                     f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
                 )
-                current_state = self.is_target_reached(swarm_center, self.goal_point)
+                current_state = self.is_target_reached(swarm_center, goal_point)
                 
                 # Si l'état a changé, publier le statut
                 if current_state != self.is_target_reached_state:
@@ -336,10 +340,10 @@ class DistributedSwarmController(Node):
             self.get_logger().error(f'Erreur de transformation: {e}')
             return global_lin_x, global_lin_y
 
-    def apply_consensus_control(self):
+    def apply_consensus_control(self, goal_point):
         """Appliquer le contrôle de consensus pour ce robot"""
         # Point de référence (objectif)
-        pr = np.array(self.goal_point)
+        pr = np.array(goal_point)
         
         # Position de ce robot
         pi = np.array([self.my_position['x'], self.my_position['y']])
