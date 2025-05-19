@@ -16,7 +16,7 @@ from mecanum_swarm.formules import *
 
 '''
 Version distribuée du contrôleur d'essaim.
-Ce programme est conçu pour s'exécuter sur chaque robot individuellement.
+Ce programme doit s'exécuter sur chaque robot individuellement.
 Chaque robot contrôle son propre mouvement tout en maintenant la formation avec les autres.
 '''
 
@@ -27,17 +27,27 @@ Chaque robot contrôle son propre mouvement tout en maintenant la formation avec
 ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]  # Liste de tous les robots possibles
 GLOBAL_FRAME = "mocap"  # nom du repère global, celui ci est défini dans tf2_manager
 
+# Note : Les topics et repères tf2 utilisés seront de la forme :
+# ------
+# /{robot_name}/cmd_vel
+# /{robot_name}/base_link
+# Il faut donc s'assurer au préalable que ces topics et repères existent.
+
+# Le nom du robot est déterminé automatiquement par le hostname de la machine, 
+# permettant ainsi de lancer exactement le même code sur chaque robot, facilitant la mise
+# en place de l'essaim.
+
 #--------------------------------------------------------------------
 
 class DistributedSwarmController(Node):
     def __init__(self):
         # Déterminer le nom du robot à partir du hostname
         hostname = socket.gethostname().lower()
+        hostname = "athos-desktop"  # Pour le test, forcer le nom du robot à Aramis
         # Supprimer le suffixe '-desktop' si présent
         if hostname.endswith('-desktop'):
             hostname = hostname[:-8]
         self.robot_name = hostname.capitalize()  # Première lettre en majuscule
-        #self.robot_name="Aramis"  # Pour le test, forcer le nom du robot à Aramis
 
         # Vérifier si le nom est dans la liste des robots connus
         if self.robot_name not in ALL_ROBOT_NAMES:
@@ -46,6 +56,8 @@ class DistributedSwarmController(Node):
         
         super().__init__(f'distributed_swarm_controller_{self.robot_name.lower()}')
         self.get_logger().info(f"Starting distributed swarm controller for robot: {self.robot_name}")
+
+        
 
         #--------------------------------------------------------------------
         # Variables TF2 pour les positions des robots 
@@ -61,7 +73,8 @@ class DistributedSwarmController(Node):
             Twist, f"/{self.robot_name}/cmd_vel", 10
         )
         
-        # Publisher pour partager sa position avec les autres robots (optionnel)
+        # Publisher pour partager sa position avec les autres robots (simulation d'un essaim 
+        # sans motion capture ou chaque robot détermine sa propre position)
         self.position_publisher = self.create_publisher(
             Point, f"/robot_positions/{self.robot_name}", 10
         )
@@ -113,7 +126,6 @@ class DistributedSwarmController(Node):
         self.goal_point = (0.0, 0.0)
         self.goal_point_set = True
         
-        # La formation a-t-elle été initialisée?
         self.formation_initialized = False
         
         # Terme intégral pour le contrôle
@@ -154,6 +166,18 @@ class DistributedSwarmController(Node):
         """Callback pour les positions des autres robots"""
         self.robot_positions[robot_name] = {'x': msg.x, 'y': msg.y}
 
+    def all_positions_available(self):
+        """Vérifie si toutes les positions des robots sont connues (non None)"""
+        # Vérifie la position du robot courant
+        if self.my_position['x'] == 0.0 and self.my_position['y'] == 0.0:
+            return False
+        # Vérifie les positions des autres robots
+        for name in ALL_ROBOT_NAMES:
+            if name != self.robot_name:
+                if name not in self.other_robot_positions or self.other_robot_positions[name] is None:
+                    return False
+        return True
+
     #--------------------------------------------------------------------
     # Boucle principale de contrôle
     #--------------------------------------------------------------------
@@ -167,8 +191,8 @@ class DistributedSwarmController(Node):
         # Mettre à jour les positions des autres robots via TF2
         self.update_other_robot_positions()
         
-        # Initialiser la formation si ce n'est pas déjà fait
-        if not self.formation_initialized and self.my_position['x'] != 0 or self.my_position['y'] != 0:
+        # Initialiser la formation si ce n'est pas déjà fait et toutes les positions sont connues
+        if not self.formation_initialized and self.all_positions_available():
             self.initialize_formation()
             self.formation_initialized = True
             self.get_logger().info("Formation initialized")
@@ -181,6 +205,10 @@ class DistributedSwarmController(Node):
             if self.goal_point_set:
                 # Vérifier si ce robot est proche de sa cible
                 swarm_center = self.compute_swarm_center()
+                # Afficher la position du barycentre
+                self.get_logger().info(
+                    f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
+                )
                 current_state = self.is_target_reached(swarm_center, self.goal_point)
                 
                 # Si l'état a changé, publier le statut
@@ -252,6 +280,11 @@ class DistributedSwarmController(Node):
                 self.desired_distances[other_name] = dist
                 
         self.get_logger().info(f"Initialized formation with distances: {self.desired_distances}")
+        # Afficher la position du barycentre à l'initialisation
+        barycentre = self.compute_swarm_center()
+        self.get_logger().info(
+            f"Barycentre (init): X:{barycentre[0]:.3f} ; Y:{barycentre[1]:.3f}"
+        )
 
     def compute_swarm_center(self):
         """Calculer le centre de l'essaim"""
@@ -323,7 +356,7 @@ class DistributedSwarmController(Node):
                 pj_array.append(pj)
                 
                 # Distance désirée
-                dij = self.desired_distances.get(other_name, 2.0)  # Valeur par défaut si non trouvée
+                dij = self.desired_distances.get(other_name, 2.0) 
                 dij_list.append(dij)
         
         # S'il n'y a pas de voisins, juste aller vers l'objectif

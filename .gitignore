@@ -11,6 +11,7 @@ src/install/
 *.log
 *.pyc
 *.slx
+*.pdf
 __pycache__/
 
 # VSCode ou autres éditeurs

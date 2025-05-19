@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /TF1
       Splitter Ratio: 0.5
     Tree Height: 746
   - Class: rviz_common/Selection
@@ -58,13 +59,15 @@ Visualization Manager:
           Value: true
         Porthos/base_link:
           Value: true
+        barycenter:
+          Value: true
         mocap:
           Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
-      Show Names: false
+      Show Names: true
       Tree:
         mocap:
           Aramis/base_link:
@@ -72,6 +75,8 @@ Visualization Manager:
           Athos/base_link:
             {}
           Porthos/base_link:
+            {}
+          barycenter:
             {}
       Update Interval: 0
       Value: true
@@ -121,7 +126,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 7.74399995803833
+      Distance: 2.1567115783691406
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
