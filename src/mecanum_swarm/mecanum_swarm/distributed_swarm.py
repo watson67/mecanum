@@ -43,7 +43,7 @@ class DistributedSwarmController(Node):
     def __init__(self):
         # Déterminer le nom du robot à partir du hostname
         hostname = socket.gethostname().lower()
-        hostname = "aramis-desktop"  # Pour le test, forcer le nom du robot à Aramis
+        #hostname = "aramis-desktop"  # Pour le test, forcer le nom du robot à Aramis
         # Supprimer le suffixe '-desktop' si présent
         if hostname.endswith('-desktop'):
             hostname = hostname[:-8]
