@@ -142,6 +142,11 @@ class DistributedSwarmController(Node):
         # Timer pour le contrôle périodique
         self.create_timer(self.dt, self.timer_callback)
 
+        # Souscription au topic '/formation' pour réinitialiser la formation à la demande
+        self.create_subscription(
+            Int32, "/formation", self.formation_callback, 10
+        )
+
     #--------------------------------------------------------------------
     # Callbacks pour les topics de contrôle
     #--------------------------------------------------------------------
@@ -164,6 +169,12 @@ class DistributedSwarmController(Node):
     def robot_position_callback(self, msg, robot_name):
         """Callback pour les positions des autres robots"""
         self.robot_positions[robot_name] = {'x': msg.x, 'y': msg.y}
+
+    def formation_callback(self, msg):
+        """Callback pour réinitialiser la formation sur demande"""
+        self.get_logger().info("Received formation reset command, re-initializing formation.")
+        self.formation_initialized = False
+        self.initialize_formation()
 
     def all_positions_available(self):
         """Vérifie si toutes les positions des robots sont connues (non None)"""
@@ -270,6 +281,9 @@ class DistributedSwarmController(Node):
     #--------------------------------------------------------------------
     def initialize_formation(self):
         """Initialiser les distances désirées entre les robots"""
+        if self.formation_initialized:
+            self.get_logger().warn("Formation already initialized! Skipping re-initialization.")
+            return
         for other_name in ALL_ROBOT_NAMES:
             if other_name != self.robot_name and other_name in self.other_robot_positions:
                 other_pos = self.other_robot_positions[other_name]
@@ -283,6 +297,7 @@ class DistributedSwarmController(Node):
                 # Stocker la distance désirée
                 self.desired_distances[other_name] = dist
                 
+        self.formation_initialized = True  # Verrouille l'initialisation ici
         self.get_logger().info(f"Initialized formation with distances: {self.desired_distances}")
         # Afficher la position du barycentre à l'initialisation
         barycentre = self.compute_swarm_center()

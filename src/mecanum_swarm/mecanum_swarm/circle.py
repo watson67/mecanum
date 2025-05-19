@@ -5,6 +5,7 @@ from rclpy.node import Node
 from std_msgs.msg import Int32
 from geometry_msgs.msg import Point
 import math
+ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]  # Liste de tous les robots possibles
 
 class CircleTrajectory(Node):
     def __init__(self):
@@ -27,6 +28,24 @@ class CircleTrajectory(Node):
             Int32, '/target_reached', self.target_reached_callback, 10
         )
         
+        # Nom du robot (à adapter selon le contexte, ici on prend le premier de la liste)
+        self.robot_name = ALL_ROBOT_NAMES[0]
+
+        # Contribution à la détection d'atteinte de cible
+        self.target_status_publisher = self.create_publisher(
+            Int32, f"/target_status/{self.robot_name}", 10
+        )
+
+        # Subscribers pour chaque robot sur /target_status/{robot_name}
+        self.target_status = {name: 0 for name in ALL_ROBOT_NAMES}
+        for name in ALL_ROBOT_NAMES:
+            self.create_subscription(
+                Int32,
+                f"/target_status/{name}",
+                lambda msg, robot=name: self.target_status_callback(msg, robot),
+                10
+            )
+
         self.get_logger().info('Circle trajectory node initialized')
         
         # Publier le premier point dès le démarrage
@@ -36,9 +55,27 @@ class CircleTrajectory(Node):
         """Callback appelé quand un message est reçu sur le topic /target_reached"""
         if msg.data == 1:
             self.get_logger().info('Target reached, moving to next point')
+            # Publier le statut sur le topic dédié à ce robot
+            self.publish_target_status(1)
             # Le point est atteint, passer au suivant
             self.publish_next_point()
     
+    def publish_target_status(self, status):
+        """Publie le statut d'atteinte de la cible sur le topic dédié au robot."""
+        status_msg = Int32()
+        status_msg.data = status
+        self.target_status_publisher.publish(status_msg)
+
+    def target_status_callback(self, msg, robot_name):
+        """Callback pour la réception du statut d'atteinte de cible de chaque robot."""
+        self.target_status[robot_name] = msg.data
+        self.get_logger().info(f"Robot {robot_name} status: {msg.data}")
+        # Exemple : vérifier si tous les robots ont atteint leur cible
+        if all(status == 1 for status in self.target_status.values()):
+            self.get_logger().info("Tous les robots ont atteint leur cible.")
+            # Le point est atteint, passer au suivant
+            self.publish_next_point()
+
     def publish_next_point(self):
         """Calcule et publie le prochain point sur le cercle"""
         # Convertir l'angle en radians
