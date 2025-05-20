@@ -27,6 +27,9 @@ class SquareTrajectory(Node):
             Point, '/goal_point', 10
         )
         
+        # Publisher pour indiquer que le carré est terminé
+        self.square_finished_pub = self.create_publisher(Int32, '/travel_finished', 10)
+        
         # Subscriber pour savoir quand le point est atteint
         self.create_subscription(
             Int32, '/target_reached', self.target_reached_callback, 10
@@ -58,6 +61,13 @@ class SquareTrajectory(Node):
         
         self.goal_publisher.publish(point_msg)
         self.get_logger().info(f'Published new goal point: vertex {self.current_vertex}: x={x:.4f}, y={y:.4f}')
+        
+        # Vérifier si on vient d'atteindre le dernier sommet
+        if self.current_vertex == len(self.vertices) - 1:
+            msg = Int32()
+            msg.data = 1
+            self.square_finished_pub.publish(msg)
+            self.get_logger().info("Carré terminé, publication sur /travel_finished")
         
         # Passer au sommet suivant
         self.current_vertex = (self.current_vertex + 1) % len(self.vertices)

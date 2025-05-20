@@ -7,11 +7,14 @@ src/log/
 src/build/
 src/install/
 
++bus_conv_fcns/
+
 # Fichiers temporaires
 *.log
 *.pyc
 *.slx
 *.pdf
+*.csv
 __pycache__/
 
 # VSCode ou autres éditeurs

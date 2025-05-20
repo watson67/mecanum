@@ -45,6 +45,10 @@ class MasterNode(Node):
         self.porthos_pub = self.create_publisher(Twist, '/Porthos/cmd_vel', 10)
         
         self.get_logger().info("Nœud de contrôle maître démarré. Appuyez sur espace pour lancer les autres noeuds.")
+        
+        self.create_subscription(
+            Int32, '/travel_finished', self.travel_finished_callback, 10
+        )
     
     def toggle_state(self):
         # Basculer l'état
@@ -83,6 +87,15 @@ class MasterNode(Node):
         self.porthos_pub.publish(twist_msg)
         
         self.get_logger().info("Messages Twist envoyés à tous les robots pour les stopper")
+        
+    def travel_finished_callback(self, msg):
+        if msg.data == 1:
+            self.get_logger().info("Carré terminé détecté, arrêt de tous les robots.")
+            stop_msg = Int32()
+            stop_msg.data = 0
+            self.master_pub.publish(stop_msg)
+            self.state = 0  # Mettre à jour l'état interne si besoin
+            self.send_twist_messages()
         
     def spin_thread(self):
         """Thread pour exécuter rclpy.spin."""

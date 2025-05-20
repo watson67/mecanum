@@ -19,14 +19,15 @@ def generate_launch_description():
         ),
         Node(
             package='mecanum_swarm',
-            executable='square',
-            name='square'
+            executable='eight',
+            name='eight'
         ),
         Node(
             package='mecanum_swarm',
             executable='cmd_vel_rate',
             name='cmd_vel_rate'
         ),
+        
         Node(
             package='rviz2',
             executable='rviz2',

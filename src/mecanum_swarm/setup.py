@@ -28,6 +28,9 @@ setup(
             'circle = mecanum_swarm.circle:main',
             'square = mecanum_swarm.square:main',
             'distributed_swarm = mecanum_swarm.distributed_swarm:main',
+            'swarm_obstacle = mecanum_swarm.swarm_obstacle:main',
+            'cmd_vel_rate = mecanum_swarm.cmd_vel_rate:main',
+            'eight = mecanum_swarm.eight:main',
         ],
     },
 )

@@ -71,11 +71,29 @@ def phi_alpha(s,d):
 def nij(pj,pi):
     return sigma_epsilon(pj-pi)
 
+def n_ik(p_ik,pi):
+    return sigma_epsilon(p_ik-pi)
 
+def b_ik(p_ik,pi,d_bet):
+    """
+    Formule 12 
+    d_prime : distance entre le robot et l'obstacle
+
+    """
+    return rho_h(sigma_norm(p_ik - pi) / d_bet)
+
+def d_beta(d):
+    return sigma_norm(d)
+
+def phi_beta(s,d_bet):
+    """
+    Formule 13 (Fonction phi_beta)
+    """
+    return rho_h(s/d_bet) * ( sigma_1(s - d_bet ) -1)
 
 def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_term=None):
     """
-    Formule 18 avec intégration
+    Formule 18 modifiée, sans ui_beta avec intégration
     
     Parameters:
     - pj_array: positions des robots voisins
@@ -113,6 +131,59 @@ def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_ter
 
 
     return ui_alpha + ui_gamma, integral_term
+
+def control_obstacle(pj_array=None, pi=None, dij_list=None,
+                     pk_array=None, pi_array=None, d_bet=None, 
+                     pr=None, dt=0.1, integral_term=None):
+    """
+    Formule 18 avec ui_beta
+    
+    Parameters:
+    - pj_array: positions des robots voisins
+    - pi: position du robot i
+    - dij_list: distances désirées aux voisins
+    - pr: position de référence (point but ou centre de l'essaim)
+    - dt: pas de temps pour l'intégration
+    - integral_term: valeur accumulée de l'intégrale (None pour initialiser)
+    
+    Returns:
+    - Le vecteur de contrôle
+    - La nouvelle valeur de l'intégrale pour l'appel suivant
+    """
+    ui_alpha = np.zeros(2)
+    ui_beta = np.zeros(2)
+    ui_gamma = np.zeros(2)
+    
+    # Initialiser l'intégrale si elle n'existe pas
+    if integral_term is None:
+        integral_term = np.zeros((len(pj_array), 2))
+    
+    # Pour tous les voisins j de i
+    for idx in range(len(pj_array)):
+        pj = pj_array[idx]
+        dij = dij_list[idx]
+        
+        # Calculer le terme à intégrer
+        current_term = phi_alpha(sigma_norm(pj-pi), dij) * nij(pj, pi)
+        
+        # Mettre à jour l'intégrale (méthode d'Euler)
+        integral_term[idx] += current_term * dt
+        
+        # Appliquer l'intégrale au contrôle
+        ui_alpha += Kp * phi_alpha(sigma_norm(pj-pi),dij) * nij(pj,pi) + Ki * integral_term[idx]
+
+    # Pour tous les obstacles k de i
+    for idx in range(len(pk_array)):
+        pk = pk_array[idx]
+        pi = pi_array[idx]
+        d_bet = d_bet[idx]
+        
+        # Appliquer l'intégrale au contrôle
+        ui_beta += phi_beta(sigma_norm(pk-pi),d_bet) * n_ik(pk,pi)
+    ui_beta *= c1_beta
+    ui_gamma = -(c1_gamma * (pi - pr))
+    return ui_alpha + ui_beta + ui_gamma, integral_term
+
 
 def sat(x):
     """

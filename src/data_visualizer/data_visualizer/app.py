@@ -96,7 +96,7 @@ class RobotVisualizerApp(Node):
         # Create main window
         self.root = tk.Tk()
         self.root.title("Robot Position Visualizer")
-        self.root.geometry("1200x800")
+        self.root.geometry("1200x900")  # Augmenter la hauteur
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # Configure the main window to be resizable
@@ -146,28 +146,32 @@ class RobotVisualizerApp(Node):
         # Left frame for the plot (using grid instead of pack)
         self.plot_frame = ttk.Frame(self.trajectory_tab)
         self.plot_frame.grid(row=0, column=0, sticky="nsew")
-        
+        self.plot_frame.rowconfigure(0, weight=1)
+        self.plot_frame.rowconfigure(1, weight=0)
+        self.plot_frame.rowconfigure(2, weight=0)
+        self.plot_frame.columnconfigure(0, weight=1)
+
         # Create a frame for the matplotlib plot
         self.matplotlib_frame = ttk.Frame(self.plot_frame)
-        self.matplotlib_frame.pack(fill=tk.BOTH, expand=True)
-        
+        self.matplotlib_frame.grid(row=0, column=0, sticky="nsew")
+
         # Setup the matplotlib figure and canvas
         self.fig = Figure(figsize=(8, 6))
         self.ax = self.fig.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.matplotlib_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        
+
         # Add navigation toolbar
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.matplotlib_frame)
         self.toolbar.update()
-        
+
         # Setup the plot
         self.setup_plot()
-        
-        # Create a separate frame for buttons with fixed height
+
+        # Create a separate frame for buttons
         self.button_frame = ttk.LabelFrame(self.plot_frame, text="Controls")
-        self.button_frame.pack(fill=tk.X, pady=10, padx=10)
-        
+        self.button_frame.grid(row=1, column=0, sticky="ew", pady=10, padx=10)
+
         # Clear trajectory button
         self.clear_button = ttk.Button(
             self.button_frame, 
@@ -183,11 +187,11 @@ class RobotVisualizerApp(Node):
             command=self.toggle_robot_connections
         )
         self.connect_button.grid(row=0, column=1, padx=5, pady=5)
-        
+
         # Robot control section
         self.robot_control_frame = ttk.LabelFrame(self.plot_frame, text="Robot Control")
-        self.robot_control_frame.pack(fill=tk.X, pady=5, padx=10)
-        
+        self.robot_control_frame.grid(row=2, column=0, sticky="ew", pady=5, padx=10)
+
         # Dropdown menu for selecting a robot
         ttk.Label(self.robot_control_frame, text="Robot:").grid(row=0, column=0, padx=5, pady=5)
         self.robot_var = tk.StringVar(value=self.robot_names[0])
