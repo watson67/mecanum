@@ -90,7 +90,7 @@ class MasterNode(Node):
         
     def travel_finished_callback(self, msg):
         if msg.data == 1:
-            self.get_logger().info("Carré terminé détecté, arrêt de tous les robots.")
+            self.get_logger().info("Circuit terminé, arrêt de tous les robots.")
             stop_msg = Int32()
             stop_msg.data = 0
             self.master_pub.publish(stop_msg)

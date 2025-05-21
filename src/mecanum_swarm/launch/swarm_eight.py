@@ -25,8 +25,22 @@ def generate_launch_description():
         Node(
             package='mecanum_swarm',
             executable='cmd_vel_rate',
-            name='cmd_vel_rate'
+            name='cmd_vel_rate',
+            parameters=[{'csv_filename': 'cmd_vel_rate.csv'}]
         ),
+        Node(
+            package='mecanum_swarm',
+            executable='barycenter_logger',
+            name='barycenter_logger',
+            parameters=[{'csv_filename': 'barycenter_logger.csv'}]
+        ),
+        Node(
+            package='mecanum_swarm',
+            executable='distances_logger',
+            name='distances_logger',
+            parameters=[{'csv_filename': 'distance_logger.csv'}]
+        ),
+        
         
         Node(
             package='rviz2',
@@ -37,4 +51,5 @@ def generate_launch_description():
             ],
             output='screen'
         )
+        
     ])

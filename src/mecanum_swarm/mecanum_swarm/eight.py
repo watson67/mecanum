@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, String
 from geometry_msgs.msg import Point
 import math
 
@@ -56,6 +56,15 @@ class EightTrajectory(Node):
             Int32, '/travel_finished', 10
         )
 
+        # Publisher pour le type de trajectoire
+        self.trajectory_type_pub = self.create_publisher(
+            String, '/trajectory_type', 10
+        )
+        # Publier le type de trajectoire au démarrage
+        msg = String()
+        msg.data = "eight"
+        self.trajectory_type_pub.publish(msg)
+
         self.get_logger().info('Eight trajectory node initialized')
 
         # Publier le premier point dès le démarrage
@@ -74,7 +83,7 @@ class EightTrajectory(Node):
         b = 0.23  # faible largeur y
         num_points = self.num_points
 
-        for i in range(num_points):
+        for i in range(num_points - 1):
             t = 2 * math.pi * i / num_points
             x = a * math.sin(t)
             y = b * math.sin(2 * t)
@@ -85,7 +94,7 @@ class EightTrajectory(Node):
 
     def target_reached_callback(self, msg):
         if msg.data == 1:
-            self.get_logger().info('Target reached, moving to next point')
+            self.get_logger().info('TPoint cible atteint, envoi du prochain point')
             self.publish_target_status(1)
             self.publish_next_point()
 
@@ -115,7 +124,7 @@ class EightTrajectory(Node):
         point_msg.y = float(y)
         point_msg.z = 0.0
         self.goal_publisher.publish(point_msg)
-        self.get_logger().info(f'Published new goal point: x={x:.4f}, y={y:.4f}')
+        self.get_logger().info(f'Nouveau point: x={x:.4f}, y={y:.4f}')
         self.current_point += 1
 
 def main(args=None):

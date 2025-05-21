@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, String
 from geometry_msgs.msg import Point
 import math
 ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]  # Liste de tous les robots possibles
@@ -45,6 +45,15 @@ class CircleTrajectory(Node):
                 lambda msg, robot=name: self.target_status_callback(msg, robot),
                 10
             )
+
+        # Publisher pour le type de trajectoire
+        self.trajectory_type_pub = self.create_publisher(
+            String, '/trajectory_type', 10
+        )
+        # Publier le type de trajectoire au démarrage
+        msg = String()
+        msg.data = "circle"
+        self.trajectory_type_pub.publish(msg)
 
         self.get_logger().info('Circle trajectory node initialized')
         

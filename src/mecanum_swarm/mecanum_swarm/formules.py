@@ -10,6 +10,8 @@ multi-robot system"  (Daravuth Koung; Isabelle Fantoni; Olivier Kermorgant;
 Lamia Belouaer )
 '''
 
+"""
+# Valeurs par défaut
 h = 0.2
 c1_gamma = 0.25 # navigation gain (position)
 c2_gamma = 0.25 # navigation gain (vitesse)
@@ -21,6 +23,22 @@ b = 1
 e = abs(a-b)/math.sqrt(4*a*b)
 Kp = 0.2
 Ki = 0.05  
+x_min = 0.3
+x_max = 2
+
+"""
+
+h = 0.2
+c1_gamma = 0.25 # navigation gain (position)
+c2_gamma = 0.25 # navigation gain (vitesse)
+c1_beta = 0.3
+c = 5           # interaction range between robots
+epsilon = 0.1
+a = 1
+b = 1
+e = abs(a-b)/math.sqrt(4*a*b)
+Kp = 0.2
+Ki = 0.05
 x_min = 0.3
 x_max = 2
 

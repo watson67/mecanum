@@ -19,13 +19,32 @@ def generate_launch_description():
         ),
         Node(
             package='mecanum_swarm',
-            executable='square',
-            name='square'
+            executable='rectangle',
+            name='rectangle'
         ),
         Node(
             package='mecanum_swarm',
             executable='cmd_vel_rate',
-            name='cmd_vel_rate'
+            name='cmd_vel_rate',
+            parameters=[{'csv_filename': 'cmd_vel_rate.csv'}]
+        ),
+        Node(
+            package='mecanum_swarm',
+            executable='barycenter_logger',
+            name='barycenter_logger',
+            parameters=[{'csv_filename': 'barycenter_logger.csv'}]
+        ),
+        Node(
+            package='mecanum_swarm',
+            executable='distances_logger',
+            name='distances_logger',
+            parameters=[{'csv_filename': 'distance_logger.csv'}]
+        ),
+        Node(
+            package='mecanum_swarm',
+            executable='goal_point_logger',
+            name='goal_point_logger',
+            parameters=[{'csv_filename': 'goal_point_logger.csv'}]
         ),
         Node(
             package='rviz2',

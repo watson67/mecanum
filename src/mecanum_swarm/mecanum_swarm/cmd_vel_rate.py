@@ -11,12 +11,15 @@ ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]  # Liste de tous les robots pos
 class CmdVelRateLogger(Node):
     def __init__(self):
         super().__init__('cmd_vel_rate_logger')
-        self.cmd_counts = {name: 0 for name in ALL_ROBOT_NAMES}
-        self.subs = []
-        # Enregistre dans ~/mecanum/csv/
+        self.declare_parameter('csv_filename', '')
+        csv_filename = self.get_parameter('csv_filename').get_parameter_value().string_value
+        if not csv_filename:
+            csv_filename = 'cmd_vel_rate.csv'
         self.csv_dir = os.path.expanduser('~/mecanum/csv')
         os.makedirs(self.csv_dir, exist_ok=True)
-        self.csv_path = self._new_csv_path()
+        self.csv_path = os.path.join(self.csv_dir, csv_filename)
+        self.cmd_counts = {name: 0 for name in ALL_ROBOT_NAMES}
+        self.subs = []
         self._init_csv()
 
         for name in ALL_ROBOT_NAMES:
@@ -36,12 +39,6 @@ class CmdVelRateLogger(Node):
             10
         )
 
-    def _new_csv_path(self):
-        now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = os.path.join(self.csv_dir, f"cmd_vel_log_{now_str}.csv")
-        self.get_logger().info(f"Chemin du nouveau CSV : {path}")
-        return path
-
     def _init_csv(self):
         # Entête : une colonne par robot
         try:
@@ -54,8 +51,7 @@ class CmdVelRateLogger(Node):
 
     def master_callback(self, msg):
         if msg.data == 1:
-            self.get_logger().info("Activation reçue sur /master, création d'un nouveau fichier CSV.")
-            self.csv_path = self._new_csv_path()
+            self.get_logger().info("Activation reçue sur /master, réinitialisation du fichier CSV.")
             self.cmd_counts = {name: 0 for name in ALL_ROBOT_NAMES}
             self._init_csv()
 

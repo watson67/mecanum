@@ -90,8 +90,8 @@ class SwarmController(Node):
         self.robot_positions = [{'x': 0, 'y': 0} for _ in ROBOT_NAMES]
         
         # Objectifs de l'essaim
-        self.goal_point = (0.0,0.0)
-        self.goal_point_set = True  # Ajouter un flag pour vérifier si un but a été défini
+        self.goal_point = (0.0, 0.0)
+        self.goal_point_set = False  # Initialiser à False pour ne pas aller à (0,0) par défaut
         
         # La formation désirée sera définie en fonction des positions initiales
         self.desired_formation = None
@@ -104,13 +104,16 @@ class SwarmController(Node):
         self.dt = 0.1
         
         # Tolérance pour considérer que la cible est atteinte (en mètres)
-        self.target_tolerance = 0.15
+        self.target_tolerance = 0.05
         
         # État actuel d'atteinte de la cible
         self.is_target_reached_state = False
 
         # Timer pour l'affichage périodique des positions et le contrôle
         self.create_timer(self.dt, self.timer_callback)
+
+        # Publier 1 sur /target_reached au démarrage pour déclencher la première cible
+        self.publish_target_reached(1)
 
     #--------------------------------------------------------------------
     # callbacks pour le topic de contrôle /master
@@ -127,6 +130,7 @@ class SwarmController(Node):
         :param msg: message reçu
         '''
         self.active = (msg.data == 1)
+        self.publish_target_reached(1)
         if self.active:
             self.get_logger().info("Contrôle actif")
         else:
@@ -147,8 +151,8 @@ class SwarmController(Node):
             self.formation_initialized = True
             self.get_logger().info("Formation initialized ")
             
-        # Appliquer le contrôle de consensus si actif
-        if self.active and self.formation_initialized:
+        # Appliquer le contrôle de consensus si actif ET goal_point_set
+        if self.active and self.formation_initialized and self.goal_point_set:
             self.apply_consensus_control()
             
             # Vérifier si la cible est atteinte
@@ -321,6 +325,9 @@ class SwarmController(Node):
             return global_lin_x, global_lin_y
 
     def apply_consensus_control(self):
+        # Ne rien faire si aucun goal n'a été reçu
+        if not self.goal_point_set:
+            return
         """
         Applique le contrôle de consensus à tous les robots en utilisant
         la fonction control importée de formules.py

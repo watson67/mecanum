@@ -134,13 +134,16 @@ class DistributedSwarmController(Node):
         self.dt = 0.1
         
         # Tolérance pour considérer que la cible est atteinte
-        self.target_tolerance = 0.15
+        self.target_tolerance = 0.05  # aligné avec swarm.py
         
         # État d'atteinte de la cible
         self.is_target_reached_state = False
 
         # Timer pour le contrôle périodique
         self.create_timer(self.dt, self.timer_callback)
+
+        # Publier 1 sur /target_status/{robot_name} au démarrage pour déclencher la première cible
+        self.publish_target_status(1)
 
         # Souscription au topic '/formation' pour réinitialiser la formation à la demande
         self.create_subscription(
@@ -153,6 +156,7 @@ class DistributedSwarmController(Node):
     def master_callback(self, msg):
         """Callback pour le topic de contrôle global"""
         self.active = (msg.data == 1)
+        self.publish_target_status(1)
         if self.active:
             self.get_logger().info("Contrôle actif")
         else:
@@ -163,7 +167,8 @@ class DistributedSwarmController(Node):
         """Callback pour le topic de position cible"""
         self.goal_point = (msg.x, msg.y)
         self.goal_point_set = True
-        self.is_target_reached_state = False
+        self.is_target_reached_state = False  # Réinitialiser l'état
+        self.publish_target_status(0)         # Indiquer que la cible n'est pas encore atteinte
         self.get_logger().info(f"New goal point set: x={msg.x:.4f}, y={msg.y:.4f}")
 
     def robot_position_callback(self, msg, robot_name):
@@ -215,11 +220,11 @@ class DistributedSwarmController(Node):
             goal_point = (barycentre[0], barycentre[1])
 
         # Appliquer le contrôle de consensus si actif
-        if self.active and self.formation_initialized:
+        if self.active and self.formation_initialized and self.goal_point_set:
             self.apply_consensus_control(goal_point)
             
             # Vérifier si la cible est atteinte
-            if True:  # Toujours vérifier, car goal_point est toujours défini
+            if self.goal_point_set:
                 swarm_center = self.compute_swarm_center()
                 self.get_logger().info(
                     f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
@@ -424,7 +429,7 @@ class DistributedSwarmController(Node):
     def is_target_reached(self, swarm_center, goal):
         """Vérifier si le centre de l'essaim est proche de l'objectif"""
         distance = math.sqrt((swarm_center[0] - goal[0])**2 + (swarm_center[1] - goal[1])**2)
-        self.get_logger().info(f"Distance to goal: {distance:.3f}")
+        self.get_logger().info(f"distance to goal: {distance:.3f}")
         return distance <= self.target_tolerance
     
     def publish_target_status(self, status):
