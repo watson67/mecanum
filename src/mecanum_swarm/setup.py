@@ -28,6 +28,7 @@ setup(
             'circle = mecanum_swarm.circle:main',
             'rectangle = mecanum_swarm.rectangle:main',
             'distributed_swarm = mecanum_swarm.distributed_swarm:main',
+            'distributed_manager = mecanum_swarm.distributed_manager:main',
             'swarm_obstacle = mecanum_swarm.swarm_obstacle:main',
             'cmd_vel_rate = mecanum_swarm.cmd_vel_rate:main',
             'barycenter_logger = mecanum_swarm.barycenter_logger:main',

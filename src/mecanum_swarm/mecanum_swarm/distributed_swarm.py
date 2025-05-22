@@ -75,12 +75,12 @@ class DistributedSwarmController(Node):
         # Publisher pour partager sa position avec les autres robots (simulation d'un essaim 
         # sans motion capture ou chaque robot détermine sa propre position)
         self.position_publisher = self.create_publisher(
-            Point, f"/robot_positions/{self.robot_name}", 10
+            Point, f"/{self.robot_name}/robot_positions", 10
         )
 
         # Contribution à la détection d'atteinte de cible
         self.target_status_publisher = self.create_publisher(
-            Int32, f"/target_status/{self.robot_name}", 10
+            Int32, f"/{self.robot_name}/target_status", 10
         )
 
         #--------------------------------------------------------------------
