@@ -9,19 +9,20 @@ import csv
 from datetime import datetime
 import os
 import math
+import sys
 
 ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
 GLOBAL_FRAME = "mocap"
 PAIRS = [("Aramis", "Athos"), ("Aramis", "Porthos"), ("Athos", "Porthos")]
 
 class DistancesLogger(Node):
-    def __init__(self):
+    def __init__(self, mode='classic'):
         super().__init__('distances_logger')
         self.declare_parameter('csv_filename', '')
         csv_filename = self.get_parameter('csv_filename').get_parameter_value().string_value
         if not csv_filename:
             csv_filename = 'distances_logger.csv'
-        self.csv_dir = os.path.expanduser('~/mecanum/csv')
+        self.csv_dir = os.path.expanduser(f'~/mecanum/csv/{mode}')
         os.makedirs(self.csv_dir, exist_ok=True)
         self.csv_path = os.path.join(self.csv_dir, csv_filename)
         self._init_csv()
@@ -90,7 +91,11 @@ class DistancesLogger(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = DistancesLogger()
+    mode = 'classic'
+    import sys
+    if len(sys.argv) > 1:
+        mode = sys.argv[1]
+    node = DistancesLogger(mode)
     try:
         rclpy.spin(node)
     finally:

@@ -28,6 +28,7 @@ setup(
             'circle = mecanum_swarm.circle:main',
             'rectangle = mecanum_swarm.rectangle:main',
             'distributed_swarm = mecanum_swarm.distributed_swarm:main',
+            'distributed_event_swarm = mecanum_swarm.distributed_event_swarm:main',
             'distributed_manager = mecanum_swarm.distributed_manager:main',
             'goal_point_sender = mecanum_swarm.goal_point_sender:main',
             'swarm_obstacle = mecanum_swarm.swarm_obstacle:main',

@@ -24,7 +24,7 @@ def generate_launch_description():
             executable='cmd_vel_rate_logger',
             namespace='logger',
             name='cmd_vel_rate_logger',
-            arguments=['classic']
+            arguments=['event']
         ),
         Node(
             package='mecanum_swarm',
@@ -32,7 +32,7 @@ def generate_launch_description():
             namespace='logger',
             name='barycenter_logger',
             parameters=[{'csv_filename': 'distributed_barycenter_logger.csv'}],
-            arguments=['classic']
+            arguments=['event']
         ),
         Node(
             package='mecanum_swarm',
@@ -40,7 +40,7 @@ def generate_launch_description():
             namespace='logger',
             name='distances_logger',
             parameters=[{'csv_filename': 'distributed_distance_logger.csv'}],
-            arguments=['classic']
+            arguments=['event']
         ),
         Node(
             package='mecanum_swarm',
@@ -48,6 +48,6 @@ def generate_launch_description():
             namespace='logger',
             name='goal_point_logger',
             parameters=[{'csv_filename': 'distributed_goal_point_logger.csv'}],
-            arguments=['classic']
+            arguments=['event']
         ),
     ])

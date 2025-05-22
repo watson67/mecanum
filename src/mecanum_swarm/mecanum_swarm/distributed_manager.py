@@ -4,6 +4,11 @@ from std_msgs.msg import Int32
 
 ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
 
+"""
+Programme de gestion de la cible pour les robots en mode distribué.
+Il écoute les messages de statut de cible de chaque robot et publie un message
+indiquant si tous les robots ont atteint leur cible.
+"""
 class DistributedManager(Node):
     def __init__(self):
         super().__init__('distributed_manager')

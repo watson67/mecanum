@@ -5,13 +5,14 @@ from std_msgs.msg import Int32
 import csv
 from datetime import datetime
 import os
+import sys
 
 ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]  # Liste de tous les robots possibles
 
 class CmdVelRateLogger(Node):
-    def __init__(self):
+    def __init__(self, mode='classic'):
         super().__init__('cmd_vel_rate_logger')
-        self.csv_dir = os.path.expanduser('~/mecanum/csv')
+        self.csv_dir = os.path.expanduser(f'~/mecanum/csv/{mode}')
         os.makedirs(self.csv_dir, exist_ok=True)
         self.csv_paths = {name: os.path.join(self.csv_dir, f"{name}_cmd_vel_rate.csv") for name in ALL_ROBOT_NAMES}
         self.subs = []
@@ -70,7 +71,11 @@ class CmdVelRateLogger(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = CmdVelRateLogger()
+    # Récupération de l'argument mode (classic/event)
+    mode = 'classic'
+    if len(sys.argv) > 1:
+        mode = sys.argv[1]
+    node = CmdVelRateLogger(mode)
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()

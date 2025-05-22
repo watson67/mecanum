@@ -8,18 +8,19 @@ from tf2_ros.transform_listener import TransformListener
 import csv
 from datetime import datetime
 import os
+import sys
 
 BARYCENTER_FRAME = "barycenter"
 GLOBAL_FRAME = "mocap"
 
 class BarycenterLogger(Node):
-    def __init__(self):
+    def __init__(self, mode='classic'):
         super().__init__('barycenter_logger')
         self.declare_parameter('csv_filename', '')
         csv_filename = self.get_parameter('csv_filename').get_parameter_value().string_value
         if not csv_filename:
             csv_filename = 'barycenter_logger.csv'
-        self.csv_dir = os.path.expanduser('~/mecanum/csv')
+        self.csv_dir = os.path.expanduser(f'~/mecanum/csv/{mode}')
         os.makedirs(self.csv_dir, exist_ok=True)
         self.csv_path = os.path.join(self.csv_dir, csv_filename)
         self.trajectory_type = "unknown"
@@ -87,7 +88,11 @@ class BarycenterLogger(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = BarycenterLogger()
+    mode = 'classic'
+    import sys
+    if len(sys.argv) > 1:
+        mode = sys.argv[1]
+    node = BarycenterLogger(mode)
     try:
         rclpy.spin(node)
     finally:
