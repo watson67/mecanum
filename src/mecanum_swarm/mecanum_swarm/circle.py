@@ -33,7 +33,7 @@ class CircleTrajectory(Node):
 
         # Contribution à la détection d'atteinte de cible
         self.target_status_publisher = self.create_publisher(
-            Int32, f"/target_status/{self.robot_name}", 10
+            Int32, f"/{self.robot_name}/target_status", 10
         )
 
         # Subscribers pour chaque robot sur /target_status/{robot_name}
@@ -41,7 +41,7 @@ class CircleTrajectory(Node):
         for name in ALL_ROBOT_NAMES:
             self.create_subscription(
                 Int32,
-                f"/target_status/{name}",
+                f"/{name}/target_status",
                 lambda msg, robot=name: self.target_status_callback(msg, robot),
                 10
             )

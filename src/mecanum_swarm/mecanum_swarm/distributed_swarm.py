@@ -101,7 +101,7 @@ class DistributedSwarmController(Node):
         for name in ALL_ROBOT_NAMES:
             if name != self.robot_name:  # Ne pas s'abonner à sa propre position
                 self.create_subscription(
-                    Point, f"/robot_positions/{name}", 
+                    Point, f"/{name}/robot_positions", 
                     lambda msg, robot_name=name: self.robot_position_callback(msg, robot_name),
                     10
                 )

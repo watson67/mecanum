@@ -56,7 +56,7 @@ class SquareTrajectory(Node):
         
         self.get_logger().info('Rectangle trajectory node initialized')
         self.get_logger().info(f'Vertices defined: {self.vertices}')
-        # Ne pas publier le premier point ici !
+      
         # self.publish_next_point()
         
     def publish_trajectory_type_once(self):
