@@ -34,6 +34,7 @@ class DistancesLogger(Node):
             self.master_callback,
             10
         )
+        self.active = True
 
     def _init_csv(self):
         header = ['timestamp']
@@ -51,8 +52,14 @@ class DistancesLogger(Node):
         if msg.data == 1:
             self.get_logger().info("Activation reçue sur /master, réinitialisation du fichier CSV.")
             self._init_csv()
+            self.active = True
+        elif msg.data == 0:
+            self.get_logger().info("Désactivation reçue sur /master, arrêt de l'écriture dans le CSV.")
+            self.active = False
 
     def timer_callback(self):
+        if not self.active:
+            return
         positions = {}
         try:
             for name in ROBOT_NAMES:

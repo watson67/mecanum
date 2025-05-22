@@ -24,20 +24,19 @@ def generate_launch_description():
         ),
         Node(
             package='mecanum_swarm',
-            executable='cmd_vel_rate',
-            name='cmd_vel_rate',
-            parameters=[{'csv_filename': 'cmd_vel_rate.csv'}]
+            executable='cmd_vel_rate_logger',
+            name='/logger/cmd_vel_rate_logger'
         ),
         Node(
             package='mecanum_swarm',
             executable='barycenter_logger',
-            name='barycenter_logger',
+            name='/logger/barycenter_logger',
             parameters=[{'csv_filename': 'barycenter_logger.csv'}]
         ),
         Node(
             package='mecanum_swarm',
             executable='distances_logger',
-            name='distances_logger',
+            name='/logger/distances_logger',
             parameters=[{'csv_filename': 'distance_logger.csv'}]
         ),
         
