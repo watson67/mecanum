@@ -112,9 +112,6 @@ class SwarmController(Node):
         # Timer pour l'affichage périodique des positions et le contrôle
         self.create_timer(self.dt, self.timer_callback)
 
-        # Publier 1 sur /target_reached au démarrage pour déclencher la première cible
-        self.publish_target_reached(1)
-
     #--------------------------------------------------------------------
     # callbacks pour le topic de contrôle /master
     #--------------------------------------------------------------------
@@ -130,7 +127,6 @@ class SwarmController(Node):
         :param msg: message reçu
         '''
         self.active = (msg.data == 1)
-        self.publish_target_reached(1)
         if self.active:
             self.get_logger().info("Contrôle actif")
         else:

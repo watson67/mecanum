@@ -74,6 +74,10 @@ class SquareTrajectory(Node):
             msg_type.data = self.trajectory_type
             self.trajectory_type_pub.publish(msg_type)
             self.get_logger().info(f"Republished trajectory type on /master: {self.trajectory_type}")
+            # Publier le premier point cible lors de l'activation
+            self.current_vertex = 0
+            self.last_point_sent = False
+            self.publish_next_point()
 
     def target_reached_callback(self, msg):
         """Callback appelé quand un message est reçu sur le topic /target_reached"""

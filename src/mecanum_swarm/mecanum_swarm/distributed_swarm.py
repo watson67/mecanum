@@ -122,7 +122,7 @@ class DistributedSwarmController(Node):
         self.other_robot_positions = {}
         
         # Objectif de l'essaim
-        self.goal_point = None  # None tant qu'aucune valeur reçue
+        self.goal_point = (0.0, 0.0)
         self.goal_point_set = False
         
         self.formation_initialized = False
@@ -142,9 +142,6 @@ class DistributedSwarmController(Node):
         # Timer pour le contrôle périodique
         self.create_timer(self.dt, self.timer_callback)
 
-        # Publier 1 sur /target_status/{robot_name} au démarrage pour déclencher la première cible
-        self.publish_target_status(1)
-
         # Souscription au topic '/formation' pour réinitialiser la formation à la demande
         self.create_subscription(
             Int32, "/formation", self.formation_callback, 10
@@ -156,7 +153,6 @@ class DistributedSwarmController(Node):
     def master_callback(self, msg):
         """Callback pour le topic de contrôle global"""
         self.active = (msg.data == 1)
-        self.publish_target_status(1)
         if self.active:
             self.get_logger().info("Contrôle actif")
         else:

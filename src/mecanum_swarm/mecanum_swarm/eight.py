@@ -67,8 +67,10 @@ class EightTrajectory(Node):
 
         self.get_logger().info('Eight trajectory node initialized')
 
-        # Publier le premier point dès le démarrage
-        self.publish_next_point()
+        # Subscriber pour /master
+        self.create_subscription(
+            Int32, '/master', self.master_callback, 10
+        )
 
     def compute_eight_points(self):
         """Génère les points d'une trajectoire en 8 passant par (0,0) et débutant/finissant à (-0.64, -0.77)"""
@@ -126,6 +128,17 @@ class EightTrajectory(Node):
         self.goal_publisher.publish(point_msg)
         self.get_logger().info(f'Nouveau point: x={x:.4f}, y={y:.4f}')
         self.current_point += 1
+
+    def master_callback(self, msg):
+        if msg.data == 1:
+            # Republier le type de trajectoire à chaque activation
+            msg_type = String()
+            msg_type.data = "eight"
+            self.trajectory_type_pub.publish(msg_type)
+            self.get_logger().info(f"Republished trajectory type on /master: eight")
+            # Publier le premier point cible lors de l'activation
+            self.current_point = 0
+            self.publish_next_point()
 
 def main(args=None):
     rclpy.init(args=args)
