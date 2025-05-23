@@ -13,6 +13,7 @@ import socket
 import numpy as np
 # Import formules.py
 from mecanum_swarm.formules import *
+from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 '''
 Version distribuée du contrôleur d'essaim.
@@ -24,7 +25,6 @@ Chaque robot contrôle son propre mouvement tout en maintenant la formation avec
 # Variables globales
 #--------------------------------------------------------------------
 # Noms possibles des robots dans l'essaim
-ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]  # Liste de tous les robots possibles
 GLOBAL_FRAME = "mocap"  # nom du repère global, celui ci est défini dans tf2_manager
 
 # Note : Les topics et repères tf2 utilisés seront de la forme :
@@ -150,6 +150,16 @@ class DistributedSwarmController(Node):
             Int32, "/formation", self.formation_callback, 10
         )
 
+        # Seuils pour la commande événementielle
+        self.distance_threshold = 0.05  # seuil d'écart de distance avec voisins (m)
+        self.direction_threshold = math.radians(10)  # seuil d'angle (radians) pour changement direction barycentre
+
+        # Stockage des valeurs précédentes
+        self.prev_neighbor_errors = {}
+        self.prev_barycenter_direction = None
+        self.prev_goal_point = None
+        self.prev_control_vector = np.array([0.0, 0.0])
+
     #--------------------------------------------------------------------
     # Callbacks pour les topics de contrôle
     #--------------------------------------------------------------------
@@ -218,9 +228,15 @@ class DistributedSwarmController(Node):
             barycentre = self.compute_swarm_center()
             goal_point = (barycentre[0], barycentre[1])
 
-        # Appliquer le contrôle de consensus si actif
+        # Appliquer le contrôle de consensus événementiel si actif
         if self.active and self.formation_initialized and self.goal_point_set:
-            self.apply_consensus_control(goal_point)
+            # Calculer si un événement doit déclencher une nouvelle commande
+            event_triggered = self.should_update_command(goal_point)
+            if event_triggered:
+                self.apply_consensus_control(goal_point)
+            else:
+                # Republier la dernière commande (ou rien)
+                self.publish_last_command()
             
             # Vérifier si la cible est atteinte
             if self.goal_point_set:
@@ -360,7 +376,7 @@ class DistributedSwarmController(Node):
             return global_lin_x, global_lin_y
 
     def apply_consensus_control(self, goal_point):
-        """Appliquer le contrôle de consensus pour ce robot"""
+        """Appliquer le contrôle de consensus pour ce robot (et stocker la commande)"""
         # Point de référence (objectif)
         pr = np.array(goal_point)
         
@@ -421,10 +437,57 @@ class DistributedSwarmController(Node):
         
         # Publier la commande de vitesse
         self.cmd_vel_publisher.publish(twist_msg)
+        self.prev_control_vector = np.array([twist_msg.linear.x, twist_msg.linear.y])
         self.get_logger().info(
             f"Robot {self.robot_name}: Global:{control_vector[0]:.3f},{control_vector[1]:.3f} -> Robot:{twist_msg.linear.x:.3f},{twist_msg.linear.y:.3f}"
         )
-    
+
+    def should_update_command(self, goal_point):
+        """Détermine si une nouvelle commande doit être calculée (commande événementielle)"""
+        # 1. Vérifier l'écart de distance avec chaque voisin
+        event_triggered = False
+        for other_name, other_pos in self.other_robot_positions.items():
+            if other_pos is not None and other_name in self.desired_distances:
+                dij = self.desired_distances[other_name]
+                dist = math.sqrt(
+                    (self.my_position['x'] - other_pos['x'])**2 +
+                    (self.my_position['y'] - other_pos['y'])**2
+                )
+                error = abs(dist - dij)
+                prev_error = self.prev_neighbor_errors.get(other_name, 0.0)
+                if error > self.distance_threshold:
+                    event_triggered = True
+                self.prev_neighbor_errors[other_name] = error
+
+        # 2. Vérifier le changement de direction du barycentre
+        swarm_center = self.compute_swarm_center()
+        bary_to_goal = np.array([goal_point[0] - swarm_center[0], goal_point[1] - swarm_center[1]])
+        norm = np.linalg.norm(bary_to_goal)
+        if norm > 1e-6:
+            bary_dir = bary_to_goal / norm
+        else:
+            bary_dir = np.array([0.0, 0.0])
+        if self.prev_barycenter_direction is not None:
+            dot = np.clip(np.dot(bary_dir, self.prev_barycenter_direction), -1.0, 1.0)
+            angle = math.acos(dot)
+            if angle > self.direction_threshold:
+                event_triggered = True
+        self.prev_barycenter_direction = bary_dir
+
+        # 3. Vérifier si le goal point a changé
+        if self.prev_goal_point != goal_point:
+            event_triggered = True
+            self.prev_goal_point = goal_point
+
+        return event_triggered
+
+    def publish_last_command(self):
+        """Publier la dernière commande calculée (événementielle)"""
+        twist_msg = Twist()
+        twist_msg.linear.x = float(self.prev_control_vector[0])
+        twist_msg.linear.y = float(self.prev_control_vector[1])
+        self.cmd_vel_publisher.publish(twist_msg)
+
     def is_target_reached(self, swarm_center, goal):
         """Vérifier si le centre de l'essaim est proche de l'objectif"""
         distance = math.sqrt((swarm_center[0] - goal[0])**2 + (swarm_center[1] - goal[1])**2)

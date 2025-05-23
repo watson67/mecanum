@@ -1,8 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int32
-
-ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
+from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 """
 Programme de gestion de la cible pour les robots en mode distribué.

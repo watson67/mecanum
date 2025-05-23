@@ -1,0 +1,9 @@
+all_robot_names:
+  - Aramis
+  - Athos
+  - Porthos
+
+robot_neighbors:
+  Aramis: [Athos, Porthos]
+  Athos: [Aramis, Porthos]
+  Porthos: [Aramis, Athos]

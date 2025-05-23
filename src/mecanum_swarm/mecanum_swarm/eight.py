@@ -5,8 +5,7 @@ from rclpy.node import Node
 from std_msgs.msg import Int32, String
 from geometry_msgs.msg import Point
 import math
-
-ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]  # Liste de tous les robots possibles
+from mecanum_swarm.config import ALL_ROBOT_NAMES
 
 class EightTrajectory(Node):
     def __init__(self):

@@ -11,6 +11,7 @@ import tf2_geometry_msgs
 from tf2_ros import TransformException
 # Import formules.py
 from mecanum_swarm.formules import *
+from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 '''
 Ce programme est un contrôleur d'essaim de robots utilisant ROS2.
@@ -24,7 +25,6 @@ Lamia Belouaer )
 # Variables globales
 #--------------------------------------------------------------------
 # Liste des noms des robots
-ROBOT_NAMES = ["Aramis", "Athos", "Porthos"] # Possibilité d'ajouter d'autres robots
 GLOBAL_FRAME = "mocap" # nom du repère global, celui ci est défini dans tf2_manager
 
 
@@ -47,7 +47,7 @@ class SwarmController(Node):
 
         # Publishers pour piloter chaque robot
         self.cmd_vel_publishers = {}
-        for name in ROBOT_NAMES:
+        for name in ALL_ROBOT_NAMES:
             self.cmd_vel_publishers[name] = self.create_publisher(
                 Twist, f"/{name}/cmd_vel", 10
             )
@@ -87,7 +87,7 @@ class SwarmController(Node):
         self.desired_distances = {}  # tableau pour stocker les distances désirées entre les paires de robots
         
         # Positions des robots
-        self.robot_positions = [{'x': 0, 'y': 0} for _ in ROBOT_NAMES]
+        self.robot_positions = [{'x': 0, 'y': 0} for _ in ALL_ROBOT_NAMES]
         
         # Objectifs de l'essaim
         self.goal_point = (0.0, 0.0)
@@ -98,7 +98,7 @@ class SwarmController(Node):
         self.formation_initialized = False
         
         # Stockage des termes intégraux pour chaque robot
-        self.integral_terms = [None for _ in ROBOT_NAMES]
+        self.integral_terms = [None for _ in ALL_ROBOT_NAMES]
         
         # Pas de temps pour l'intégration
         self.dt = 0.1
@@ -200,7 +200,7 @@ class SwarmController(Node):
     # Mise à jour des positions des robots
     #--------------------------------------------------------------------
     def update_robot_positions(self):
-        for i, robot_name in enumerate(ROBOT_NAMES): # Pour chaque robot
+        for i, robot_name in enumerate(ALL_ROBOT_NAMES): # Pour chaque robot
             try:
                 trans: TransformStamped = self.tf_buffer.lookup_transform(
                     GLOBAL_FRAME, f"{robot_name}/base_link", rclpy.time.Time()
@@ -233,8 +233,8 @@ class SwarmController(Node):
             self.desired_formation.append((rel_x, rel_y))
         
         # Calculer et stocker les distances initiales entre chaque paire de robots
-        for i in range(len(ROBOT_NAMES)):
-            for j in range(i+1, len(ROBOT_NAMES)):  # Stocker chaque paire une seule fois
+        for i in range(len(ALL_ROBOT_NAMES)):
+            for j in range(i+1, len(ALL_ROBOT_NAMES)):  # Stocker chaque paire une seule fois
                 pos_i = self.robot_positions[i]
                 pos_j = self.robot_positions[j]
                 
@@ -340,7 +340,7 @@ class SwarmController(Node):
                 f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
             )
         # Pour chaque robot
-        for i, robot_name in enumerate(ROBOT_NAMES):
+        for i, robot_name in enumerate(ALL_ROBOT_NAMES):
             # Position du robot courant (pi)
             pi = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
             
@@ -350,7 +350,7 @@ class SwarmController(Node):
             dij_list = []
             
             # Pour chaque voisin j du robot i
-            for j, neighbor_name in enumerate(ROBOT_NAMES):
+            for j, neighbor_name in enumerate(ALL_ROBOT_NAMES):
                 if j != i:  # Exclure le robot lui-même
                     # Position du voisin j
                     pj = np.array([self.robot_positions[j]['x'], self.robot_positions[j]['y']])
@@ -404,7 +404,7 @@ class SwarmController(Node):
         # Créer une commande de vitesse nulle
         stop_cmd = Twist()
         # Publier à tous les robots
-        for robot_name in ROBOT_NAMES:
+        for robot_name in ALL_ROBOT_NAMES:
             self.cmd_vel_publishers[robot_name].publish(stop_cmd)
 
     def goal_point_callback(self, msg):

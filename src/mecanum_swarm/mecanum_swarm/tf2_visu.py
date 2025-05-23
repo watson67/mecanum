@@ -2,8 +2,8 @@ import rclpy
 from rclpy.node import Node
 from tf2_ros import Buffer, TransformListener
 from geometry_msgs.msg import TransformStamped
+from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
-ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
 GLOBAL_FRAME = "mocap"
 
 class Swarm(Node):
@@ -15,7 +15,7 @@ class Swarm(Node):
         self.timer = self.create_timer(1.0, self.timer_callback)
 
     def timer_callback(self):
-        for robot_name in ROBOT_NAMES:
+        for robot_name in ALL_ROBOT_NAMES:
             try:
                 transform: TransformStamped = self.tf_buffer.lookup_transform(
                     GLOBAL_FRAME, f"{robot_name}/base_link", rclpy.time.Time()

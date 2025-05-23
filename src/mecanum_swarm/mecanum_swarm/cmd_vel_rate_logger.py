@@ -7,7 +7,7 @@ from datetime import datetime
 import os
 import sys
 
-ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]  # Liste de tous les robots possibles
+from mecanum_swarm.config import ALL_ROBOT_NAMES
 
 class CmdVelRateLogger(Node):
     def __init__(self, mode='classic'):

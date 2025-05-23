@@ -10,8 +10,8 @@ from datetime import datetime
 import os
 import math
 import sys
+from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
-ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
 GLOBAL_FRAME = "mocap"
 PAIRS = [("Aramis", "Athos"), ("Aramis", "Porthos"), ("Athos", "Porthos")]
 
@@ -63,7 +63,7 @@ class DistancesLogger(Node):
             return
         positions = {}
         try:
-            for name in ROBOT_NAMES:
+            for name in ALL_ROBOT_NAMES:
                 trans = self.tf_buffer.lookup_transform(
                     GLOBAL_FRAME,
                     f"{name}/base_link",

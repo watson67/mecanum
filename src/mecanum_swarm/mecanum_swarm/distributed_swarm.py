@@ -13,6 +13,7 @@ import socket
 import numpy as np
 # Import formules.py
 from mecanum_swarm.formules import *
+from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 '''
 Version distribuée du contrôleur d'essaim.
@@ -24,7 +25,6 @@ Chaque robot contrôle son propre mouvement tout en maintenant la formation avec
 # Variables globales
 #--------------------------------------------------------------------
 # Noms possibles des robots dans l'essaim
-ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]  # Liste de tous les robots possibles
 GLOBAL_FRAME = "mocap"  # nom du repère global, celui ci est défini dans tf2_manager
 
 # Note : Les topics et repères tf2 utilisés seront de la forme :

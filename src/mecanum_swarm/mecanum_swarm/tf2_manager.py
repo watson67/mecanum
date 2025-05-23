@@ -4,8 +4,8 @@ from geometry_msgs.msg import PoseStamped, TransformStamped
 from tf2_ros import TransformBroadcaster
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 import math
+from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
-ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
 GLOBAL_FRAME = "mocap"
 
 qos_profile = QoSProfile(
@@ -34,7 +34,7 @@ class TF2Manager(Node):
         self.pose_data = {}
         self.barycenter_orientation = [0.0, 0.0, 0.0, 1.0]
 
-        for name in ROBOT_NAMES:
+        for name in ALL_ROBOT_NAMES:
             topic = f"/vrpn_mocap/{name}/pose"
             self.create_subscription(
                 PoseStamped,
@@ -66,12 +66,12 @@ class TF2Manager(Node):
         self.tf_broadcaster.sendTransform(transform)
 
     def publish_barycenter_tf(self):
-        if not all(self.pose_data[name] is not None for name in ROBOT_NAMES):
+        if not all(self.pose_data[name] is not None for name in ALL_ROBOT_NAMES):
             return
 
-        x = sum(self.pose_data[name].pose.position.x for name in ROBOT_NAMES) / len(ROBOT_NAMES)
-        y = sum(self.pose_data[name].pose.position.y for name in ROBOT_NAMES) / len(ROBOT_NAMES)
-        z = sum(self.pose_data[name].pose.position.z for name in ROBOT_NAMES) / len(ROBOT_NAMES)
+        x = sum(self.pose_data[name].pose.position.x for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
+        y = sum(self.pose_data[name].pose.position.y for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
+        z = sum(self.pose_data[name].pose.position.z for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
 
         transform = TransformStamped()
         transform.header.stamp = self.get_clock().now().to_msg()
