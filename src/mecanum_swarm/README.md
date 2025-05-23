@@ -58,10 +58,6 @@ Ces programmes permettent d'enregistrer des données au format csv. L'enregistre
 
 Des fichiers de lancement (`launch/*.py`) sont fournis pour démarrer les différents scénarios (centralisé, distribué, événementiel, etc.) avec tous les noeuds nécessaires.
 
-Pour lancer un scénario, utilisez la commande suivante dans un terminal :
-
-
-
 
 #### Fichiers de lancement principaux
 
