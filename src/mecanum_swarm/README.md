@@ -26,7 +26,7 @@ Lamia Belouaer )
 
 - `tf2_visu.py` : Affiche périodiquement la position de chaque robot dans le repère global à partir des TF2.
 
-=#### Gestion de trajectoire
+#### Gestion de trajectoire
 
 - `goal_point_sender.py` : Permet d'envoyer des points cibles à l'essaim selon une trajectoire prédéfinie (rectangle, cercle, huit) dans le fichier `trajectory.py`. Le fonctionnement est le suivant : on publie un premier point cible sur le topic /goal_point, puis lorsque l'essaim est arrivé à destination, un "1" est publié sur /target_reached (voir noeud `distributed_manager.py` ou `swarm.py`), on publie alors le point cible suivant.
 
