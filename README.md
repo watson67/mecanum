@@ -115,7 +115,7 @@ ros2 launch vrpn_mocap client.launch.yaml
 
 ### Sous dossier `Matlab_Simulink`
 
-Ce dossier contient différents fichiers Simulink permettant de réaliser un essaim *Leader-Follower*. Ces programmes utilisent les données du système de Motion Capture, il faut donc lancer le noeud suivant au préalable :
+Ce dossier contient différents fichiers Simulink et Matlab permettant de visualiser les données, et tracer des courbes. Ces programmes utilisent les données du système de Motion Capture, il faut donc lancer le noeud suivant au préalable :
 
 ```bash
 ros2 launch vrpn_mocap client.launch.yaml

@@ -5,11 +5,7 @@ Le package `data_visualizer` permet de visualiser les données des topics ROS2 v
 ## Programmes Python
 
 - **app.py**  
-  Permet de tracer les trajectoires des robots
-
-## Utilisation
-
-Il est recommandé d'utiliser un fichier launch pour démarrer l'ensemble des noeuds nécessaires à la simulation, afin de garantir le bon ordre de lancement et la configuration correcte.
+  Permet de tracer les trajectoires des robots en direct
 
 ### Lancement 
 
