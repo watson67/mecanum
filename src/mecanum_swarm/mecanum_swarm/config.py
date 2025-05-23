@@ -1,10 +1,10 @@
 import os
 import yaml
+from ament_index_python.packages import get_package_share_directory
 
-_yaml_path = os.path.join(
-    os.path.dirname(__file__), "../config/robots.yaml"
-)
-with open(os.path.abspath(_yaml_path), "r") as f:
+package_share = get_package_share_directory('mecanum_swarm')
+_yaml_path = os.path.join(package_share, 'config', 'robots.yaml')
+with open(_yaml_path, "r") as f:
     _config = yaml.safe_load(f)
 
 ALL_ROBOT_NAMES = _config["all_robot_names"]

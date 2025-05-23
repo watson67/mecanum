@@ -10,6 +10,7 @@ setup(
     packages=[package_name],
     data_files=[
         ('share/' + package_name + '/launch', glob('launch/*.py')),
+        ('share/' + package_name + '/config', glob('config/*.yaml')),
 
     ],
     install_requires=['setuptools'],
