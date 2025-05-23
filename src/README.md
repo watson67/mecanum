@@ -1,5 +1,6 @@
 # Packages
 
+Chaque package contient son propre README pour plus d'informations.
 ## Principaux packages
 
 ### `teleop_mecanum`
@@ -48,7 +49,7 @@ Mettre un nombre différent du ROS_DOMAIN_ID des terminaux communiquant avec les
 
 ---
 
-## Ancien packages (non recommandés)
+## Anciens packages (non recommandés)
 
 ### `leader_follower`
 Ce package implémente des algorithmes de type *leader-follower*, où un ou plusieurs robots suivent un leader en maintenant une distance ou une formation spécifique.
