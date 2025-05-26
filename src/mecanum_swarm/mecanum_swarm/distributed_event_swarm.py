@@ -235,8 +235,9 @@ class DistributedSwarmController(Node):
             if event_triggered:
                 self.apply_consensus_control(goal_point)
             else:
-                # Republier la dernière commande (ou rien)
-                self.publish_last_command()
+                self.get_logger().info(
+                    f"Pas de nouvelle commande"
+                )
             
             # Vérifier si la cible est atteinte
             if self.goal_point_set:
