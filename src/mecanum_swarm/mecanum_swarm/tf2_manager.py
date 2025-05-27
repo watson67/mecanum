@@ -52,6 +52,7 @@ class TF2Manager(Node):
         self.pose_data[robot_name] = msg
 
         transform = TransformStamped()
+        # Use the current time for the transform header
         transform.header.stamp = self.get_clock().now().to_msg()
         transform.header.frame_id = GLOBAL_FRAME
         transform.child_frame_id = f"{robot_name}/base_link"
@@ -75,6 +76,7 @@ class TF2Manager(Node):
         z = sum(self.pose_data[name].pose.position.z for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
 
         transform = TransformStamped()
+        # Use the current time for the transform header
         transform.header.stamp = self.get_clock().now().to_msg()
         transform.header.frame_id = GLOBAL_FRAME
         transform.child_frame_id = "barycenter"
