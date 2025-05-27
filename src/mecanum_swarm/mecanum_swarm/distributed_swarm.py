@@ -183,22 +183,25 @@ class DistributedSwarmController(Node):
     def all_positions_available(self):
         """Vérifie si toutes les positions des robots sont connues (non None)"""
         # Vérifie la position du robot courant
-        if self.my_position['x'] == 0.0 and self.my_position['y'] == 0.0:
-            self.get_logger().debug("Ma position n'est pas encore disponible")
+        if abs(self.my_position['x']) < 0.001 and abs(self.my_position['y']) < 0.001:
+            self.get_logger().debug("Ma position semble être à l'origine (0,0)")
             return False
         
         # Vérifie les positions des autres robots
         missing_robots = []
+        available_robots = []
         for name in ALL_ROBOT_NAMES:
             if name != self.robot_name:
                 if name not in self.other_robot_positions or self.other_robot_positions[name] is None:
                     missing_robots.append(name)
+                else:
+                    available_robots.append(name)
         
         if missing_robots:
-            self.get_logger().debug(f"Positions manquantes pour: {missing_robots}")
+            self.get_logger().debug(f"Positions manquantes: {missing_robots}, disponibles: {available_robots}")
             return False
             
-        self.get_logger().info("Toutes les positions sont disponibles")
+        self.get_logger().info(f"Toutes les positions sont disponibles pour: {[self.robot_name] + available_robots}")
         return True
 
     #--------------------------------------------------------------------
@@ -223,7 +226,15 @@ class DistributedSwarmController(Node):
         if self._debug_counter % 50 == 0:
             self.get_logger().info(f"Ma position: {self.my_position}")
             self.get_logger().info(f"Positions autres robots: {self.other_robot_positions}")
+            self.get_logger().info(f"Positions publiées reçues: {self.robot_positions}")
             self.get_logger().info(f"Formation initialisée: {self.formation_initialized}")
+            
+            # Lister les frames TF2 disponibles pour debug
+            try:
+                available_frames = self.tf_buffer.all_frames_as_string()
+                self.get_logger().info(f"Frames TF2 disponibles: {available_frames}")
+            except Exception as e:
+                self.get_logger().debug(f"Impossible de lister les frames TF2: {e}")
         
         # Initialiser la formation si ce n'est pas déjà fait et toutes les positions sont connues
         if not self.formation_initialized and self.all_positions_available():
@@ -285,19 +296,33 @@ class DistributedSwarmController(Node):
         """Mettre à jour les positions des autres robots via TF2"""
         for robot_name in ALL_ROBOT_NAMES:
             if robot_name != self.robot_name:
+                position_updated = False
+                
+                # Essayer d'abord TF2
                 try:
                     trans = self.tf_buffer.lookup_transform(
-                        GLOBAL_FRAME, f"{robot_name}/base_link", rclpy.time.Time()
+                        GLOBAL_FRAME, f"{robot_name}/base_link", rclpy.time.Time(),
+                        timeout=rclpy.duration.Duration(seconds=0.1)
                     )
                     pos = trans.transform.translation
                     self.other_robot_positions[robot_name] = {'x': pos.x, 'y': pos.y}
+                    position_updated = True
+                    self.get_logger().debug(f"Position TF2 pour {robot_name}: x={pos.x:.3f}, y={pos.y:.3f}")
                 except Exception as e:
-                    # Si TF2 échoue, essayer d'utiliser la position publiée (si disponible)
+                    self.get_logger().debug(f"Échec TF2 pour {robot_name}: {e}")
+                
+                # Si TF2 échoue, essayer d'utiliser la position publiée
+                if not position_updated:
                     if robot_name in self.robot_positions and self.robot_positions[robot_name] is not None:
                         self.other_robot_positions[robot_name] = self.robot_positions[robot_name]
-                    else:
-                        # Pas de mise à jour si aucune position n'est disponible
-                        self.get_logger().debug(f"Pas de position disponible pour {robot_name}")
+                        position_updated = True
+                        self.get_logger().debug(f"Position publiée pour {robot_name}: {self.robot_positions[robot_name]}")
+                
+                # Si aucune position n'est disponible, s'assurer que la clé existe
+                if not position_updated:
+                    if robot_name not in self.other_robot_positions:
+                        self.other_robot_positions[robot_name] = None
+                    self.get_logger().debug(f"Aucune position disponible pour {robot_name}")
 
     #--------------------------------------------------------------------
     # Calcul du contrôle et de la formation
