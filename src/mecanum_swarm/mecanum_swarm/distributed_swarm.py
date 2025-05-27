@@ -184,12 +184,21 @@ class DistributedSwarmController(Node):
         """Vérifie si toutes les positions des robots sont connues (non None)"""
         # Vérifie la position du robot courant
         if self.my_position['x'] == 0.0 and self.my_position['y'] == 0.0:
+            self.get_logger().debug("Ma position n'est pas encore disponible")
             return False
+        
         # Vérifie les positions des autres robots
+        missing_robots = []
         for name in ALL_ROBOT_NAMES:
             if name != self.robot_name:
                 if name not in self.other_robot_positions or self.other_robot_positions[name] is None:
-                    return False
+                    missing_robots.append(name)
+        
+        if missing_robots:
+            self.get_logger().debug(f"Positions manquantes pour: {missing_robots}")
+            return False
+            
+        self.get_logger().info("Toutes les positions sont disponibles")
         return True
 
     #--------------------------------------------------------------------
@@ -205,10 +214,20 @@ class DistributedSwarmController(Node):
         # Mettre à jour les positions des autres robots via TF2
         self.update_other_robot_positions()
         
+        # Afficher l'état des positions toutes les 50 itérations (environ 5 secondes)
+        if hasattr(self, '_debug_counter'):
+            self._debug_counter += 1
+        else:
+            self._debug_counter = 0
+            
+        if self._debug_counter % 50 == 0:
+            self.get_logger().info(f"Ma position: {self.my_position}")
+            self.get_logger().info(f"Positions autres robots: {self.other_robot_positions}")
+            self.get_logger().info(f"Formation initialisée: {self.formation_initialized}")
+        
         # Initialiser la formation si ce n'est pas déjà fait et toutes les positions sont connues
         if not self.formation_initialized and self.all_positions_available():
             self.initialize_formation()
-            self.formation_initialized = True
             self.get_logger().info("Formation initialized")
             
         # Déterminer le goal point à utiliser
