@@ -54,8 +54,7 @@ class DistributedSwarmController(Node):
             self.robot_name = "Unknown"  # Fallback au cas où
         
         super().__init__(
-            f'distributed_swarm_controller_{self.robot_name.lower()}',
-            namespace=f"/{self.robot_name}"
+            f'distributed_swarm_controller_{self.robot_name.lower()}'
         )
         self.get_logger().info(f"Starting distributed swarm controller for robot: {self.robot_name}")
 
