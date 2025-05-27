@@ -69,9 +69,9 @@ class GoalPointSender(Node):
                 # Publier 1 sur /master
                 master_msg = Int32()
                 master_msg.data = 0
-                #self.master_pub.publish(master_msg)
-            #else:
-                #self.publish_next_point()
+                self.master_pub.publish(master_msg)
+            else:
+                self.publish_next_point()
 
     def publish_next_point(self):
         if self.current_index < len(self.points):

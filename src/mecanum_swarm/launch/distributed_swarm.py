@@ -17,7 +17,7 @@ def generate_launch_description():
             package='mecanum_swarm',
             executable='goal_point_sender',
             name='goal_point_sender',
-            arguments=['test']  # 'rectangle' 'circle' ou 'eight' 
+            arguments=['rectangle']  # 'rectangle' 'circle' ou 'eight' 
         ),
         Node(
             package='mecanum_swarm',
