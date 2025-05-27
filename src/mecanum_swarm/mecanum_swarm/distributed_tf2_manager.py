@@ -27,7 +27,7 @@ class DistributedTF2Manager(Node):
             print(f"Warning: Robot name '{self.robot_name}' not in known robot list {ALL_ROBOT_NAMES}")
             self.robot_name = "Unknown"  # Fallback au cas où
         
-        # Pas de namespace pour le TF2 manager - il doit publier globalement
+        # Pas de namespace pour que tous les robots voient toutes les frames TF2
         super().__init__(f'distributed_tf2_manager_{self.robot_name.lower()}')
         
         self.tf_broadcaster = TransformBroadcaster(self)
