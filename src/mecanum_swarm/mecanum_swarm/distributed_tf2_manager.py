@@ -27,7 +27,10 @@ class DistributedTF2Manager(Node):
             print(f"Warning: Robot name '{self.robot_name}' not in known robot list {ALL_ROBOT_NAMES}")
             self.robot_name = "Unknown"  # Fallback au cas où
         
-        super().__init__(f'distributed_tf2_manager_{self.robot_name.lower()}')
+        super().__init__(
+            f'distributed_tf2_manager_{self.robot_name.lower()}',
+            namespace=f"/{self.robot_name}"
+        )
         
         self.tf_broadcaster = TransformBroadcaster(self)
         
