@@ -307,9 +307,9 @@ class DistributedSwarmController(Node):
                     pos = trans.transform.translation
                     self.other_robot_positions[robot_name] = {'x': pos.x, 'y': pos.y}
                     position_updated = True
-                    self.get_logger().debug(f"Position TF2 pour {robot_name}: x={pos.x:.3f}, y={pos.y:.3f}")
+                    self.get_logger().debug(f"TF2 OK: {GLOBAL_FRAME} -> {robot_name}/base_link : x={pos.x:.3f}, y={pos.y:.3f}")
                 except Exception as e:
-                    self.get_logger().debug(f"Échec TF2 pour {robot_name}: {e}")
+                    self.get_logger().warn(f"TF2 FAIL: {GLOBAL_FRAME} -> {robot_name}/base_link : {e}")
                 
                 # Si TF2 échoue, essayer d'utiliser la position publiée
                 if not position_updated:

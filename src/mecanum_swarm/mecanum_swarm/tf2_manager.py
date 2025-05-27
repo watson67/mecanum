@@ -64,6 +64,7 @@ class TF2Manager(Node):
         transform.transform.rotation.w = msg.pose.orientation.w
 
         self.tf_broadcaster.sendTransform(transform)
+        self.get_logger().debug(f"Published TF2: {GLOBAL_FRAME} -> {robot_name}/base_link at ({msg.pose.position.x:.3f}, {msg.pose.position.y:.3f})")
 
     def publish_barycenter_tf(self):
         if not all(self.pose_data[name] is not None for name in ALL_ROBOT_NAMES):
