@@ -3,11 +3,11 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        Node(
-            package='mecanum_swarm',
-            executable='tf2_manager',
-            name='tf2_manager'
-        ),
+        #Node(
+        #    package='mecanum_swarm',
+        #    executable='tf2_manager',
+        #    name='tf2_manager'
+        #),
         Node(
             package='mecanum_swarm',
             executable='distributed_manager',
@@ -17,7 +17,7 @@ def generate_launch_description():
             package='mecanum_swarm',
             executable='goal_point_sender',
             name='goal_point_sender',
-            arguments=['rectangle']  # 'rectangle' 'circle' ou 'eight' 
+            arguments=['test']  # 'rectangle' 'circle' ou 'eight' 
         ),
         Node(
             package='mecanum_swarm',

@@ -168,6 +168,8 @@ class DistributedSwarmController(Node):
         self.goal_point_set = True
         self.is_target_reached_state = False  # Réinitialiser l'état
         self.publish_target_status(0)         # Indiquer que la cible n'est pas encore atteinte
+        # Reset integral term when new goal is set
+        self.integral_term = None
         self.get_logger().info(f"New goal point set: x={msg.x:.4f}, y={msg.y:.4f}")
 
     def robot_position_callback(self, msg, robot_name):
@@ -178,6 +180,8 @@ class DistributedSwarmController(Node):
         """Callback pour réinitialiser la formation sur demande"""
         self.get_logger().info("Received formation reset command, re-initializing formation.")
         self.formation_initialized = False
+        # Reset integral term when formation is reset
+        self.integral_term = None
         self.initialize_formation()
 
     def all_positions_available(self):
@@ -301,6 +305,9 @@ class DistributedSwarmController(Node):
                 # Stocker la distance désirée
                 self.desired_distances[other_name] = dist
                 
+        # Reset integral term when formation is initialized
+        self.integral_term = None
+        
         self.formation_initialized = True  # Verrouille l'initialisation ici
         self.get_logger().info(f"Initialized formation with distances: {self.desired_distances}")
         # Afficher la position du barycentre à l'initialisation

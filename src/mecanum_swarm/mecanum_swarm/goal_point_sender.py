@@ -3,12 +3,13 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int32, String
 from geometry_msgs.msg import Point
-from mecanum_swarm.trajectory import RECTANGLE_POINTS, CIRCLE_POINTS, EIGHT_POINTS
+from mecanum_swarm.trajectory import RECTANGLE_POINTS, CIRCLE_POINTS, EIGHT_POINTS, TEST_POINTS
 
 TRAJECTORIES = {
     "rectangle": RECTANGLE_POINTS,
     "circle": CIRCLE_POINTS,
     "eight": EIGHT_POINTS,
+    "test": TEST_POINTS,
 }
 
 class GoalPointSender(Node):
@@ -68,9 +69,9 @@ class GoalPointSender(Node):
                 # Publier 1 sur /master
                 master_msg = Int32()
                 master_msg.data = 0
-                self.master_pub.publish(master_msg)
-            else:
-                self.publish_next_point()
+                #self.master_pub.publish(master_msg)
+            #else:
+                #self.publish_next_point()
 
     def publish_next_point(self):
         if self.current_index < len(self.points):
