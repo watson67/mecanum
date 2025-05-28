@@ -49,7 +49,7 @@ class DistributedTF2Manager(Node):
         """Callback pour la position de ce robot"""
         # Créer et publier la transformation TF2 pour ce robot
         transform = TransformStamped()
-        transform.header.stamp = self.get_clock().now().to_msg()
+        transform.header.stamp = msg.header.stamp  
         transform.header.frame_id = GLOBAL_FRAME
         transform.child_frame_id = f"{self.robot_name}/base_link"
         transform.transform.translation.x = msg.pose.position.x
