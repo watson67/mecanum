@@ -193,13 +193,13 @@ def control_obstacle(pj_array=None, pi=None, dij_list=None,
     # Pour tous les obstacles k de i
     for idx in range(len(pk_array)):
         pk = pk_array[idx]
-        pi = pi_array[idx]
         d_bet = d_bet[idx]
         
         # Appliquer l'intégrale au contrôle
         ui_beta += phi_beta(sigma_norm(pk-pi),d_bet) * n_ik(pk,pi)
     ui_beta *= c1_beta
     ui_gamma = -(c1_gamma * (pi - pr))
+    print(f"ui_alpha: {ui_alpha}, ui_beta: {ui_beta}, ui_gamma: {ui_gamma}")
     return ui_alpha + ui_beta + ui_gamma, integral_term
 
 
