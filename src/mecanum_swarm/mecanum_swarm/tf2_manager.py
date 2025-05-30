@@ -33,6 +33,9 @@ class TF2Manager(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
         self.pose_data = {}
         self.barycenter_orientation = [0.0, 0.0, 0.0, 1.0]
+        
+        # Flag pour suivre l'état de l'obstacle
+        self.obstacle_available = False
 
         for name in ALL_ROBOT_NAMES:
             topic = f"/vrpn_mocap/{name}/pose"
@@ -43,6 +46,14 @@ class TF2Manager(Node):
                 qos_profile
             )
             self.pose_data[name] = None
+
+        # Souscrire au topic de l'obstacle
+        self.create_subscription(
+            PoseStamped,
+            "/vrpn_mocap/Obstacle/pose",
+            self.obstacle_pose_callback,
+            qos_profile
+        )
 
         self.get_logger().info("TF2 Manager prêt. Souscrit aux topics VRPN et publie les transformations TF2.")
 
@@ -92,6 +103,28 @@ class TF2Manager(Node):
 
     def set_barycenter_orientation(self, x, y, z, w):
         self.barycenter_orientation = [x, y, z, w]
+
+    def obstacle_pose_callback(self, msg):
+        """Callback pour la position de l'obstacle"""
+        if not self.obstacle_available:
+            self.get_logger().info("Obstacle detected, publishing obstacle/base_link frame")
+            self.obstacle_available = True
+
+        # Créer et publier la transformation TF2 pour l'obstacle
+        transform = TransformStamped()
+        transform.header.stamp = self.get_clock().now().to_msg()
+        transform.header.frame_id = GLOBAL_FRAME
+        transform.child_frame_id = "obstacle/base_link"
+        transform.transform.translation.x = msg.pose.position.x
+        transform.transform.translation.y = msg.pose.position.y
+        transform.transform.translation.z = msg.pose.position.z
+        transform.transform.rotation.x = msg.pose.orientation.x
+        transform.transform.rotation.y = msg.pose.orientation.y
+        transform.transform.rotation.z = msg.pose.orientation.z
+        transform.transform.rotation.w = msg.pose.orientation.w
+
+        self.tf_broadcaster.sendTransform(transform)
+        self.get_logger().debug(f"Published TF2: {GLOBAL_FRAME} -> obstacle/base_link at ({msg.pose.position.x:.3f}, {msg.pose.position.y:.3f})")
 
 def main(args=None):
     rclpy.init(args=args)

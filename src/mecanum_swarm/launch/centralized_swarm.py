@@ -10,8 +10,8 @@ def generate_launch_description():
         ),
         Node(
             package='mecanum_swarm',
-            executable='distributed_manager',
-            name='distributed_manager'
+            executable='swarm',
+            name='swarm_controller'
         ),
         Node(
             package='mecanum_swarm',

@@ -26,7 +26,7 @@ class GoalPointLogger(Node):
         try:
             with open(self.csv_path, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
-                writer.writerow(['timestamp', 'x', 'y', 'z'])
+                writer.writerow(['timestamp', 'x', 'y', 'z', 'coord_x', 'coord_y'])
             self.get_logger().info(f"Fichier CSV goal_point_logger initialisé : {self.csv_path}")
         except Exception as e:
             self.get_logger().error(f"Erreur lors de la création du CSV : {e}")
@@ -47,7 +47,7 @@ class GoalPointLogger(Node):
         try:
             with open(self.csv_path, 'a', newline='') as csvfile:
                 writer = csv.writer(csvfile)
-                writer.writerow([now, msg.x, msg.y, msg.z])
+                writer.writerow([now, msg.x, msg.y, msg.z, msg.x, msg.y])
         except Exception as e:
             self.get_logger().error(f"Erreur lors de l'écriture dans le CSV : {e}")
 

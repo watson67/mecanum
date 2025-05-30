@@ -57,6 +57,20 @@ class SwarmController(Node):
             Int32, "/target_reached", 10
         )
 
+        # Publishers pour partager les positions des robots
+        self.position_publishers = {}
+        for name in ALL_ROBOT_NAMES:
+            self.position_publishers[name] = self.create_publisher(
+                Point, f"/{name}/robot_positions", 10
+            )
+
+        # Publishers pour le statut individuel de chaque robot
+        self.target_status_publishers = {}
+        for name in ALL_ROBOT_NAMES:
+            self.target_status_publishers[name] = self.create_publisher(
+                Int32, f"/{name}/target_status", 10
+            )
+
         #--------------------------------------------------------------------
         # Subscribers 
         #--------------------------------------------------------------------
@@ -75,6 +89,11 @@ class SwarmController(Node):
             "/goal_point",
             self.goal_point_callback,
             10
+        )
+
+        # Souscription au topic '/formation' pour réinitialiser la formation à la demande
+        self.create_subscription(
+            Int32, "/formation", self.formation_callback, 10
         )
 
         #--------------------------------------------------------------------
@@ -141,8 +160,28 @@ class SwarmController(Node):
         # Mettre à jour les positions des robots
         self.update_robot_positions()
         
+        # Publier les positions des robots pour les autres nœuds
+        self.publish_robot_positions()
+        
+        # Afficher l'état des positions toutes les 50 itérations (environ 5 secondes)
+        if hasattr(self, '_debug_counter'):
+            self._debug_counter += 1
+        else:
+            self._debug_counter = 0
+            
+        if self._debug_counter % 50 == 0:
+            self.get_logger().info(f"Positions des robots: {self.robot_positions}")
+            self.get_logger().info(f"Formation initialisée: {self.formation_initialized}")
+            
+            # Lister les frames TF2 disponibles pour debug
+            try:
+                available_frames = self.tf_buffer.all_frames_as_string()
+                self.get_logger().info(f"Frames TF2 disponibles: {available_frames}")
+            except Exception as e:
+                self.get_logger().debug(f"Impossible de lister les frames TF2: {e}")
+        
         # Initialiser la formation si ce n'est pas déjà fait
-        if not self.formation_initialized and all(pos['x'] != 0 or pos['y'] != 0 for pos in self.robot_positions):
+        if not self.formation_initialized and self.all_positions_available():
             self.initialize_formation()
             self.formation_initialized = True
             self.get_logger().info("Formation initialized ")
@@ -163,6 +202,10 @@ class SwarmController(Node):
                 if current_state != self.is_target_reached_state:
                     self.is_target_reached_state = current_state
                     self.publish_target_reached(1 if current_state else 0)
+                    
+                    # Publier le statut pour chaque robot individuellement
+                    for name in ALL_ROBOT_NAMES:
+                        self.publish_individual_target_status(name, 1 if current_state else 0)
                     
                     if current_state:
                         self.get_logger().info("Target reached!")
@@ -224,7 +267,10 @@ class SwarmController(Node):
         Initialise la formation désirée basée sur les positions actuelles des robots
         et capture les distances initiales entre robots
         """
-        
+        if self.formation_initialized:
+            self.get_logger().warn("Formation already initialized! Skipping re-initialization.")
+            return
+            
         # Calculer les positions relatives par rapport au centre
         self.desired_formation = []
         for pos in self.robot_positions:
@@ -244,8 +290,15 @@ class SwarmController(Node):
                 self.desired_distances[(i, j)] = dist
                 self.desired_distances[(j, i)] = dist  # Stocker les deux directions
         
+        self.formation_initialized = True  # Verrouille l'initialisation ici
         self.get_logger().info(f"Desired formation set to initial positions: {self.desired_formation}")
         self.get_logger().info(f"Initial inter-robot distances captured: {self.desired_distances}")
+        
+        # Afficher la position du barycentre à l'initialisation
+        barycentre = self.compute_swarm_center()
+        self.get_logger().info(
+            f"Barycentre (init): X:{barycentre[0]:.3f} ; Y:{barycentre[1]:.3f}"
+        )
 
     def compute_swarm_center(self):
         """
@@ -418,7 +471,40 @@ class SwarmController(Node):
         self.goal_point_set = True
         self.is_target_reached_state = False  # Réinitialiser l'état
         self.publish_target_reached(0)        # Indiquer que la cible n'est pas encore atteinte
+        
+        # Publier le statut pour chaque robot individuellement
+        for name in ALL_ROBOT_NAMES:
+            self.publish_individual_target_status(name, 0)
+            
         self.get_logger().info(f"New goal point set: x={msg.x:.4f}, y={msg.y:.4f}")
+
+    def formation_callback(self, msg):
+        """Callback pour réinitialiser la formation sur demande"""
+        self.get_logger().info("Received formation reset command, re-initializing formation.")
+        self.formation_initialized = False
+        self.initialize_formation()
+
+    def all_positions_available(self):
+        """Vérifie si toutes les positions des robots sont connues (non nulles)"""
+        for pos in self.robot_positions:
+            if abs(pos['x']) < 0.001 and abs(pos['y']) < 0.001:
+                return False
+        return True
+
+    def publish_robot_positions(self):
+        """Publier les positions de tous les robots"""
+        for i, name in enumerate(ALL_ROBOT_NAMES):
+            point_msg = Point()
+            point_msg.x = float(self.robot_positions[i]['x'])
+            point_msg.y = float(self.robot_positions[i]['y'])
+            point_msg.z = 0.0
+            self.position_publishers[name].publish(point_msg)
+
+    def publish_individual_target_status(self, robot_name, status):
+        """Publier le statut d'atteinte de cible pour un robot individuel"""
+        msg = Int32()
+        msg.data = status
+        self.target_status_publishers[robot_name].publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)

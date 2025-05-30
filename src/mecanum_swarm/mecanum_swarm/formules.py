@@ -4,7 +4,7 @@ import numpy as np
 import math
 
 '''
-Ce programme contient des foncitons pour réaliser les calculs du papier suivant :
+Ce programme contient des fonctions pour réaliser les calculs du papier suivant :
 "Consensus-based formation control and obstacle avoidance for nonholonomic 
 multi-robot system"  (Daravuth Koung; Isabelle Fantoni; Olivier Kermorgant; 
 Lamia Belouaer )

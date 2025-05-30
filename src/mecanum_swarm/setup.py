@@ -23,12 +23,14 @@ setup(
     entry_points={
         'console_scripts': [
             'tf2_manager = mecanum_swarm.tf2_manager:main',
+            'tf2_obstacle_manager = mecanum_swarm.tf2_obstacle_manager:main',
             'swarm = mecanum_swarm.swarm:main',
             'tf2_visu = mecanum_swarm.tf2_visu:main',
             'swarm_master = mecanum_swarm.swarm_master:main',
             'circle = mecanum_swarm.circle:main',
             'rectangle = mecanum_swarm.rectangle:main',
             'distributed_swarm = mecanum_swarm.distributed_swarm:main',
+            'distributed_obstacle_swarm = mecanum_swarm.distributed_obstacle_swarm:main',
             'distributed_event_swarm = mecanum_swarm.distributed_event_swarm:main',
             'distributed_manager = mecanum_swarm.distributed_manager:main',
             'distributed_tf2_manager = mecanum_swarm.distributed_tf2_manager:main',
