@@ -475,7 +475,7 @@ class DistributedSwarmController(Node):
                     dt=self.dt,
                     integral_term=self.integral_term
                 )
-            else:
+            """else:
                 # Appliquer le contrôle sans évitement d'obstacle
                 control_vector, updated_integral = control(
                     pj_array=pj_array,
@@ -487,7 +487,7 @@ class DistributedSwarmController(Node):
                 )
             
             # Mettre à jour le terme intégral
-            self.integral_term = updated_integral
+            self.integral_term = updated_integral"""
         
         # Transformer les vitesses dans le repère du robot
         robot_lin_x, robot_lin_y = self.transform_velocity(
