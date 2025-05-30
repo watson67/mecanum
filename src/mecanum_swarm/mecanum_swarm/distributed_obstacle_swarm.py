@@ -341,11 +341,11 @@ class DistributedSwarmController(Node):
             pos = trans.transform.translation
             self.obstacle_position = {'x': pos.x, 'y': pos.y}
             self.obstacle_detected = True
-            self.get_logger().debug(f"Obstacle détecté: x={pos.x:.3f}, y={pos.y:.3f}")
+            #self.get_logger().debug(f"Obstacle détecté: x={pos.x:.3f}, y={pos.y:.3f}")
         except Exception as e:
             self.obstacle_position = None
             self.obstacle_detected = False
-            self.get_logger().debug(f"Aucun obstacle détecté: {e}")
+            #self.get_logger().debug(f"Aucun obstacle détecté: {e}")
 
     #--------------------------------------------------------------------
     # Calcul du contrôle et de la formation
@@ -372,9 +372,9 @@ class DistributedSwarmController(Node):
         self.get_logger().info(f"Initialized formation with distances: {self.desired_distances}")
         # Afficher la position du barycentre à l'initialisation
         barycentre = self.compute_swarm_center()
-        self.get_logger().info(
-            f"Barycentre (init): X:{barycentre[0]:.3f} ; Y:{barycentre[1]:.3f}"
-        )
+        #self.get_logger().info(
+        #    f"Barycentre (init): X:{barycentre[0]:.3f} ; Y:{barycentre[1]:.3f}"
+        #)
 
     def compute_swarm_center(self):
         """Calculer le centre de l'essaim"""
