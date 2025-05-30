@@ -199,6 +199,7 @@ def control_obstacle(pj_array=None, pi=None, dij_list=None,
         ui_beta += phi_beta(sigma_norm(pk-pi),d_bet) * n_ik(pk,pi)
     ui_beta *= c1_beta
     ui_gamma = -(c1_gamma * (pi - pr))
+    print(f"d_bet: {d_bet} ; pk: {pk}")
     print(f"ui_alpha: {ui_alpha}, ui_beta: {ui_beta}, ui_gamma: {ui_gamma}")
     return ui_alpha + ui_beta + ui_gamma, integral_term
 
