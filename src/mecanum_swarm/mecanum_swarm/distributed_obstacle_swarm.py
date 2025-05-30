@@ -144,7 +144,6 @@ class DistributedSwarmController(Node):
         # Obstacle position and parameters for avoidance
         self.obstacle_position = None
         self.obstacle_detected = False
-        self.d_beta_obstacle = 1.0  # Distance de sécurité avec l'obstacle
 
         # Timer pour le contrôle périodique
         self.create_timer(self.dt, self.timer_callback)
@@ -459,9 +458,13 @@ class DistributedSwarmController(Node):
             # Préparer les données pour l'évitement d'obstacle
             if self.obstacle_detected and self.obstacle_position is not None:
                 # Position de l'obstacle
-                pk_array = [np.array([self.obstacle_position['x'], self.obstacle_position['y']])]
+                pk = np.array([self.obstacle_position['x'], self.obstacle_position['y']])
+                pk_array = [pk]
                 pi_array = [pi]  # Position du robot pour chaque obstacle
-                d_bet_list = [self.d_beta_obstacle]  # Distance de sécurité
+                
+                # Calculer la distance réelle entre le robot et l'obstacle
+                d_beta_actual = np.linalg.norm(pi - pk)
+                d_bet_list = [d_beta_actual]  # Distance réelle, pas un seuil
                 
                 # Appliquer le contrôle avec évitement d'obstacle
                 control_vector, updated_integral = control_obstacle(
@@ -475,7 +478,7 @@ class DistributedSwarmController(Node):
                     dt=self.dt,
                     integral_term=self.integral_term
                 )
-            """else:
+            else:
                 # Appliquer le contrôle sans évitement d'obstacle
                 control_vector, updated_integral = control(
                     pj_array=pj_array,
@@ -487,7 +490,7 @@ class DistributedSwarmController(Node):
                 )
             
             # Mettre à jour le terme intégral
-            self.integral_term = updated_integral"""
+            self.integral_term = updated_integral
         
         # Transformer les vitesses dans le repère du robot
         robot_lin_x, robot_lin_y = self.transform_velocity(
