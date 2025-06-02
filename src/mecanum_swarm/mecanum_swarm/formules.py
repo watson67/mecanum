@@ -49,7 +49,7 @@ def sigma_norm(z):
     ||z||_sigma = 1 / epsilon * (sqrt( 1 + epsilon * ||z||²) - 1)
 
     """
-    return 1 / epsilon * ( math.sqrt(1 + epsilon * np.dot(z, z) ) - 1 )
+    return 1 / epsilon * ( math.sqrt(1 + epsilon * np.dot(z, z) - 1)  )
 
 def sigma_epsilon(z):
     """
@@ -77,14 +77,14 @@ def rho_h(s):
         return 0
     
 def sigma_1(s):
-    return s/math.sqrt(1+s*s)
+    return s / math.sqrt( 1 + s**2)
 
 def phi_alpha(s,d):
     """
     d : desired distance
     """
 
-    return 1/2 * rho_h(s/sigma_norm(c)) * ((a+b) * sigma_1(s - sigma_norm(d) + e) + ( a - b ))
+    return 1/2 * rho_h( s / sigma_norm(c) ) * ((a+b) * sigma_1(s - sigma_norm(d) + e) + ( a - b ))
     
 def nij(pj,pi):
     return sigma_epsilon(pj-pi)
@@ -111,7 +111,7 @@ def phi_beta(s,d_bet):
 
 def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_term=None):
     """
-    Formule 18 modifiée, sans ui_beta avec intégration
+    Formule 18 , sans ui_beta
     
     Parameters:
     - pj_array: positions des robots voisins
