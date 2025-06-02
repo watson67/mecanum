@@ -46,10 +46,10 @@ def sigma_norm(z):
     """
     Formule 4 (norme sigma)
 
-    ||z||_sigma = 1 / epsilon * (sqrt( 1 + ||epsilon||²) - 1)
+    ||z||_sigma = 1 / epsilon * (sqrt( 1 + epsilon * ||z||²) - 1)
 
     """
-    return (1 / epsilon * math.sqrt(1 + epsilon * math.sqrt(np.dot(z, z))**2 ) -1)
+    return 1 / epsilon * ( math.sqrt(1 + epsilon * np.dot(z, z) ) - 1 )
 
 def sigma_epsilon(z):
     """
