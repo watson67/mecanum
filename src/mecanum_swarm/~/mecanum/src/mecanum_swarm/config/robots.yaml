@@ -4,11 +4,9 @@ all_robot_names:
 - Porthos
 robot_neighbors:
   Aramis:
-  - Porthos
   - Athos
+  - Porthos
   Athos:
   - Aramis
-  - Porthos
   Porthos:
   - Aramis
-  - Athos

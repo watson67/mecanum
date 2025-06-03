@@ -29,18 +29,18 @@ x_max = 2
 """
 
 h = 0.2
-c1_gamma = 0.25 # navigation gain (position)
-c2_gamma = 0.25 # navigation gain (vitesse)
+c1_gamma = 0.2 # navigation gain (position)
+c2_gamma = 0.05 # navigation gain (vitesse)
 c1_beta = 0.3
-c = 5         # interaction range between robots
+c = 1         
 epsilon = 0.1
 a = 1
 b = 1
 e = abs(a-b)/math.sqrt(4*a*b)
 Kp = 0.2
 Ki = 0.05
-x_min = 0.3
-x_max = 2
+x_min = -1
+x_max = 1
 
 def sigma_norm(z):
     """
@@ -49,7 +49,7 @@ def sigma_norm(z):
     ||z||_sigma = 1 / epsilon * (sqrt( 1 + epsilon * ||z||²) - 1)
 
     """
-    return 1 / epsilon * ( math.sqrt(1 + epsilon * np.dot(z, z) - 1)  )
+    return 1 / epsilon * ( math.sqrt(1 + epsilon * np.dot(z, z)  ) -1 )
 
 def sigma_epsilon(z):
     """
@@ -109,7 +109,7 @@ def phi_beta(s,d_bet):
     """
     return rho_h(s/d_bet) * ( sigma_1(s - d_bet ) -1)
 
-def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_term=None):
+def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_term=None, logger=None):
     """
     Formule 18 , sans ui_beta
     
@@ -120,6 +120,7 @@ def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_ter
     - pr: position de référence (point but ou centre de l'essaim)
     - dt: pas de temps pour l'intégration
     - integral_term: valeur accumulée de l'intégrale (None pour initialiser)
+    - logger: logger ROS2 pour afficher les messages
     
     Returns:
     - Le vecteur de contrôle
@@ -137,22 +138,27 @@ def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_ter
         pj = pj_array[idx]
         dij = dij_list[idx]
         
-        # Calculer le terme à intégrer
+        
         current_term = phi_alpha(sigma_norm(pj-pi), dij) * nij(pj, pi)
         
-        # Mettre à jour l'intégrale (méthode d'Euler)
+        # Mettre à jour l'intégrale 
         integral_term[idx] += current_term * dt
         
         # Appliquer l'intégrale au contrôle
         ui_alpha += Kp * phi_alpha(sigma_norm(pj-pi),dij) * nij(pj,pi) + Ki * integral_term[idx]
-    ui_gamma = -(c1_gamma * (pi - pr))
+    #ui_gamma = -(c1_gamma * (pi - pr))
+    ui_gamma = -sat((c1_gamma * (pi - pr)))
 
+    if logger:
+        logger.info(f"ui: {((c1_gamma * (pi - pr)))}")
+        logger.info(f"sigma_norm: {phi_alpha(sigma_norm(pj-pi),dij)}")
+        logger.info(f"ui_alpha: {ui_alpha}, ui_gamma: {ui_gamma}")
 
     return ui_alpha + ui_gamma, integral_term
 
 def control_obstacle(pj_array=None, pi=None, dij_list=None,
                      pk_array=None, pi_array=None, d_bet=None, 
-                     pr=None, dt=0.1, integral_term=None):
+                     pr=None, dt=0.1, integral_term=None, logger=None):
     """
     Formule 18 avec ui_beta
     
@@ -163,6 +169,7 @@ def control_obstacle(pj_array=None, pi=None, dij_list=None,
     - pr: position de référence (point but ou centre de l'essaim)
     - dt: pas de temps pour l'intégration
     - integral_term: valeur accumulée de l'intégrale (None pour initialiser)
+    - logger: logger ROS2 pour afficher les messages
     
     Returns:
     - Le vecteur de contrôle
@@ -199,8 +206,11 @@ def control_obstacle(pj_array=None, pi=None, dij_list=None,
         ui_beta += phi_beta(sigma_norm(pk-pi),d_bet) * n_ik(pk,pi)
     ui_beta *= c1_beta
     ui_gamma = -(c1_gamma * (pi - pr))
-    print(f"d_bet: {d_bet} ; pk: {pk}")
-    print(f"ui_alpha: {ui_alpha}, ui_beta: {ui_beta}, ui_gamma: {ui_gamma}")
+    if logger:
+        
+        logger.info(f"sigma_norm: {phi_alpha(sigma_norm(pj-pi),dij)}")
+        logger.info(f"d_bet: {d_bet} ; pk: {pk}")
+        logger.info(f"ui_alpha: {ui_alpha}, ui_beta: {ui_beta}, ui_gamma: {ui_gamma}")
     return ui_alpha + ui_beta + ui_gamma, integral_term
 
 
@@ -209,20 +219,11 @@ def sat(x):
     Formule 19 (saturation)
     Saturation de x entre x_min et x_max.
     """
-    if isinstance(x, np.ndarray):
-        result = np.zeros_like(x)
-        for i in range(len(x)):
-            if x[i] <= x_min:
-                result[i] = x_min
-            elif x_min < x[i] < x_max:
-                result[i] = x[i]
-            else:
-                result[i] = x_max
-        return result
-    else:
-        if x <= x_min:
-            return x_min
-        elif x_min < x < x_max:
-            return x
+    for i in range(len(x)):
+        if x[i] < x_min:
+            x[i] = x_min
+        elif x[i] > x_max:
+            x[i] = x_max
         else:
-            return x_max
+            x[i] = x[i]
+    return x

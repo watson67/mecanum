@@ -41,6 +41,9 @@ setup(
             'distances_logger = mecanum_swarm.distances_logger:main',
             'goal_point_logger = mecanum_swarm.goal_point_logger:main',
             'eight = mecanum_swarm.eight:main',
+            'formation_init_del= mecanum_swarm.formation_initialize_delaunay:main',
+            'formation_init_spat= mecanum_swarm.formation_initialize_spatial:main',
+
         ],
     },
 )

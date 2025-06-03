@@ -36,6 +36,9 @@ class TF2Manager(Node):
         
         # Flag pour suivre l'état de l'obstacle
         self.obstacle_available = False
+        
+        # Add formation initializer reference (optional integration)
+        self.formation_initializer = None
 
         for name in ALL_ROBOT_NAMES:
             topic = f"/vrpn_mocap/{name}/pose"
@@ -58,6 +61,18 @@ class TF2Manager(Node):
         self.get_logger().info("TF2 Manager prêt. Souscrit aux topics VRPN et publie les transformations TF2.")
 
         self.create_timer(0.05, self.publish_barycenter_tf)  # 20 Hz
+
+    def set_formation_initializer(self, formation_initializer):
+        """Définir la référence à l'initialisateur de formation pour l'intégration"""
+        self.formation_initializer = formation_initializer
+
+    def get_robot_positions_dict(self):
+        """Obtenir les positions actuelles des robots sous forme de dictionnaire"""
+        positions = {}
+        for name, pose_msg in self.pose_data.items():
+            if pose_msg is not None:
+                positions[name] = (pose_msg.pose.position.x, pose_msg.pose.position.y)
+        return positions
 
     def pose_callback(self, msg, robot_name):
         self.pose_data[robot_name] = msg
@@ -114,7 +129,7 @@ class TF2Manager(Node):
         transform = TransformStamped()
         transform.header.stamp = self.get_clock().now().to_msg()
         transform.header.frame_id = GLOBAL_FRAME
-        transform.child_frame_id = "obstacle/base_link"
+        transform.child_frame_id = "Obstacle/base_link"
         transform.transform.translation.x = msg.pose.position.x
         transform.transform.translation.y = msg.pose.position.y
         transform.transform.translation.z = msg.pose.position.z

@@ -432,9 +432,6 @@ class SwarmController(Node):
             
             self.get_logger().debug(f"Robot {robot_name} a pour voisins: {neighbors_names}")
             
-            # Liste pour stocker les informations de distance à afficher
-            distance_info = []
-            
             # Pour chaque voisin défini dans la configuration
             for neighbor_name in neighbors_names:
                 # Trouver l'index du voisin dans ALL_ROBOT_NAMES
@@ -448,25 +445,14 @@ class SwarmController(Node):
                 pj = np.array([self.robot_positions[j]['x'], self.robot_positions[j]['y']])
                 pj_array.append(pj)
                 
-                # Calculer la distance actuelle
-                current_distance = math.sqrt((pi[0] - pj[0])**2 + (pi[1] - pj[1])**2)
-                
                 # Distance désirée entre i et j (utiliser la distance initiale)
                 dij = self.desired_distances.get((i, j))
                 if dij is None:
                     # Si pas de distance initiale enregistrée, calculer la distance actuelle
-                    dij = current_distance
+                    dij = math.sqrt((pi[0] - pj[0])**2 + (pi[1] - pj[1])**2)
                     self.get_logger().debug(f"Distance initiale non trouvée pour {robot_name}-{neighbor_name}, utilisation de la distance actuelle: {dij:.3f}m")
                 
                 dij_list.append(dij)
-                
-                # Ajouter les informations de distance pour l'affichage
-                distance_info.append(f"{neighbor_name}: actuelle={current_distance:.3f}m, désirée={dij:.3f}m")
-            
-            # Afficher les distances avec les voisins
-            if distance_info:
-                distances_str = ", ".join(distance_info)
-                self.get_logger().info(f"Robot {robot_name} - Distances: {distances_str}")
             
             # Si aucun voisin valide n'a été trouvé, passer au robot suivant
             if not pj_array:
