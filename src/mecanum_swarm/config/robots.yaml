@@ -8,7 +8,5 @@ robot_neighbors:
   - Athos
   Athos:
   - Aramis
-  - Porthos
   Porthos:
   - Aramis
-  - Athos

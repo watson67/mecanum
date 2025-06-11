@@ -32,7 +32,7 @@ h = 0.2
 c1_gamma = 0.2 # navigation gain (position)
 c2_gamma = 0.05 # navigation gain (vitesse)
 c1_beta = 0.3
-c = 1         
+c = 5         
 epsilon = 0.1
 a = 1
 b = 1
@@ -40,7 +40,7 @@ e = abs(a-b)/math.sqrt(4*a*b)
 Kp = 0.2
 Ki = 0.05
 x_min = -1
-x_max = 1
+x_max = 2
 
 def sigma_norm(z):
     """
@@ -145,14 +145,19 @@ def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_ter
         integral_term[idx] += current_term * dt
         
         # Appliquer l'intégrale au contrôle
+        #if abs(sigma_norm(pj-pi)) < 1e-1:
+        #    ui_alpha = np.zeros(2)
+        #else:
+        #    ui_alpha += Kp * phi_alpha(sigma_norm(pj-pi),dij) * nij(pj,pi) + Ki * integral_term[idx]
         ui_alpha += Kp * phi_alpha(sigma_norm(pj-pi),dij) * nij(pj,pi) + Ki * integral_term[idx]
+
     #ui_gamma = -(c1_gamma * (pi - pr))
     ui_gamma = -sat((c1_gamma * (pi - pr)))
 
     if logger:
-        logger.info(f"ui: {((c1_gamma * (pi - pr)))}")
-        logger.info(f"sigma_norm: {phi_alpha(sigma_norm(pj-pi),dij)}")
+        logger.info(f"sigma_norm: {(sigma_norm(pj-pi))}")
         logger.info(f"ui_alpha: {ui_alpha}, ui_gamma: {ui_gamma}")
+    
 
     return ui_alpha + ui_gamma, integral_term
 

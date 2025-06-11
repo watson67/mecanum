@@ -16,7 +16,8 @@ import tf2_geometry_msgs
 from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
 
 # Noms des robots dans l'essaim
-ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
+from teleop_mecanum.config import ROBOT_NAMES
+
 
 # TOPICS ROS pour les poses des robots
 POSE_TOPICS = [f"/vrpn_mocap/{name}/pose" for name in ROBOT_NAMES]

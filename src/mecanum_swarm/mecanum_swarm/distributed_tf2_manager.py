@@ -25,7 +25,7 @@ class DistributedTF2Manager(Node):
         # Vérifier si le nom est dans la liste des robots connus
         if self.robot_name not in ALL_ROBOT_NAMES:
             print(f"Warning: Robot name '{self.robot_name}' not in known robot list {ALL_ROBOT_NAMES}")
-            self.robot_name = "Unknown"  # Fallback au cas où
+            # self.robot_name = "Unknown"  # Fallback au cas où
         
         # Pas de namespace pour que tous les robots voient toutes les frames TF2
         super().__init__(f'distributed_tf2_manager_{self.robot_name.lower()}')

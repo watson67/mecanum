@@ -144,7 +144,7 @@ class SwarmController(Node):
             from mecanum_swarm.config import ROBOT_NEIGHBORS
             
             self.robot_neighbors = ROBOT_NEIGHBORS
-            self.get_logger().debug(f"Configuration des voisins rechargée: {self.robot_neighbors}")
+            self.get_logger().info(f"Configuration des voisins rechargée: {self.robot_neighbors}")
             
         except Exception as e:
             self.get_logger().warn(f"Impossible de recharger la configuration des voisins: {e}")
@@ -196,7 +196,7 @@ class SwarmController(Node):
             # Lister les frames TF2 disponibles pour debug
             try:
                 available_frames = self.tf_buffer.all_frames_as_string()
-                self.get_logger().info(f"Frames TF2 disponibles: {available_frames}")
+                #self.get_logger().info(f"Frames TF2 disponibles: {available_frames}")
             except Exception as e:
                 self.get_logger().debug(f"Impossible de lister les frames TF2: {e}")
         

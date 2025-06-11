@@ -23,6 +23,8 @@ function _colcon_prefix_chain_powershell_source_script {
 
 # source chained prefixes
 _colcon_prefix_chain_powershell_source_script "/opt/ros/humble\local_setup.ps1"
+_colcon_prefix_chain_powershell_source_script "/home/eswarm/mecanum/src/mecanum_swarm/install\local_setup.ps1"
+_colcon_prefix_chain_powershell_source_script "/home/eswarm/mecanum/src/turtle_swarm/install\local_setup.ps1"
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/mecanum/src/consensus/install\local_setup.ps1"
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/mocap/src/install\local_setup.ps1"
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/mocap/install\local_setup.ps1"
@@ -33,8 +35,8 @@ _colcon_prefix_chain_powershell_source_script "/home/eswarm/crazyflie_mapping_de
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/crazyflie_mapping_demo/ros2_ws/install\local_setup.ps1"
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/ros2_ws/install\local_setup.ps1"
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/turtlesim_ws/install\local_setup.ps1"
-_colcon_prefix_chain_powershell_source_script "/home/eswarm/mecanum/install\local_setup.ps1"
 _colcon_prefix_chain_powershell_source_script "/home/eswarm/mecanum/src/install\local_setup.ps1"
+_colcon_prefix_chain_powershell_source_script "/home/eswarm/mecanum/install\local_setup.ps1"
 
 # source this prefix
 $env:COLCON_CURRENT_PREFIX=(Split-Path $PSCommandPath -Parent)

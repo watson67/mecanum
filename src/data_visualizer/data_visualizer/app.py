@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped, Twist
+from geometry_msgs.msg import PoseStamped, Twist, Point
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-from rclpy.action import ActionClient
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -42,6 +41,7 @@ class RobotVisualizerApp(Node):
         self.trajectories = {name: {'x': [], 'y': [], 'time': []} for name in self.robot_names}
         self.current_positions = {name: None for name in self.robot_names}
         self.current_angles = {name: None for name in self.robot_names}
+        self.current_velocities = {name: None for name in self.robot_names}
         self.last_displayed_positions = {name: None for name in self.robot_names}
         self.last_displayed_angles = {name: None for name in self.robot_names}
         
@@ -60,14 +60,11 @@ class RobotVisualizerApp(Node):
         self.draw_robot_connections = False
         self.robot_connection_lines = {}
         
-        # Publishers for robot control
-        self.cmd_vel_publishers = {}
-        for i, topic in enumerate(self.cmd_vel_topics):
-            self.cmd_vel_publishers[self.robot_names[i]] = self.create_publisher(
-                Twist,
-                topic,
-                10
-            )
+        # Flag for drawing trajectories
+        self.draw_trajectories = True
+        
+        # Store goal point
+        self.goal_point = None
         
         # Subscribe to pose topics
         for i, topic in enumerate(self.pose_topics):
@@ -77,6 +74,23 @@ class RobotVisualizerApp(Node):
                 self.pose_callback_factory(self.robot_names[i]),
                 qos_profile=self.qos_profile
             )
+        
+        # Subscribe to cmd_vel topics
+        for i, topic in enumerate(self.cmd_vel_topics):
+            self.create_subscription(
+                Twist,
+                topic,
+                self.cmd_vel_callback_factory(self.robot_names[i]),
+                10
+            )
+        
+        # Subscribe to goal_point topic
+        self.create_subscription(
+            Point,
+            '/goal_point',
+            self.goal_point_callback,
+            10
+        )
         
         # Create and setup the GUI
         self.setup_gui()
@@ -96,7 +110,7 @@ class RobotVisualizerApp(Node):
         # Create main window
         self.root = tk.Tk()
         self.root.title("Robot Position Visualizer")
-        self.root.geometry("1200x900")  # Augmenter la hauteur
+        self.root.geometry("1200x700")
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # Configure the main window to be resizable
@@ -143,12 +157,11 @@ class RobotVisualizerApp(Node):
     
     def setup_trajectory_plot(self):
         """Setup the trajectory plot tab"""
-        # Left frame for the plot (using grid instead of pack)
+        # Left frame for the plot
         self.plot_frame = ttk.Frame(self.trajectory_tab)
         self.plot_frame.grid(row=0, column=0, sticky="nsew")
         self.plot_frame.rowconfigure(0, weight=1)
         self.plot_frame.rowconfigure(1, weight=0)
-        self.plot_frame.rowconfigure(2, weight=0)
         self.plot_frame.columnconfigure(0, weight=1)
 
         # Create a frame for the matplotlib plot
@@ -187,107 +200,14 @@ class RobotVisualizerApp(Node):
             command=self.toggle_robot_connections
         )
         self.connect_button.grid(row=0, column=1, padx=5, pady=5)
-
-        # Robot control section
-        self.robot_control_frame = ttk.LabelFrame(self.plot_frame, text="Robot Control")
-        self.robot_control_frame.grid(row=2, column=0, sticky="ew", pady=5, padx=10)
-
-        # Dropdown menu for selecting a robot
-        ttk.Label(self.robot_control_frame, text="Robot:").grid(row=0, column=0, padx=5, pady=5)
-        self.robot_var = tk.StringVar(value=self.robot_names[0])
-        self.robot_dropdown = ttk.Combobox(
-            self.robot_control_frame, 
-            textvariable=self.robot_var, 
-            values=self.robot_names,
-            width=10
+        
+        # Toggle trajectories button
+        self.trajectory_button = ttk.Button(
+            self.button_frame, 
+            text="Toggle Trajectories",
+            command=self.toggle_trajectories
         )
-        self.robot_dropdown.grid(row=0, column=1, padx=5, pady=5)
-        
-        # Text fields for target position (x, y) and angle
-        ttk.Label(self.robot_control_frame, text="Target X:").grid(row=0, column=2, padx=5, pady=5)
-        self.x_var = tk.DoubleVar(value=0.0)
-        self.x_entry = ttk.Entry(self.robot_control_frame, textvariable=self.x_var, width=5)
-        self.x_entry.grid(row=0, column=3, padx=5, pady=5)
-        
-        ttk.Label(self.robot_control_frame, text="Target Y:").grid(row=0, column=4, padx=5, pady=5)
-        self.y_var = tk.DoubleVar(value=0.0)
-        self.y_entry = ttk.Entry(self.robot_control_frame, textvariable=self.y_var, width=5)
-        self.y_entry.grid(row=0, column=5, padx=5, pady=5)
-        
-        ttk.Label(self.robot_control_frame, text="Target Angle:").grid(row=0, column=6, padx=5, pady=5)
-        self.z_var = tk.DoubleVar(value=0.0)
-        self.z_entry = ttk.Entry(self.robot_control_frame, textvariable=self.z_var, width=5)
-        self.z_entry.grid(row=0, column=7, padx=5, pady=5)
-        
-        # Button to send the robot to the specified position
-        self.send_button = ttk.Button(
-            self.robot_control_frame, 
-            text="Go To Position", 
-            command=self.send_robot_to_target
-        )
-        self.send_button.grid(row=0, column=8, padx=5, pady=5)
-        
-        # Button to stop robot
-        self.stop_button = ttk.Button(
-            self.robot_control_frame, 
-            text="Stop", 
-            command=self.stop_robot
-        )
-        self.stop_button.grid(row=0, column=9, padx=5, pady=5)
-        
-        # Create publishers for position control commands
-        self.position_cmd_publishers = {}
-        for name in self.robot_names:
-            self.position_cmd_publishers[name] = self.create_publisher(
-                PoseStamped,
-                f"/{name}/target_pose",
-                10
-            )
-    
-    def send_robot_to_target(self):
-        """Send the selected robot to the specified position using the robot_control node"""
-        robot_name = self.robot_var.get()
-        target_x = self.x_var.get()
-        target_y = self.y_var.get()
-        target_angle = self.z_var.get()
-        
-        # Create a target pose message
-        target_pose = PoseStamped()
-        target_pose.header.stamp = self.get_clock().now().to_msg()
-        target_pose.header.frame_id = "world"
-        
-        # Set position
-        target_pose.pose.position.x = target_x
-        target_pose.pose.position.y = target_y
-        target_pose.pose.position.z = 0.0
-        
-        # Convert angle to quaternion (simple yaw rotation)
-        target_pose.pose.orientation.x = 0.0
-        target_pose.pose.orientation.y = 0.0
-        target_pose.pose.orientation.z = math.sin(target_angle / 2.0)
-        target_pose.pose.orientation.w = math.cos(target_angle / 2.0)
-        
-        # Publish the target pose
-        if robot_name in self.position_cmd_publishers:
-            self.position_cmd_publishers[robot_name].publish(target_pose)
-            self.get_logger().info(f"Sent target position for {robot_name}: ({target_x}, {target_y}, {target_angle})")
-            messagebox.showinfo("Command Sent", 
-                f"{robot_name} is moving to position:\nX: {target_x} m\nY: {target_y} m\nAngle: {target_angle} rad")
-        else:
-            self.get_logger().error(f"Robot {robot_name} not found")
-            messagebox.showerror("Error", f"Robot {robot_name} not found")
-    
-    def stop_robot(self):
-        """Stop the selected robot by sending a zero velocity command"""
-        robot_name = self.robot_var.get()
-        
-        if robot_name in self.cmd_vel_publishers:
-            # Create a zero velocity command
-            stop_cmd = Twist()
-            self.cmd_vel_publishers[robot_name].publish(stop_cmd)
-            
-            self.get_logger().info(f"Stopping robot {robot_name}")
-            messagebox.showinfo("Robot Stopped", f"{robot_name} has been stopped")
+        self.trajectory_button.grid(row=0, column=2, padx=5, pady=5)
     
     def setup_distance_plot(self):
         """Setup the distance history plot tab"""
@@ -324,7 +244,7 @@ class RobotVisualizerApp(Node):
         """Configure the initial plot"""
         self.ax.set_ylabel('X Position (m)')  # X on Y-axis
         self.ax.set_xlabel('Y Position (m)')  # Y on X-axis
-        self.ax.set_title('Robot Trajectories')
+        self.ax.set_title('Robot Trajectories and Velocities')
         
         # Set grid
         self.ax.grid(True)
@@ -339,7 +259,8 @@ class RobotVisualizerApp(Node):
         # Create lines and markers for each robot
         self.trajectory_lines = {}
         self.position_markers = {}
-        self.orientation_arrows = {}  # Add dictionary for orientation arrows
+        self.orientation_arrows = {}
+        self.velocity_arrows = {}  # Add velocity arrows
         
         for i, name in enumerate(self.robot_names):
             color = self.colors[i % len(self.colors)]
@@ -349,12 +270,19 @@ class RobotVisualizerApp(Node):
             self.trajectory_lines[name] = line
             
             # Marker for the current position
-            marker, = self.ax.plot([], [], 'o', color=color, markersize=10)
+            marker, = self.ax.plot([], [], 'o', color=color, markersize=5)
             self.position_markers[name] = marker
             
-            # Arrow for orientation (initially with length 0)
-            arrow = self.ax.quiver(0, 0, 0, 0, color=color, scale=1, scale_units='inches', width=0.03)
+            # Arrow for orientation (thin, light)
+            arrow = self.ax.quiver(0, 0, 0, 0, color=color, alpha=0.5, width=0.002)
             self.orientation_arrows[name] = arrow
+            
+            # Arrow for velocity (thicker, bright)
+            vel_arrow = self.ax.quiver(0, 0, 0, 0, color=color, alpha=1.0, width=0.004)
+            self.velocity_arrows[name] = vel_arrow
+        
+        # Goal point marker
+        self.goal_marker, = self.ax.plot([], [], 'x', color='black', markersize=15, markeredgewidth=3, label='Goal')
         
         # Create connection lines between robots (initially invisible)
         for i, name1 in enumerate(self.robot_names):
@@ -421,6 +349,21 @@ class RobotVisualizerApp(Node):
         
         return callback
     
+    def cmd_vel_callback_factory(self, name):
+        def callback(msg):
+            # Store velocity data
+            velocity = (msg.linear.x, msg.linear.y)
+            self.current_velocities[name] = velocity
+            
+            self.get_logger().debug(f'{name} velocity: ({velocity[0]:.2f}, {velocity[1]:.2f})')
+        
+        return callback
+    
+    def goal_point_callback(self, msg):
+        """Callback for goal point messages"""
+        self.goal_point = (msg.x, msg.y)
+        self.get_logger().info(f'Goal point updated: ({msg.x:.2f}, {msg.y:.2f})')
+    
     def update_plot(self):
         """Update the plot with current positions and trajectories"""
         try:
@@ -433,30 +376,62 @@ class RobotVisualizerApp(Node):
                 y_data = self.trajectories[name]['y']
                 
                 # Update trajectory line (invert x and y for plotting)
-                if x_data and y_data:
+                if x_data and y_data and self.draw_trajectories:
                     self.trajectory_lines[name].set_data(y_data, x_data)
+                    self.trajectory_lines[name].set_visible(True)
+                    plot_needs_update = True
+                elif not self.draw_trajectories:
+                    self.trajectory_lines[name].set_visible(False)
                     plot_needs_update = True
                     
-                    # Update position marker
-                    if self.current_positions[name]:
-                        x_pos, y_pos = self.current_positions[name]
-                        self.position_markers[name].set_data([y_pos], [x_pos])
+                # Update position marker
+                if self.current_positions[name]:
+                    x_pos, y_pos = self.current_positions[name]
+                    self.position_markers[name].set_data([y_pos], [x_pos])
+                    
+                    # Update orientation arrow if we have angle data
+                    if self.current_angles[name] is not None:
+                        # Calculate arrow vector components
+                        arrow_length = 0.15
+                        dx = arrow_length * math.sin(self.current_angles[name])
+                        dy = arrow_length * math.cos(self.current_angles[name])
                         
-                        # Update orientation arrow if we have angle data
-                        if self.current_angles[name] is not None:
-                            # Calculate arrow vector components (adjust for the plot's axes)
-                            # Since x is plotted on y-axis and y on x-axis (inverted), we need to switch components
-                            arrow_length = 0.2  # Length of the orientation arrow
-                            dx = arrow_length * math.sin(self.current_angles[name])
-                            dy = arrow_length * math.cos(self.current_angles[name])
-                            
-                            # Remove old arrow and create new one at the current position
-                            self.orientation_arrows[name].remove()
-                            self.orientation_arrows[name] = self.ax.quiver(
-                                y_pos, x_pos, dx, dy, 
+                        # Remove old arrow and create new one at the current position
+                        self.orientation_arrows[name].remove()
+                        self.orientation_arrows[name] = self.ax.quiver(
+                            y_pos, x_pos, dx, dy, 
+                            color=self.trajectory_lines[name].get_color(),
+                            alpha=0.5, width=0.002, scale=1, scale_units='xy', angles='xy'
+                        )
+                    
+                    # Update velocity arrow if we have velocity data
+                    if self.current_velocities[name] is not None:
+                        vel_x, vel_y = self.current_velocities[name]
+                        # Only show velocity vector if robot is moving
+                        velocity_magnitude = math.sqrt(vel_x**2 + vel_y**2)
+                        
+                        if velocity_magnitude > 0.01:  # Threshold to avoid tiny arrows
+                            # Remove old velocity arrow and create new one
+                            self.velocity_arrows[name].remove()
+                            self.velocity_arrows[name] = self.ax.quiver(
+                                y_pos, x_pos, vel_y, vel_x,  # Note: swapped for plot coordinates
                                 color=self.trajectory_lines[name].get_color(),
-                                scale=1, scale_units='inches', width=0.03
+                                alpha=1.0, width=0.004, scale=1, scale_units='xy', angles='xy'
                             )
+                        else:
+                            # Hide arrow if robot is not moving
+                            self.velocity_arrows[name].remove()
+                            self.velocity_arrows[name] = self.ax.quiver(
+                                0, 0, 0, 0, 
+                                color=self.trajectory_lines[name].get_color(),
+                                alpha=1.0, width=0.004
+                            )
+            
+            # Update goal point marker
+            if self.goal_point:
+                goal_x, goal_y = self.goal_point
+                self.goal_marker.set_data([goal_y], [goal_x])  # Note: swapped for plot coordinates
+                plot_needs_update = True
             
             # Update connection lines if enabled
             if self.draw_robot_connections:
@@ -540,7 +515,7 @@ class RobotVisualizerApp(Node):
         self.distance_canvas.draw_idle()
     
     def update_position_info(self):
-        """Update the position and distance information in the text area"""
+        """Update the position and velocity information in the text area"""
         if not all(self.current_positions.values()):
             return  # Wait until all positions are available
         
@@ -561,19 +536,32 @@ class RobotVisualizerApp(Node):
         if not positions_changed:
             return  # No need to update if positions haven't changed
             
-        # Build text with position information
-        info_text = "Robot positions:\n\n"
+        # Build text with position and velocity information
+        info_text = "Robot Data:\n\n"
         
-        # Format for positions including yaw
-        position_format = "{name:8}: X={x:8.3f} m, Y={y:8.3f} m, Yaw={yaw:8.2f} deg\n"
+        # Format for positions including yaw and velocity
+        robot_format = "{name:8}:\n  Position: X={x:8.3f} m, Y={y:8.3f} m\n  Yaw:      {yaw:8.2f} deg\n  Velocity: Vx={vx:7.3f} m/s, Vy={vy:7.3f} m/s\n\n"
         
         for name in self.robot_names:
             if self.current_positions[name] and self.current_angles[name] is not None:
                 x, y = self.current_positions[name]
                 yaw_deg = math.degrees(self.current_angles[name])
-                info_text += position_format.format(name=name, x=x, y=y, yaw=yaw_deg)
+                
+                # Get velocity data
+                vx, vy = (0.0, 0.0)
+                if self.current_velocities[name] is not None:
+                    vx, vy = self.current_velocities[name]
+                
+                info_text += robot_format.format(
+                    name=name, x=x, y=y, yaw=yaw_deg, vx=vx, vy=vy
+                )
         
-        info_text += "\nDistances between robots:\n\n"
+        # Add goal point information
+        if self.goal_point:
+            goal_x, goal_y = self.goal_point
+            info_text += f"Goal Point: X={goal_x:8.3f} m, Y={goal_y:8.3f} m\n\n"
+        
+        info_text += "Distances between robots:\n\n"
         
         # Format for distances
         distance_format = "{name1:8} - {name2:8}: {distance:8.3f} m\n"
@@ -606,18 +594,16 @@ class RobotVisualizerApp(Node):
         
         self.get_logger().info(f'Robot connections {"enabled" if self.draw_robot_connections else "disabled"}')
     
-    def send_robot_to_position(self):
-        """Open dialog to send a robot to a position"""
-        # Create dialog
-        robot_dialog = RobotDestinationDialog(self.root, self.robot_names)
-        if robot_dialog.result:
-            robot_name, x, y = robot_dialog.result
-            self.get_logger().info(f"Sending {robot_name} to position ({x}, {y})")
-            
-            # Send command to robot - in a real implementation we'd use an action client
-            # For now, we'll just display a message
-            messagebox.showinfo("Command Sent", 
-                               f"Command to send {robot_name} to ({x:.2f}, {y:.2f}) has been sent!")
+    def toggle_trajectories(self):
+        """Toggle the display of robot trajectories"""
+        self.draw_trajectories = not self.draw_trajectories
+        
+        # Hide/show trajectory lines
+        for name in self.robot_names:
+            self.trajectory_lines[name].set_visible(self.draw_trajectories)
+        
+        self.canvas.draw_idle()
+        self.get_logger().info(f'Robot trajectories {"enabled" if self.draw_trajectories else "disabled"}')
     
     def clear_trajectories(self):
         """Clear all displayed trajectories"""
@@ -650,61 +636,6 @@ class RobotVisualizerApp(Node):
         """Spin ROS in a separate thread"""
         while rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.1)
-
-
-class RobotDestinationDialog:
-    """Dialog for selecting a robot and destination"""
-    def __init__(self, parent, robot_names):
-        self.result = None
-        
-        # Create dialog window
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Send Robot to Position")
-        self.dialog.geometry("300x200")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-        
-        # Create widgets
-        ttk.Label(self.dialog, text="Select Robot:").grid(row=0, column=0, padx=10, pady=10, sticky="w")
-        self.robot_var = tk.StringVar(value=robot_names[0])
-        self.robot_combo = ttk.Combobox(self.dialog, textvariable=self.robot_var, values=robot_names)
-        self.robot_combo.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
-        
-        ttk.Label(self.dialog, text="X Position:").grid(row=1, column=0, padx=10, pady=10, sticky="w")
-        self.x_var = tk.DoubleVar(value=0.0)
-        self.x_entry = ttk.Entry(self.dialog, textvariable=self.x_var)
-        self.x_entry.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
-        
-        ttk.Label(self.dialog, text="Y Position:").grid(row=2, column=0, padx=10, pady=10, sticky="w")
-        self.y_var = tk.DoubleVar(value=0.0)
-        self.y_entry = ttk.Entry(self.dialog, textvariable=self.y_var)
-        self.y_entry.grid(row=2, column=1, padx=10, pady=10, sticky="ew")
-        
-        # Buttons
-        button_frame = ttk.Frame(self.dialog)
-        button_frame.grid(row=3, column=0, columnspan=2, pady=20)
-        
-        ttk.Button(button_frame, text="Send", command=self.on_send).pack(side=tk.LEFT, padx=10)
-        ttk.Button(button_frame, text="Cancel", command=self.on_cancel).pack(side=tk.LEFT, padx=10)
-        
-        # Configure grid
-        self.dialog.columnconfigure(1, weight=1)
-        
-        # Wait for dialog to close
-        parent.wait_window(self.dialog)
-    
-    def on_send(self):
-        try:
-            robot = self.robot_var.get()
-            x = self.x_var.get()
-            y = self.y_var.get()
-            self.result = (robot, x, y)
-            self.dialog.destroy()
-        except ValueError as e:
-            messagebox.showerror("Input Error", f"Invalid position values: {e}")
-    
-    def on_cancel(self):
-        self.dialog.destroy()
 
 
 def main(args=None):
