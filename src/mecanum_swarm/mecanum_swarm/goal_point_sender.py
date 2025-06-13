@@ -3,11 +3,12 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int32, String
 from geometry_msgs.msg import Point
-from mecanum_swarm.trajectory import RECTANGLE_POINTS, CIRCLE_POINTS, EIGHT_POINTS, TEST_POINTS
+from mecanum_swarm.trajectory import RECTANGLE_POINTS, CIRCLE_POINTS, EIGHT_POINTS, TEST_POINTS, TRIANGLE_POINTS
 
 TRAJECTORIES = {
     "rectangle": RECTANGLE_POINTS,
     "circle": CIRCLE_POINTS,
+    "triangle": TRIANGLE_POINTS,  
     "eight": EIGHT_POINTS,
     "test": TEST_POINTS,
 }

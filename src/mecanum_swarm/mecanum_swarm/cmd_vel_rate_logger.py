@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Float64MultiArray
 import tf2_ros
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
@@ -27,6 +27,9 @@ class CmdVelRateLogger(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         
+        # Stockage des données de contrôle pour chaque robot
+        self.control_data = {name: {'ui_alpha_x': 0.0, 'ui_alpha_y': 0.0, 'ui_gamma_x': 0.0, 'ui_gamma_y': 0.0} for name in ALL_ROBOT_NAMES}
+        
         self._init_csvs()
 
         for name in ALL_ROBOT_NAMES:
@@ -38,6 +41,16 @@ class CmdVelRateLogger(Node):
                 10
             )
             self.subs.append(sub)
+            
+            # Ajouter subscription pour les données de contrôle
+            control_topic = f'/{name}/control_components'
+            control_sub = self.create_subscription(
+                Float64MultiArray,
+                control_topic,
+                self._make_control_callback(name),
+                10
+            )
+            self.subs.append(control_sub)
 
         self.create_subscription(
             Int32,
@@ -47,12 +60,12 @@ class CmdVelRateLogger(Node):
         )
 
     def _init_csvs(self):
-        # Un fichier CSV par robot, avec colonnes pour timestamp, position et commandes
+        # Un fichier CSV par robot, avec colonnes pour timestamp, position, commandes et composantes de contrôle
         for name in ALL_ROBOT_NAMES:
             try:
                 with open(self.csv_paths[name], 'w', newline='') as csvfile:
                     writer = csv.writer(csvfile)
-                    writer.writerow(['timestamp', 'x', 'y', 'linear_x', 'linear_y', 'angular_z'])
+                    writer.writerow(['timestamp', 'x', 'y', 'linear_x', 'linear_y', 'angular_z', 'ui_alpha_x', 'ui_alpha_y', 'ui_gamma_x', 'ui_gamma_y'])
                 self.get_logger().info(f"Fichier CSV initialisé : {self.csv_paths[name]}")
             except Exception as e:
                 self.get_logger().error(f"Erreur lors de la création du CSV pour {name} : {e}")
@@ -65,6 +78,18 @@ class CmdVelRateLogger(Node):
         elif msg.data == 0:
             self.get_logger().info("Désactivation reçue sur /master, arrêt de l'écriture dans les CSV.")
             self.active = False
+
+    def _make_control_callback(self, robot_name):
+        def callback(msg):
+            if not self.active:
+                return
+            # msg.data contient [ui_alpha_x, ui_alpha_y, ui_gamma_x, ui_gamma_y]
+            if len(msg.data) >= 4:
+                self.control_data[robot_name]['ui_alpha_x'] = msg.data[0]
+                self.control_data[robot_name]['ui_alpha_y'] = msg.data[1]
+                self.control_data[robot_name]['ui_gamma_x'] = msg.data[2]
+                self.control_data[robot_name]['ui_gamma_y'] = msg.data[3]
+        return callback
 
     def _make_callback(self, robot_name):
         def callback(msg):
@@ -90,10 +115,15 @@ class CmdVelRateLogger(Node):
             linear_y = msg.linear.y
             angular_z = msg.angular.z
             
+            # Récupérer les données de contrôle
+            control = self.control_data[robot_name]
+            
             try:
                 with open(self.csv_paths[robot_name], 'a', newline='') as csvfile:
                     writer = csv.writer(csvfile)
-                    writer.writerow([now, x, y, linear_x, linear_y, angular_z])
+                    writer.writerow([now, x, y, linear_x, linear_y, angular_z, 
+                                   control['ui_alpha_x'], control['ui_alpha_y'], 
+                                   control['ui_gamma_x'], control['ui_gamma_y']])
             except Exception as e:
                 self.get_logger().error(f"Erreur lors de l'écriture dans le CSV pour {robot_name} : {e}")
         return callback

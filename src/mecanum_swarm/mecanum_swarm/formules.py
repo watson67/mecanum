@@ -28,8 +28,9 @@ x_max = 2
 
 """
 
+# Paramètres du contrôle
 h = 0.2
-c1_gamma = 0.2 # navigation gain (position)
+c1_gamma = 0.15 # navigation gain (position)
 c2_gamma = 0.05 # navigation gain (vitesse)
 c1_beta = 0.3
 c = 5         
@@ -37,10 +38,15 @@ epsilon = 0.1
 a = 1
 b = 1
 e = abs(a-b)/math.sqrt(4*a*b)
+
+# Coefficients PID
 Kp = 0.2
 Ki = 0.05
-x_min = -1
-x_max = 2
+Kd = 0.0
+
+# Saturation des commandes
+x_min = -0.14
+x_max = 0.14
 
 def sigma_norm(z):
     """
@@ -152,14 +158,79 @@ def control(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_ter
         ui_alpha += Kp * phi_alpha(sigma_norm(pj-pi),dij) * nij(pj,pi) + Ki * integral_term[idx]
 
     #ui_gamma = -(c1_gamma * (pi - pr))
-    ui_gamma = -sat((c1_gamma * (pi - pr)))
+    ui_gamma = -((c1_gamma * (pi - pr)))
 
     if logger:
         logger.info(f"sigma_norm: {(sigma_norm(pj-pi))}")
+        logger.info(f"ui_gamma_sans-saturation: {c1_gamma * (pi - pr)}")
         logger.info(f"ui_alpha: {ui_alpha}, ui_gamma: {ui_gamma}")
     
 
-    return ui_alpha + ui_gamma, integral_term
+    return (ui_alpha) + ui_gamma, integral_term
+
+def control_with_components(pj_array=None, pi=None, dij_list=None, pr=None, dt=0.1, integral_term=None, derivative_term=None, logger=None):
+    """
+    Version de control() qui retourne aussi les composantes ui_alpha et ui_gamma séparément
+    Avec action dérivée (Kd) sur ui_alpha
+    
+    Parameters:
+    - derivative_term: dictionnaire contenant les erreurs précédentes pour chaque voisin
+    
+    Returns:
+    - Le vecteur de contrôle total
+    - La nouvelle valeur de l'intégrale pour l'appel suivant
+    - La nouvelle valeur du terme dérivé pour l'appel suivant
+    - ui_alpha (numpy array)
+    - ui_gamma (numpy array)
+    """
+    ui_alpha = np.zeros(2)
+    ui_gamma = np.zeros(2)
+    
+    # Initialiser l'intégrale si elle n'existe pas
+    if integral_term is None:
+        integral_term = np.zeros((len(pj_array), 2))
+    
+    # Initialiser le terme dérivé si il n'existe pas
+    if derivative_term is None:
+        derivative_term = {'previous_errors': np.zeros((len(pj_array), 2))}
+    
+    # Stocker les erreurs actuelles pour le calcul de la dérivée
+    current_errors = np.zeros((len(pj_array), 2))
+    
+    # Pour tous les voisins j de i
+    for idx in range(len(pj_array)):
+        pj = pj_array[idx]
+        dij = dij_list[idx]
+        
+        # Calcul de l'erreur actuelle
+        error_vector = phi_alpha(sigma_norm(pj-pi), dij) * nij(pj, pi)
+        current_errors[idx] = error_vector
+        
+        # Terme proportionnel
+        proportional_term = Kp * error_vector
+        
+        # Terme intégral
+        integral_term[idx] += error_vector * dt
+        integral_action = Ki * integral_term[idx]
+        
+        # Terme dérivé
+        if 'previous_errors' in derivative_term and idx < len(derivative_term['previous_errors']):
+            derivative_action = Kd * (error_vector - derivative_term['previous_errors'][idx]) / dt
+        else:
+            derivative_action = np.zeros(2)  # Pas de dérivée à la première itération
+        
+        # Somme PID sur ui_alpha
+        ui_alpha += proportional_term + integral_action + derivative_action
+
+    # Mettre à jour les erreurs précédentes pour la prochaine itération
+    derivative_term['previous_errors'] = current_errors.copy()
+
+    ui_gamma = -sat((c1_gamma * (pi - pr)))
+
+    if logger:
+        logger.info(f"ui_alpha (PID): {ui_alpha}, ui_gamma: {ui_gamma}")
+    
+    return (ui_alpha) + ui_gamma, integral_term, derivative_term, ui_alpha, ui_gamma
 
 def control_obstacle(pj_array=None, pi=None, dij_list=None,
                      pk_array=None, pi_array=None, d_bet=None, 

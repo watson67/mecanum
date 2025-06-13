@@ -3,7 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Float64MultiArray
 import math
 import tf2_ros
 from geometry_msgs.msg import TransformStamped, Vector3Stamped
@@ -47,9 +47,14 @@ class SwarmController(Node):
 
         # Publishers pour piloter chaque robot
         self.cmd_vel_publishers = {}
+        self.control_component_publishers = {}
         for name in ALL_ROBOT_NAMES:
             self.cmd_vel_publishers[name] = self.create_publisher(
                 Twist, f"/{name}/cmd_vel", 10
+            )
+            # Publisher pour les composantes de contrôle
+            self.control_component_publishers[name] = self.create_publisher(
+                Float64MultiArray, f"/{name}/control_components", 10
             )
             
         # Publisher pour indiquer si la cible est atteinte
@@ -118,6 +123,9 @@ class SwarmController(Node):
         
         # Stockage des termes intégraux pour chaque robot
         self.integral_terms = [None for _ in ALL_ROBOT_NAMES]
+        
+        # Stockage des termes dérivés pour chaque robot
+        self.derivative_terms = [None for _ in ALL_ROBOT_NAMES]
         
         # Pas de temps pour l'intégration
         self.dt = 0.1
@@ -475,19 +483,27 @@ class SwarmController(Node):
                 self.cmd_vel_publishers[robot_name].publish(twist_msg)
                 continue
             
-            # Appliquer la fonction de contrôle
-            control_vector, updated_integral = control(
+            # Appliquer la fonction de contrôle avec composantes
+            control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma = control_with_components(
                 pj_array=pj_array,
                 pi=pi,
                 dij_list=dij_list,
                 pr=pr,
                 dt=self.dt,
                 integral_term=self.integral_terms[i],
+                derivative_term=self.derivative_terms[i],
                 logger=self.get_logger()
             )
             
-            # Mettre à jour le terme intégral pour ce robot
+            # Mettre à jour les termes intégral et dérivé pour ce robot
             self.integral_terms[i] = updated_integral
+            self.derivative_terms[i] = updated_derivative
+            
+            # Publier les composantes de contrôle
+            control_msg = Float64MultiArray()
+            control_msg.data = [float(ui_alpha[0]), float(ui_alpha[1]), 
+                               float(ui_gamma[0]), float(ui_gamma[1])]
+            self.control_component_publishers[robot_name].publish(control_msg)
             
             # Transformer les vitesses du repère global au repère du robot
             robot_lin_x, robot_lin_y = self.transform_velocity(
