@@ -2,7 +2,8 @@ import math
 
 # Square trajectory: list of (x, y)
 RECTANGLE_POINTS = [
-    #(-0.64, -0.77),
+    (-0.64, -0.77),
+    (-0.44, -0.77),
     (0.64, -0.77),
     (0.64, 0.3),
    

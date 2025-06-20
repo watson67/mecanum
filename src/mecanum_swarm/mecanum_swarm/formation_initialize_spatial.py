@@ -131,7 +131,7 @@ class FormationInitializer(Node):
             default_yaml_path = os.path.join(package_share_dir, 'config', 'robots.yaml')
         except:
             # Fallback vers un chemin relatif si le package n'est pas trouvé
-            default_yaml_path = os.path.join(os.path.expanduser('~'), 'mecanum', 'src', 'mecanum_swarm', 'config', 'robots.yaml')
+            default_yaml_path = os.path.join('config', 'robots.yaml')
         
         self.yaml_file_path = self.declare_parameter('yaml_file_path', default_yaml_path).value
         

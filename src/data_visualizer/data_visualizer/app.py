@@ -15,6 +15,8 @@ import math
 import threading
 import collections
 from transforms3d.euler import quat2euler
+import yaml
+import os
 
 # Maximum history for the scrolling distance plot
 MAX_TIME_HISTORY = 60  # seconds
@@ -23,9 +25,11 @@ class RobotVisualizerApp(Node):
     def __init__(self):
         super().__init__('robot_visualizer')
         
+        # Load robot configuration from YAML
+        self.load_robot_config()
+        
         # Configuration
-        self.robot_names = ["Aramis", "Athos", "Porthos"]
-        self.colors = ['red', 'green', 'blue']
+        self.colors = ['red', 'green', 'blue', 'orange']
         self.pose_topics = [f"/vrpn_mocap/{name}/pose" for name in self.robot_names]
         self.cmd_vel_topics = [f"/{name}/cmd_vel" for name in self.robot_names]
         
@@ -63,8 +67,29 @@ class RobotVisualizerApp(Node):
         # Flag for drawing trajectories
         self.draw_trajectories = True
         
+        # Flag for drawing barycenters
+        self.draw_barycenters = True
+        
+        # Number of barycenter levels to calculate (p1, p2, p3, ...)
+        self.num_barycenter_levels = 3
+        self.max_barycenter_levels = 10
+        
         # Store goal point
         self.goal_point = None
+        
+        # Store multi-level barycenters for each robot
+        # Structure: self.barycenters[robot][level] = (x, y)
+        self.barycenters = {robot: {} for robot in self.robots_with_neighbors}
+        self.barycenter_markers = {robot: {} for robot in self.robots_with_neighbors}
+        
+        # Colors and markers for different barycenter levels
+        self.barycenter_colors = ['purple', 'orange', 'brown', 'pink', 'cyan', 'magenta', 'yellow', 'gray']
+        self.barycenter_markers_style = ['s', 'D', 'v', '<', '>', 'h', 'p', '*','s', 'D']
+        self.barycenter_sizes = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        
+        # Store complete swarm barycenter
+        self.swarm_barycenter = None
+        self.swarm_barycenter_marker = None
         
         # Subscribe to pose topics
         for i, topic in enumerate(self.pose_topics):
@@ -105,6 +130,39 @@ class RobotVisualizerApp(Node):
         self.text_update_needed = True
         
         self.get_logger().info('Robot visualizer started')
+    
+    def load_robot_config(self):
+        """Load robot configuration from YAML file"""
+        try:
+            # Get the path to the YAML file
+            config_path = "/home/eswarm/mecanum/src/mecanum_swarm/config/robots.yaml"
+            
+            with open(config_path, 'r') as file:
+                config = yaml.safe_load(file)
+            
+            self.robot_names = config['all_robot_names']
+            self.robot_neighbors = config['robot_neighbors']
+            
+            # Create list of robots that have neighbors for barycenter calculation
+            self.robots_with_neighbors = []
+            for robot, neighbors in self.robot_neighbors.items():
+                if neighbors:  # Only if robot has neighbors
+                    self.robots_with_neighbors.append(robot)
+            
+            self.get_logger().info(f'Loaded {len(self.robot_names)} robots from config')
+            self.get_logger().info(f'Found {len(self.robots_with_neighbors)} robots with neighbors: {self.robots_with_neighbors}')
+            
+        except Exception as e:
+            self.get_logger().error(f'Error loading robot config: {e}')
+            # Fallback to default configuration
+            self.robot_names = ["Aramis", "Athos", "Porthos", "Dartagnan"]
+            self.robot_neighbors = {
+                "Aramis": ["Porthos", "Athos"],
+                "Athos": ["Dartagnan", "Aramis"],
+                "Dartagnan": ["Athos", "Porthos"],
+                "Porthos": ["Aramis", "Dartagnan"]
+            }
+            self.robots_with_neighbors = ["Aramis", "Athos", "Dartagnan", "Porthos"]
     
     def setup_gui(self):
         # Create main window
@@ -208,6 +266,34 @@ class RobotVisualizerApp(Node):
             command=self.toggle_trajectories
         )
         self.trajectory_button.grid(row=0, column=2, padx=5, pady=5)
+        
+        # Toggle barycenters button
+        self.barycenter_button = ttk.Button(
+            self.button_frame, 
+            text="Toggle Barycenters",
+            command=self.toggle_barycenters
+        )
+        self.barycenter_button.grid(row=0, column=3, padx=5, pady=5)
+        
+        # Barycenter level controls
+        self.level_frame = ttk.Frame(self.button_frame)
+        self.level_frame.grid(row=1, column=0, columnspan=4, pady=5)
+        
+        ttk.Label(self.level_frame, text="Barycenter Levels:").pack(side=tk.LEFT, padx=5)
+        
+        self.level_var = tk.IntVar(value=self.num_barycenter_levels)
+        self.level_spinbox = tk.Spinbox(
+            self.level_frame, 
+            from_=1, 
+            to=self.max_barycenter_levels, 
+            width=5,
+            textvariable=self.level_var,
+            command=self.update_barycenter_levels
+        )
+        self.level_spinbox.pack(side=tk.LEFT, padx=5)
+        
+        # Bind spinbox change event
+        self.level_var.trace('w', self.on_level_change)
     
     def setup_distance_plot(self):
         """Setup the distance history plot tab"""
@@ -269,30 +355,52 @@ class RobotVisualizerApp(Node):
             line, = self.ax.plot([], [], '-', color=color, label=f'{name}', linewidth=2, alpha=0.7)
             self.trajectory_lines[name] = line
             
-            # Marker for the current position
-            marker, = self.ax.plot([], [], 'o', color=color, markersize=5)
+            # Marker for the current position (plus grand)
+            marker, = self.ax.plot([], [], 'o', color=color, markersize=8)
             self.position_markers[name] = marker
             
-            # Arrow for orientation (thin, light)
-            arrow = self.ax.quiver(0, 0, 0, 0, color=color, alpha=0.5, width=0.002)
+            # Arrow for orientation (plus grand)
+            arrow = self.ax.quiver(0, 0, 0, 0, color=color, alpha=0.5, width=0.003)
             self.orientation_arrows[name] = arrow
             
-            # Arrow for velocity (thicker, bright)
-            vel_arrow = self.ax.quiver(0, 0, 0, 0, color=color, alpha=1.0, width=0.004)
+            # Arrow for velocity (plus grand)
+            vel_arrow = self.ax.quiver(0, 0, 0, 0, color=color, alpha=1.0, width=0.006)
             self.velocity_arrows[name] = vel_arrow
         
         # Goal point marker
         self.goal_marker, = self.ax.plot([], [], 'x', color='black', markersize=15, markeredgewidth=3, label='Goal')
         
-        # Create connection lines between robots (initially invisible)
-        for i, name1 in enumerate(self.robot_names):
-            for j, name2 in enumerate(self.robot_names):
-                if i < j:  # Avoid duplicates
-                    line, = self.ax.plot([], [], 'k--', linewidth=1, alpha=0.5, visible=False)
-                    self.robot_connection_lines[f"{name1}-{name2}"] = line
+        # Create barycenter markers for each robot with multiple levels
+        for i, robot in enumerate(self.robots_with_neighbors):
+            for level in range(1, self.max_barycenter_levels + 1):
+                color = self.barycenter_colors[(level - 1) % len(self.barycenter_colors)]
+                marker_style = self.barycenter_markers_style[(level - 1) % len(self.barycenter_markers_style)]
+                size = self.barycenter_sizes[(level - 1) % len(self.barycenter_sizes)]
+                
+                marker, = self.ax.plot([], [], marker_style, color=color, markersize=size, alpha=0.7,
+                                     label=f'P{level} Barycenter' if i == 0 else "", visible=False)
+                self.barycenter_markers[robot][level] = marker
         
-        # Add legend
-        self.ax.legend(loc='upper right')
+        # Create swarm barycenter marker
+        self.swarm_barycenter_marker, = self.ax.plot([], [], '^', color='red', markersize=10, alpha=0.9, 
+                                                    label='Swarm Barycenter')
+        
+        # Create connection lines between robots (initially invisible)
+        for robot in self.robots_with_neighbors:
+            neighbors = self.robot_neighbors[robot]
+            for neighbor in neighbors:
+                # Only create connection if it doesn't already exist (avoid duplicates)
+                connection_key = f"{robot}-{neighbor}"
+                reverse_key = f"{neighbor}-{robot}"
+                if connection_key not in self.robot_connection_lines and reverse_key not in self.robot_connection_lines:
+                    line, = self.ax.plot([], [], 'k--', linewidth=1, alpha=0.5, visible=False)
+                    self.robot_connection_lines[connection_key] = line
+        
+        # Add legend outside the plot area
+        self.ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        # Adjust layout to accommodate the legend
+        self.fig.tight_layout()
     
     def setup_data_display(self):
         """Create the data display area"""
@@ -364,6 +472,100 @@ class RobotVisualizerApp(Node):
         self.goal_point = (msg.x, msg.y)
         self.get_logger().info(f'Goal point updated: ({msg.x:.2f}, {msg.y:.2f})')
     
+    def update_barycenter_levels(self):
+        """Update the number of barycenter levels to calculate"""
+        self.num_barycenter_levels = self.level_var.get()
+        self.get_logger().info(f'Barycenter levels set to: {self.num_barycenter_levels}')
+        
+        # Update marker visibility
+        self.update_barycenter_marker_visibility()
+    
+    def on_level_change(self, *args):
+        """Handle level variable change"""
+        self.update_barycenter_levels()
+    
+    def update_barycenter_marker_visibility(self):
+        """Update visibility of barycenter markers based on current level setting"""
+        for robot in self.robots_with_neighbors:
+            for level in range(1, self.max_barycenter_levels + 1):
+                if level <= self.num_barycenter_levels and self.draw_barycenters:
+                    self.barycenter_markers[robot][level].set_visible(True)
+                else:
+                    self.barycenter_markers[robot][level].set_visible(False)
+        
+        self.canvas.draw_idle()
+    
+    def calculate_barycenters_recursive(self):
+        """Calculate barycenters recursively for multiple levels"""
+        # Clear previous calculations
+        for robot in self.robots_with_neighbors:
+            self.barycenters[robot].clear()
+        
+        # Level 1 (p1): Calculate barycenters for each robot with its neighbors
+        for robot in self.robots_with_neighbors:
+            neighbors = self.robot_neighbors[robot]
+            
+            # Check if robot and all its neighbors have positions
+            if (self.current_positions[robot] and 
+                all(self.current_positions[neighbor] for neighbor in neighbors)):
+                
+                # Get positions of robot and all its neighbors
+                positions = [self.current_positions[robot]]
+                positions.extend([self.current_positions[neighbor] for neighbor in neighbors])
+                
+                # Calculate barycenter (average of all positions)
+                total_x = sum(pos[0] for pos in positions)
+                total_y = sum(pos[1] for pos in positions)
+                num_robots = len(positions)
+                
+                barycenter_x = total_x / num_robots
+                barycenter_y = total_y / num_robots
+                
+                self.barycenters[robot][1] = (barycenter_x, barycenter_y)
+        
+        # Level 2 and beyond: Calculate meta-barycenters recursively
+        for level in range(2, self.num_barycenter_levels + 1):
+            for robot in self.robots_with_neighbors:
+                neighbors = self.robot_neighbors[robot]
+                
+                # Check if robot has its barycenter from previous level and all neighbors have theirs
+                if (robot in self.barycenters and (level - 1) in self.barycenters[robot] and 
+                    all(neighbor in self.barycenters and (level - 1) in self.barycenters[neighbor] 
+                        for neighbor in neighbors)):
+                    
+                    # Get barycenter of robot and barycenters of all its neighbors from previous level
+                    barycenter_positions = [self.barycenters[robot][level - 1]]
+                    barycenter_positions.extend([self.barycenters[neighbor][level - 1] for neighbor in neighbors])
+                    
+                    # Calculate meta-barycenter (average of all barycenters from previous level)
+                    total_x = sum(pos[0] for pos in barycenter_positions)
+                    total_y = sum(pos[1] for pos in barycenter_positions)
+                    num_barycenters = len(barycenter_positions)
+                    
+                    meta_barycenter_x = total_x / num_barycenters
+                    meta_barycenter_y = total_y / num_barycenters
+                    
+                    self.barycenters[robot][level] = (meta_barycenter_x, meta_barycenter_y)
+    
+    def calculate_swarm_barycenter(self):
+        """Calculate the barycenter of the complete swarm"""
+        # Check if all robots have positions
+        if all(self.current_positions[robot] for robot in self.robot_names):
+            # Get all robot positions
+            positions = [self.current_positions[robot] for robot in self.robot_names]
+            
+            # Calculate swarm barycenter (average of all robot positions)
+            total_x = sum(pos[0] for pos in positions)
+            total_y = sum(pos[1] for pos in positions)
+            num_robots = len(positions)
+            
+            swarm_barycenter_x = total_x / num_robots
+            swarm_barycenter_y = total_y / num_robots
+            
+            self.swarm_barycenter = (swarm_barycenter_x, swarm_barycenter_y)
+        else:
+            self.swarm_barycenter = None
+    
     def update_plot(self):
         """Update the plot with current positions and trajectories"""
         try:
@@ -391,8 +593,8 @@ class RobotVisualizerApp(Node):
                     
                     # Update orientation arrow if we have angle data
                     if self.current_angles[name] is not None:
-                        # Calculate arrow vector components
-                        arrow_length = 0.15
+                        # Calculate arrow vector components (plus grand)
+                        arrow_length = 0.2
                         dx = arrow_length * math.sin(self.current_angles[name])
                         dy = arrow_length * math.cos(self.current_angles[name])
                         
@@ -401,7 +603,7 @@ class RobotVisualizerApp(Node):
                         self.orientation_arrows[name] = self.ax.quiver(
                             y_pos, x_pos, dx, dy, 
                             color=self.trajectory_lines[name].get_color(),
-                            alpha=0.5, width=0.002, scale=1, scale_units='xy', angles='xy'
+                            alpha=0.5, width=0.003, scale=1, scale_units='xy', angles='xy'
                         )
                     
                     # Update velocity arrow if we have velocity data
@@ -411,12 +613,12 @@ class RobotVisualizerApp(Node):
                         velocity_magnitude = math.sqrt(vel_x**2 + vel_y**2)
                         
                         if velocity_magnitude > 0.01:  # Threshold to avoid tiny arrows
-                            # Remove old velocity arrow and create new one
+                            # Remove old velocity arrow and create new one (plus grand)
                             self.velocity_arrows[name].remove()
                             self.velocity_arrows[name] = self.ax.quiver(
                                 y_pos, x_pos, vel_y, vel_x,  # Note: swapped for plot coordinates
                                 color=self.trajectory_lines[name].get_color(),
-                                alpha=1.0, width=0.004, scale=1, scale_units='xy', angles='xy'
+                                alpha=1.0, width=0.006, scale=1, scale_units='xy', angles='xy'
                             )
                         else:
                             # Hide arrow if robot is not moving
@@ -424,8 +626,43 @@ class RobotVisualizerApp(Node):
                             self.velocity_arrows[name] = self.ax.quiver(
                                 0, 0, 0, 0, 
                                 color=self.trajectory_lines[name].get_color(),
-                                alpha=1.0, width=0.004
+                                alpha=1.0, width=0.006
                             )
+            
+            # Calculate and update multi-level barycenters
+            self.calculate_barycenters_recursive()
+            if self.draw_barycenters:
+                for robot in self.robots_with_neighbors:
+                    for level in range(1, self.num_barycenter_levels + 1):
+                        if level in self.barycenters[robot]:
+                            bx, by = self.barycenters[robot][level]
+                            self.barycenter_markers[robot][level].set_data([by], [bx])  # Note: swapped for plot coordinates
+                            self.barycenter_markers[robot][level].set_visible(True)
+                            plot_needs_update = True
+                        else:
+                            self.barycenter_markers[robot][level].set_visible(False)
+                
+                # Hide markers for levels beyond current setting
+                for robot in self.robots_with_neighbors:
+                    for level in range(self.num_barycenter_levels + 1, self.max_barycenter_levels + 1):
+                        self.barycenter_markers[robot][level].set_visible(False)
+            else:
+                # Hide all barycenter markers
+                for robot in self.robots_with_neighbors:
+                    for level in range(1, self.max_barycenter_levels + 1):
+                        self.barycenter_markers[robot][level].set_visible(False)
+                plot_needs_update = True
+            
+            # Calculate and update swarm barycenter
+            self.calculate_swarm_barycenter()
+            if self.swarm_barycenter and self.draw_barycenters:
+                sbx, sby = self.swarm_barycenter
+                self.swarm_barycenter_marker.set_data([sby], [sbx])  # Note: swapped for plot coordinates
+                self.swarm_barycenter_marker.set_visible(True)
+                plot_needs_update = True
+            else:
+                self.swarm_barycenter_marker.set_visible(False)
+                plot_needs_update = True
             
             # Update goal point marker
             if self.goal_point:
@@ -435,14 +672,26 @@ class RobotVisualizerApp(Node):
             
             # Update connection lines if enabled
             if self.draw_robot_connections:
-                for i, name1 in enumerate(self.robot_names):
-                    for j, name2 in enumerate(self.robot_names):
-                        if i < j:  # Avoid duplicates
-                            if (self.current_positions[name1] and self.current_positions[name2]):
-                                x1, y1 = self.current_positions[name1]
-                                x2, y2 = self.current_positions[name2]
-                                line = self.robot_connection_lines[f"{name1}-{name2}"]
+                for robot in self.robots_with_neighbors:
+                    neighbors = self.robot_neighbors[robot]
+                    for neighbor in neighbors:
+                        # Check both possible connection keys
+                        connection_key = f"{robot}-{neighbor}"
+                        reverse_key = f"{neighbor}-{robot}"
+                        
+                        if (self.current_positions[robot] and self.current_positions[neighbor]):
+                            x1, y1 = self.current_positions[robot]
+                            x2, y2 = self.current_positions[neighbor]
+                            
+                            # Use whichever connection exists
+                            if connection_key in self.robot_connection_lines:
+                                line = self.robot_connection_lines[connection_key]
                                 line.set_data([y1, y2], [x1, x2])
+                                line.set_visible(True)
+                                plot_needs_update = True
+                            elif reverse_key in self.robot_connection_lines:
+                                line = self.robot_connection_lines[reverse_key]
+                                line.set_data([y2, y1], [x2, x1])
                                 line.set_visible(True)
                                 plot_needs_update = True
             
@@ -561,7 +810,25 @@ class RobotVisualizerApp(Node):
             goal_x, goal_y = self.goal_point
             info_text += f"Goal Point: X={goal_x:8.3f} m, Y={goal_y:8.3f} m\n\n"
         
-        info_text += "Distances between robots:\n\n"
+        # Add multi-level barycenter information
+        info_text += f"\nMulti-Level Barycenters (P1 to P{self.num_barycenter_levels}):\n\n"
+        for robot in self.robots_with_neighbors:
+            neighbors_str = ", ".join(self.robot_neighbors[robot])
+            info_text += f"{robot:8} + [{neighbors_str}]:\n"
+            
+            for level in range(1, self.num_barycenter_levels + 1):
+                if level in self.barycenters[robot]:
+                    bx, by = self.barycenters[robot][level]
+                    level_name = f"P{level}"
+                    info_text += f"  {level_name:3}: X={bx:8.3f} m, Y={by:8.3f} m\n"
+            info_text += "\n"
+        
+        # Add swarm barycenter information
+        if self.swarm_barycenter:
+            sx, sy = self.swarm_barycenter
+            info_text += f"Swarm Barycenter: X={sx:8.3f} m, Y={sy:8.3f} m\n"
+        
+        info_text += "\nDistances between robots:\n\n"
         
         # Format for distances
         distance_format = "{name1:8} - {name2:8}: {distance:8.3f} m\n"
@@ -593,6 +860,19 @@ class RobotVisualizerApp(Node):
             self.canvas.draw_idle()
         
         self.get_logger().info(f'Robot connections {"enabled" if self.draw_robot_connections else "disabled"}')
+    
+    def toggle_barycenters(self):
+        """Toggle the display of barycenters"""
+        self.draw_barycenters = not self.draw_barycenters
+        
+        # Update marker visibility
+        self.update_barycenter_marker_visibility()
+        
+        # Hide/show swarm barycenter marker
+        self.swarm_barycenter_marker.set_visible(self.draw_barycenters)
+        
+        self.canvas.draw_idle()
+        self.get_logger().info(f'Barycenters {"enabled" if self.draw_barycenters else "disabled"}')
     
     def toggle_trajectories(self):
         """Toggle the display of robot trajectories"""

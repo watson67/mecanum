@@ -45,8 +45,8 @@ Ki = 0.05
 Kd = 0.0
 
 # Saturation des commandes
-x_min = -0.14
-x_max = 0.14
+x_min = -0.04
+x_max = 0.04
 
 def sigma_norm(z):
     """
@@ -225,12 +225,14 @@ def control_with_components(pj_array=None, pi=None, dij_list=None, pr=None, dt=0
     # Mettre à jour les erreurs précédentes pour la prochaine itération
     derivative_term['previous_errors'] = current_errors.copy()
 
-    ui_gamma = -sat((c1_gamma * (pi - pr)))
+    ui_gamma = -((c1_gamma * (pi - pr)))
 
     if logger:
         logger.info(f"ui_alpha (PID): {ui_alpha}, ui_gamma: {ui_gamma}")
+
+    ui = 1 * (ui_alpha) + 1 * ui_gamma
     
-    return (ui_alpha) + ui_gamma, integral_term, derivative_term, ui_alpha, ui_gamma
+    return  ui, integral_term, derivative_term, ui_alpha, ui_gamma
 
 def control_obstacle(pj_array=None, pi=None, dij_list=None,
                      pk_array=None, pi_array=None, d_bet=None, 

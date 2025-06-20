@@ -2,4 +2,23 @@ all_robot_names:
 - Aramis
 - Athos
 - Porthos
-robot_neighbors: {}
+- Dartagnan
+- Edmon
+robot_neighbors:
+  Aramis:
+  - Porthos
+  - Edmon
+  Athos:
+  - Dartagnan
+  - Edmon
+  Dartagnan:
+  - Athos
+  - Edmon
+  Edmon:
+  - Dartagnan
+  - Aramis
+  - Athos
+  - Porthos
+  Porthos:
+  - Aramis
+  - Edmon

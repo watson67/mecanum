@@ -13,7 +13,6 @@ import sys
 from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 GLOBAL_FRAME = "mocap"
-PAIRS = [("Aramis", "Athos"), ("Aramis", "Porthos"), ("Athos", "Porthos")]
 
 class DistancesLogger(Node):
     def __init__(self, mode='classic'):
@@ -25,6 +24,7 @@ class DistancesLogger(Node):
         self.csv_dir = os.path.expanduser(f'~/mecanum/csv/{mode}')
         os.makedirs(self.csv_dir, exist_ok=True)
         self.csv_path = os.path.join(self.csv_dir, csv_filename)
+        self.pairs = self._generate_neighbor_pairs()
         self._init_csv()
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -37,9 +37,19 @@ class DistancesLogger(Node):
         )
         self.active = True
 
+    def _generate_neighbor_pairs(self):
+        """Generate unique pairs from robot neighbor relationships"""
+        pairs = set()
+        for robot, neighbors in ROBOT_NEIGHBORS.items():
+            for neighbor in neighbors:
+                # Create sorted tuple to avoid duplicates (A,B) and (B,A)
+                pair = tuple(sorted([robot, neighbor]))
+                pairs.add(pair)
+        return list(pairs)
+
     def _init_csv(self):
         header = ['timestamp']
-        for a, b in PAIRS:
+        for a, b in self.pairs:
             header.append(f"{a}_{b}_distance")
         try:
             with open(self.csv_path, 'w', newline='') as csvfile:
@@ -77,7 +87,7 @@ class DistancesLogger(Node):
 
         now = datetime.now().isoformat()
         row = [now]
-        for a, b in PAIRS:
+        for a, b in self.pairs:
             ax, ay, az = positions[a]
             bx, by, bz = positions[b]
             dist = math.sqrt((ax-bx)**2 + (ay-by)**2 )

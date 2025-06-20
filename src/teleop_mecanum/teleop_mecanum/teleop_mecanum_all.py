@@ -8,6 +8,8 @@ import termios
 import tty
 import select
 import threading
+import yaml
+import os
 
 # Configuration des touches pour un clavier AZERTY avec boutons dédiés pour les diagonales, virages et déplacements horizontaux
 key_mapping = {
@@ -48,13 +50,33 @@ def get_key():
 class TeleopMecanum(Node):
     def __init__(self):
         super().__init__('teleop_mecanum')
-        self.topic_publishers = {  # Renommer publishers en topic_publishers
-            'porthos': self.create_publisher(Twist, '/Porthos/cmd_vel', 1),
-            'athos': self.create_publisher(Twist, '/Athos/cmd_vel', 1),
-            'aramis': self.create_publisher(Twist, '/Aramis/cmd_vel', 1),
-        }
-        self.get_logger().info('Teleop Mecanum prêt. Publie sur /Porthos/cmd_vel, /Athos/cmd_vel, /Aramis/cmd_vel')
+        
+        # Load robot configuration from YAML file
+        config_path = '/home/eswarm/mecanum/src/mecanum_swarm/config/robots.yaml'
+        self.robot_names = self.load_robot_names(config_path)
+        
+        # Create publishers for all robots dynamically
+        self.topic_publishers = {}
+        for robot_name in self.robot_names:
+            topic_name = f'/{robot_name}/cmd_vel'
+            self.topic_publishers[robot_name.lower()] = self.create_publisher(Twist, topic_name, 1)
+        
+        robot_topics = ', '.join([f'/{name}/cmd_vel' for name in self.robot_names])
+        self.get_logger().info(f'Teleop Mecanum prêt. Publie sur {robot_topics}')
         self.running = True
+
+    def load_robot_names(self, config_path):
+        """Load robot names from YAML configuration file."""
+        try:
+            with open(config_path, 'r') as file:
+                config = yaml.safe_load(file)
+                return config.get('all_robot_names', [])
+        except FileNotFoundError:
+            self.get_logger().error(f'Configuration file not found: {config_path}')
+            return []
+        except yaml.YAMLError as e:
+            self.get_logger().error(f'Error parsing YAML file: {e}')
+            return []
 
     def spin_thread(self):
         """Thread pour exécuter rclpy.spin."""
