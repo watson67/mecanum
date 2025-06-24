@@ -10,8 +10,8 @@ from geometry_msgs.msg import TransformStamped, Vector3Stamped
 import tf2_geometry_msgs
 from tf2_ros import TransformException
 # Import formules.py
-from swarm_manager.swarm_manager.formules import *
-from swarm_manager.swarm_manager.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
+from swarm_manager.formules import *
+from swarm_manager.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 '''
 Ce programme est un contrôleur d'essaim de robots utilisant ROS2.
