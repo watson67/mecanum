@@ -23,12 +23,6 @@ def generate_launch_description():
             executable='tf2_manager',
             name='tf2_manager'
         ),
-
-        Node(
-            package='mecanum_swarm',
-            executable='distributed_manager',
-            name='distributed_manager'
-        ),
         #Node(
         #    package='mecanum_swarm',
         #    executable='formation_init',
@@ -36,7 +30,7 @@ def generate_launch_description():
         #),
         Node(
             package='mecanum_swarm',
-            executable='swarm',
+            executable='old_swarm',
             name='swarm_controller'
         ),
         Node(

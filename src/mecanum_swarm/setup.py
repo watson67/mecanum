@@ -25,6 +25,7 @@ setup(
             'tf2_manager = mecanum_swarm.tf2_manager:main',
             'tf2_obstacle_manager = mecanum_swarm.tf2_obstacle_manager:main',
             'swarm = mecanum_swarm.swarm:main',
+            'old_swarm = mecanum_swarm.old_swarm:main',
             'tf2_visu = mecanum_swarm.tf2_visu:main',
             'swarm_master = mecanum_swarm.swarm_master:main',
             'circle = mecanum_swarm.circle:main',

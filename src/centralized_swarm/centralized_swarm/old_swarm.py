@@ -10,8 +10,8 @@ from geometry_msgs.msg import TransformStamped, Vector3Stamped
 import tf2_geometry_msgs
 from tf2_ros import TransformException
 # Import formules.py
-from mecanum_swarm.formules import *
-from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
+from swarm_manager.swarm_manager.formules import *
+from swarm_manager.swarm_manager.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 '''
 Ce programme est un contrôleur d'essaim de robots utilisant ROS2.
@@ -221,37 +221,45 @@ class SwarmController(Node):
         if self.active and self.formation_initialized and self.goal_point_set:
             self.apply_consensus_control()
             
-            # Vérifier si chaque robot a atteint sa cible individuelle
+            # Vérifier si la cible est atteinte
             if self.goal_point_set:
-                for i, robot_name in enumerate(ALL_ROBOT_NAMES):
-                    # Position actuelle du robot
-                    robot_pos = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
+                # Obtenir le centre de l'essaim
+                swarm_center = self.compute_swarm_center()
+                
+                # Vérifier si la cible est atteinte
+                current_state = self.is_target_reached(swarm_center, self.goal_point)
+                
+                # Si l'état a changé, mettre à jour et publier
+                if current_state != self.is_target_reached_state:
+                    self.is_target_reached_state = current_state
+                    self.publish_target_reached(1 if current_state else 0)
                     
-                    # Point cible individuel pour ce robot
-                    robot_target = np.array(self.goal_point) + self.initial_relative_vectors[i]
+                    # Publier le statut pour chaque robot individuellement
+                    for name in ALL_ROBOT_NAMES:
+                        self.publish_individual_target_status(name, 1 if current_state else 0)
                     
-                    # Vérifier si ce robot a atteint sa cible
-                    robot_reached = self.is_robot_target_reached(robot_pos, robot_target)
-                    
-                    # Publier le statut pour ce robot
-                    self.publish_individual_target_status(robot_name, 1 if robot_reached else 0)
+                    if current_state:
+                        self.get_logger().info("Target reached!")
+                    else:
+                        self.get_logger().info("Target not reached")
 
     #--------------------------------------------------------------------
     # Méthodes liées à l'atteinte de la cible
     #--------------------------------------------------------------------
-    def is_robot_target_reached(self, robot_pos, target_pos):
+    def is_target_reached(self, swarm_center, goal):
         """
-        Vérifie si un robot individuel est suffisamment proche de son point cible.
+        Vérifie si le barycentre de l'essaim est suffisamment proche du point cible.
         
-        :param robot_pos: Position actuelle du robot [x, y]
-        :param target_pos: Position cible du robot [x, y]
+        :param swarm_center: Position actuelle du barycentre [x, y]
+        :param goal: Position cible (x, y)
         :return: True si la cible est atteinte, False sinon
         """
-        # Calculer la distance entre le robot et son point cible
-        distance = math.sqrt((robot_pos[0] - target_pos[0])**2 + (robot_pos[1] - target_pos[1])**2)
+        # Calculer la distance entre le barycentre et le point cible
+        distance = math.sqrt((swarm_center[0] - goal[0])**2 + (swarm_center[1] - goal[1])**2)
+        self.get_logger().info(f"distance to goal: {distance:.3f}")
         # Vérifier si la distance est inférieure à la tolérance
         return distance <= self.target_tolerance
-
+    
     def publish_target_reached(self, status):
         """
         Publie un message indiquant si la cible est atteinte.
@@ -436,13 +444,11 @@ class SwarmController(Node):
             # Position du robot courant (pi)
             pi = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
             
-            # Calculer le point cible individuel (pr) pour ce robot
-            # pr = goal_point_global + vecteur_relatif_initial
-            pr = global_goal + self.initial_relative_vectors[i]
+            # Utiliser le même point cible global pour tous les robots
+            pr = global_goal
             
             self.get_logger().info(
-                f"Robot {robot_name} - Goal individuel : X:{pr[0]:.3f} ; Y:{pr[1]:.3f} "
-                f"(vecteur relatif: X:{self.initial_relative_vectors[i][0]:.3f}, Y:{self.initial_relative_vectors[i][1]:.3f})"
+                f"Robot {robot_name} - Goal commun : X:{pr[0]:.3f} ; Y:{pr[1]:.3f}"
             )
             
             # Liste des positions des voisins (pj_array)
@@ -507,7 +513,7 @@ class SwarmController(Node):
                 pj_array=pj_array,
                 pi=pi,
                 dij_list=dij_list,
-                pr=pr,  # Utiliser le point cible individuel
+                pr=pr,  # Utiliser le point cible global
                 dt=self.dt,
                 integral_term=self.integral_terms[i],
                 derivative_term=self.derivative_terms[i],
@@ -567,8 +573,9 @@ class SwarmController(Node):
         self.goal_point = (msg.x, msg.y)
         self.goal_point_set = True
         self.is_target_reached_state = False  # Réinitialiser l'état
+        self.publish_target_reached(0)        # Indiquer que la cible n'est pas encore atteinte
         
-        # Publier le statut pour chaque robot individuellement (tous à 0 au début)
+        # Publier le statut pour chaque robot individuellement
         for name in ALL_ROBOT_NAMES:
             self.publish_individual_target_status(name, 0)
             

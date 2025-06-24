@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'distributed_swarm'
+package_name = 'centralized_swarm'
 
 setup(
     name=package_name,
@@ -20,9 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'distributed_swarm = distributed_swarm.distributed_swarm:main',
-            'distributed_obstacle_swarm = distributed_swarm.distributed_obstacle_swarm:main',
-            'distributed_event_swarm = distributed_swarm.distributed_event_swarm:main',
+            'swarm = centralized_swarm.swarm:main',
+            'old_swarm = centralized_swarm.old_swarm:main',
         ],
     },
 )

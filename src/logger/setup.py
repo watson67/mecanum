@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'distributed_swarm'
+package_name = 'logger'
 
 setup(
     name=package_name,
@@ -20,9 +20,11 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'distributed_swarm = distributed_swarm.distributed_swarm:main',
-            'distributed_obstacle_swarm = distributed_swarm.distributed_obstacle_swarm:main',
-            'distributed_event_swarm = distributed_swarm.distributed_event_swarm:main',
+            'cmd_vel_rate_logger = logger.cmd_vel_rate_logger:main',
+            'barycenter_logger = logger.barycenter_logger:main',
+            'distances_logger = logger.distances_logger:main',
+            'goal_point_logger = logger.goal_point_logger:main',
+            'event_logger = logger.event:main',
         ],
     },
 )
