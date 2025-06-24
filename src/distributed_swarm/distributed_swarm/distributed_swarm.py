@@ -3,7 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point
-from std_msgs.msg import Int32, String
+from std_msgs.msg import Int32, String, Float64MultiArray
 import math
 import tf2_ros
 from geometry_msgs.msg import TransformStamped, Vector3Stamped
@@ -85,6 +85,11 @@ class DistributedSwarmController(Node):
             Int32, f"/{self.robot_name}/target_status", 10
         )
 
+        # Publisher pour les composantes de contrôle
+        self.control_component_publisher = self.create_publisher(
+            Float64MultiArray, f"/{self.robot_name}/control_components", 10
+        )
+
         #--------------------------------------------------------------------
         # Subscribers 
         #--------------------------------------------------------------------
@@ -135,6 +140,9 @@ class DistributedSwarmController(Node):
         # Terme intégral pour le contrôle
         self.integral_term = None
         
+        # Terme dérivé pour le contrôle
+        self.derivative_term = None
+        
         # Pas de temps pour l'intégration
         self.dt = 0.1
         
@@ -143,6 +151,12 @@ class DistributedSwarmController(Node):
         
         # État d'atteinte de la cible
         self.is_target_reached_state = False
+
+        # Configuration des voisins
+        self.robot_neighbors = ROBOT_NEIGHBORS
+
+        # Timer pour recharger la configuration des voisins
+        self.create_timer(2.0, self.reload_neighbor_config)  # Recharger toutes les 2 secondes
 
         # Timer pour le contrôle périodique
         self.create_timer(self.dt, self.timer_callback)
@@ -181,6 +195,23 @@ class DistributedSwarmController(Node):
         self.get_logger().info("Received formation reset command, re-initializing formation.")
         self.formation_initialized = False
         self.initialize_formation()
+
+    def reload_neighbor_config(self):
+        """Recharger la configuration des voisins depuis le fichier YAML"""
+        try:
+            # Recharger le module config pour obtenir les dernières relations
+            import importlib
+            import swarm_manager.config
+            importlib.reload(swarm_manager.config)
+            from swarm_manager.config import ROBOT_NEIGHBORS
+            
+            self.robot_neighbors = ROBOT_NEIGHBORS
+            self.get_logger().info(f"Configuration des voisins rechargée: {self.robot_neighbors}")
+            
+        except Exception as e:
+            self.get_logger().warn(f"Impossible de recharger la configuration des voisins: {e}")
+            # Utiliser tous les robots comme voisins par défaut
+            self.robot_neighbors = {robot: [r for r in ALL_ROBOT_NAMES if r != robot] for robot in ALL_ROBOT_NAMES}
 
     def all_positions_available(self):
         """Vérifie si toutes les positions des robots sont connues (non None)"""
@@ -350,15 +381,15 @@ class DistributedSwarmController(Node):
         for other_name in ALL_ROBOT_NAMES:
             if other_name != self.robot_name and other_name in self.other_robot_positions:
                 other_pos = self.other_robot_positions[other_name]
-                
-                # Calculer la distance entre ce robot et l'autre
-                dist = math.sqrt(
-                    (self.my_position['x'] - other_pos['x'])**2 + 
-                    (self.my_position['y'] - other_pos['y'])**2
-                )
-                
-                # Stocker la distance désirée
-                self.desired_distances[other_name] = dist
+                if other_pos is not None:
+                    # Calculer la distance entre ce robot et l'autre
+                    dist = math.sqrt(
+                        (self.my_position['x'] - other_pos['x'])**2 + 
+                        (self.my_position['y'] - other_pos['y'])**2
+                    )
+                    
+                    # Stocker la distance désirée
+                    self.desired_distances[other_name] = dist
                 
         self.formation_initialized = True  # Verrouille l'initialisation ici
         self.get_logger().info(f"Initialized formation with distances: {self.desired_distances}")
@@ -370,15 +401,25 @@ class DistributedSwarmController(Node):
 
     def compute_swarm_center(self):
         """Calculer le centre de l'essaim"""
-        all_positions = [self.my_position] + list(self.other_robot_positions.values())
-        if not all_positions:
-            return [self.my_position['x'], self.my_position['y']]
+        try:
+            trans = self.tf_buffer.lookup_transform(
+                GLOBAL_FRAME, f"barycenter", rclpy.time.Time()
+            )
+            pos = trans.transform.translation
+            return [pos.x, pos.y]
+        except Exception as e:
+            self.get_logger().warn(f"Echec TF2 barycentre {e}")
+            # Calculer manuellement si TF2 barycenter n'est pas disponible
+            all_positions = [self.my_position] + list(self.other_robot_positions.values())
+            valid_positions = [pos for pos in all_positions if pos is not None]
+            if not valid_positions:
+                return [self.my_position['x'], self.my_position['y']]
+                
+            total_x = sum(pos['x'] for pos in valid_positions)
+            total_y = sum(pos['y'] for pos in valid_positions)
+            count = len(valid_positions)
             
-        total_x = sum(pos['x'] for pos in all_positions if pos is not None)
-        total_y = sum(pos['y'] for pos in all_positions if pos is not None)
-        count = sum(1 for pos in all_positions if pos is not None)
-        
-        return [total_x / count, total_y / count]
+            return [total_x / count, total_y / count]
 
     def transform_velocity(self, global_lin_x, global_lin_y):
         """Transformer les vitesses du repère global vers le repère du robot"""
@@ -420,8 +461,15 @@ class DistributedSwarmController(Node):
 
     def apply_consensus_control(self, goal_point):
         """Appliquer le contrôle de consensus pour ce robot"""
+        # Ne rien faire si aucun goal n'a été reçu
+        if not self.goal_point_set:
+            return
+            
         # Point de référence global
         global_goal = np.array(goal_point)
+        self.get_logger().info(
+            f"Goal point global : X:{global_goal[0]:.3f} ; Y:{global_goal[1]:.3f}"
+        )
         
         # Calculer le point cible individuel (pr) pour ce robot
         # pr = goal_point_global + vecteur_relatif_initial
@@ -435,6 +483,15 @@ class DistributedSwarmController(Node):
         # Position de ce robot
         pi = np.array([self.my_position['x'], self.my_position['y']])
         
+        # Obtenir la liste des voisins pour ce robot depuis la configuration
+        neighbors_names = self.robot_neighbors.get(self.robot_name, [])
+        
+        if not neighbors_names:
+            self.get_logger().warn(f"Aucun voisin défini pour {self.robot_name}, utilisation de tous les autres robots")
+            neighbors_names = [r for r in ALL_ROBOT_NAMES if r != self.robot_name]
+        
+        self.get_logger().debug(f"Robot {self.robot_name} a pour voisins: {neighbors_names}")
+        
         # Positions des voisins et distances désirées
         pj_array = []
         dij_list = []
@@ -442,10 +499,11 @@ class DistributedSwarmController(Node):
         # Liste pour stocker les informations de distance
         distance_info = []
         
-        # Pour chaque voisin
-        for other_name, other_pos in self.other_robot_positions.items():
-            if other_pos is not None:
+        # Pour chaque voisin défini dans la configuration
+        for neighbor_name in neighbors_names:
+            if neighbor_name in self.other_robot_positions and self.other_robot_positions[neighbor_name] is not None:
                 # Position du voisin
+                other_pos = self.other_robot_positions[neighbor_name]
                 pj = np.array([other_pos['x'], other_pos['y']])
                 pj_array.append(pj)
                 
@@ -453,11 +511,15 @@ class DistributedSwarmController(Node):
                 current_distance = math.sqrt((pi[0] - pj[0])**2 + (pi[1] - pj[1])**2)
                 
                 # Distance désirée
-                dij = self.desired_distances.get(other_name, 2.0) 
+                dij = self.desired_distances.get(neighbor_name)
+                if dij is None:
+                    dij = current_distance
+                    self.get_logger().debug(f"Distance initiale non trouvée pour {self.robot_name}-{neighbor_name}, utilisation de la distance actuelle: {dij:.3f}m")
+                
                 dij_list.append(dij)
                 
                 # Ajouter les informations de distance pour l'affichage
-                distance_info.append(f"{other_name}: actuelle={current_distance:.3f}m, désirée={dij:.3f}m")
+                distance_info.append(f"{neighbor_name}: actuelle={current_distance:.3f}m, désirée={dij:.3f}m")
         
         # Afficher les distances avec les voisins
         if distance_info:
@@ -469,19 +531,31 @@ class DistributedSwarmController(Node):
             # Vecteur simple vers l'objectif individuel
             control_vector = -(c1_gamma * (pi - pr))
             self.integral_term = None
+            self.derivative_term = None
+            ui_alpha = np.array([0.0, 0.0])
+            ui_gamma = control_vector
         else:
-            # Appliquer la fonction de contrôle avec les voisins
-            control_vector, updated_integral = control(
+            # Appliquer la fonction de contrôle avec composantes
+            control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma = control_with_components(
                 pj_array=pj_array,
                 pi=pi,
                 dij_list=dij_list,
                 pr=pr,  # Utiliser le point cible individuel
                 dt=self.dt,
-                integral_term=self.integral_term
+                integral_term=self.integral_term,
+                derivative_term=self.derivative_term,
+                logger=self.get_logger()
             )
             
-            # Mettre à jour le terme intégral
+            # Mettre à jour les termes intégral et dérivé
             self.integral_term = updated_integral
+            self.derivative_term = updated_derivative
+        
+        # Publier les composantes de contrôle
+        control_msg = Float64MultiArray()
+        control_msg.data = [float(ui_alpha[0]), float(ui_alpha[1]), 
+                           float(ui_gamma[0]), float(ui_gamma[1])]
+        self.control_component_publisher.publish(control_msg)
         
         # Transformer les vitesses dans le repère du robot
         robot_lin_x, robot_lin_y = self.transform_velocity(
@@ -502,15 +576,23 @@ class DistributedSwarmController(Node):
             twist_msg.linear.y *= scaling
         
         # Vérifier si ce robot a atteint sa cible individuelle
-        if self.is_robot_target_reached(pi, pr):
-            self.publish_target_status(1)
-        else:
-            self.publish_target_status(0)
+        if self.goal_point_set:
+            current_state = self.is_robot_target_reached(pi, pr)
+            
+            # Si l'état a changé, publier le statut
+            if current_state != self.is_target_reached_state:
+                self.is_target_reached_state = current_state
+                self.publish_target_status(1 if current_state else 0)
+                
+                if current_state:
+                    self.get_logger().info("Individual target reached!")
+                else:
+                    self.get_logger().info("Individual target not reached")
         
         # Publier la commande de vitesse
         self.cmd_vel_publisher.publish(twist_msg)
         self.get_logger().info(
-            f"Robot {self.robot_name}: Global:{control_vector[0]:.3f},{control_vector[1]:.3f} -> Robot:{twist_msg.linear.x:.3f},{twist_msg.linear.y:.3f}"
+            f"Robot {self.robot_name} (voisins: {len(neighbors_names)}): Global:{control_vector[0]:.3f},{control_vector[1]:.3f} -> Robot:{twist_msg.linear.x:.3f},{twist_msg.linear.y:.3f}"
         )
 
     def is_robot_target_reached(self, robot_pos, target_pos):
@@ -524,6 +606,14 @@ class DistributedSwarmController(Node):
         # Calculer la distance entre le robot et son point cible
         distance = math.sqrt((robot_pos[0] - target_pos[0])**2 + (robot_pos[1] - target_pos[1])**2)
         self.get_logger().info(f"distance to individual goal: {distance:.3f}")
+        return distance <= self.target_tolerance
+
+    def is_target_reached(self, swarm_center, goal_point):
+        """Vérifie si l'essaim a atteint la cible globale"""
+        distance = math.sqrt(
+            (swarm_center[0] - goal_point[0])**2 + 
+            (swarm_center[1] - goal_point[1])**2
+        )
         return distance <= self.target_tolerance
     
     def publish_target_status(self, status):
@@ -546,6 +636,7 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()
