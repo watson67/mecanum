@@ -284,24 +284,6 @@ class DistributedSwarmController(Node):
         # Appliquer le contrôle de consensus si actif
         if self.active and self.formation_initialized and self.goal_point_set:
             self.apply_consensus_control(goal_point)
-            
-            # Vérifier si la cible est atteinte
-            if self.goal_point_set:
-                swarm_center = self.compute_swarm_center()
-                self.get_logger().info(
-                    f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
-                )
-                current_state = self.is_target_reached(swarm_center, goal_point)
-                
-                # Si l'état a changé, publier le statut
-                if current_state != self.is_target_reached_state:
-                    self.is_target_reached_state = current_state
-                    self.publish_target_status(1 if current_state else 0)
-                    
-                    if current_state:
-                        self.get_logger().info("Target reached!")
-                    else:
-                        self.get_logger().info("Target not reached")
 
     #--------------------------------------------------------------------
     # Mise à jour des positions
@@ -576,18 +558,17 @@ class DistributedSwarmController(Node):
             twist_msg.linear.y *= scaling
         
         # Vérifier si ce robot a atteint sa cible individuelle
-        if self.goal_point_set:
-            current_state = self.is_robot_target_reached(pi, pr)
+        current_state = self.is_robot_target_reached(pi, pr)
+        
+        # Si l'état a changé, publier le statut
+        if current_state != self.is_target_reached_state:
+            self.is_target_reached_state = current_state
+            self.publish_target_status(1 if current_state else 0)
             
-            # Si l'état a changé, publier le statut
-            if current_state != self.is_target_reached_state:
-                self.is_target_reached_state = current_state
-                self.publish_target_status(1 if current_state else 0)
-                
-                if current_state:
-                    self.get_logger().info("Individual target reached!")
-                else:
-                    self.get_logger().info("Individual target not reached")
+            if current_state:
+                self.get_logger().info("Individual target reached!")
+            else:
+                self.get_logger().info("Individual target not reached")
         
         # Publier la commande de vitesse
         self.cmd_vel_publisher.publish(twist_msg)
@@ -606,14 +587,6 @@ class DistributedSwarmController(Node):
         # Calculer la distance entre le robot et son point cible
         distance = math.sqrt((robot_pos[0] - target_pos[0])**2 + (robot_pos[1] - target_pos[1])**2)
         self.get_logger().info(f"distance to individual goal: {distance:.3f}")
-        return distance <= self.target_tolerance
-
-    def is_target_reached(self, swarm_center, goal_point):
-        """Vérifie si l'essaim a atteint la cible globale"""
-        distance = math.sqrt(
-            (swarm_center[0] - goal_point[0])**2 + 
-            (swarm_center[1] - goal_point[1])**2
-        )
         return distance <= self.target_tolerance
     
     def publish_target_status(self, status):
