@@ -9,8 +9,9 @@ import csv
 from datetime import datetime
 import os
 import sys
+import glob
 
-from mecanum_swarm.config import ALL_ROBOT_NAMES
+from swarm_manager.config import ALL_ROBOT_NAMES
 
 GLOBAL_FRAME = "mocap"
 
@@ -19,6 +20,10 @@ class CmdVelRateLogger(Node):
         super().__init__('cmd_vel_rate_logger')
         self.csv_dir = os.path.expanduser(f'~/mecanum/csv/{mode}')
         os.makedirs(self.csv_dir, exist_ok=True)
+        
+        # Nettoyer les anciens fichiers CSV
+        self._cleanup_old_csvs()
+        
         self.csv_paths = {name: os.path.join(self.csv_dir, f"{name}_cmd_vel_rate.csv") for name in ALL_ROBOT_NAMES}
         self.subs = []
         self.active = True
@@ -58,6 +63,17 @@ class CmdVelRateLogger(Node):
             self.master_callback,
             10
         )
+
+    def _cleanup_old_csvs(self):
+        """Supprime tous les fichiers CSV existants se terminant par cmd_vel_rate.csv"""
+        pattern = os.path.join(self.csv_dir, "*cmd_vel_rate.csv")
+        csv_files = glob.glob(pattern)
+        for csv_file in csv_files:
+            try:
+                os.remove(csv_file)
+                self.get_logger().info(f"Fichier CSV supprimé : {csv_file}")
+            except Exception as e:
+                self.get_logger().error(f"Erreur lors de la suppression du fichier {csv_file} : {e}")
 
     def _init_csvs(self):
         # Un fichier CSV par robot, avec colonnes pour timestamp, position, commandes et composantes de contrôle

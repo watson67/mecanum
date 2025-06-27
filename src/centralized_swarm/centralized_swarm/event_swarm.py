@@ -9,16 +9,15 @@ import tf2_ros
 from geometry_msgs.msg import TransformStamped, Vector3Stamped
 import tf2_geometry_msgs
 from tf2_ros import TransformException
+import numpy as np
 # Import formules.py
 from swarm_manager.formules import *
 from swarm_manager.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 '''
-Ce programme est un contrôleur d'essaim de robots utilisant ROS2.
-Il suit le papier suivant :
-"Consensus-based formation control and obstacle avoidance for nonholonomic 
-multi-robot system"  (Daravuth Koung; Isabelle Fantoni; Olivier Kermorgant; 
-Lamia Belouaer )
+Version centralisée du contrôleur d'essaim avec contrôle événementiel.
+Ce programme contrôle tous les robots de manière centralisée en utilisant
+un contrôle événementiel pour réduire la fréquence des mises à jour de commande.
 '''
 
 #--------------------------------------------------------------------
@@ -27,24 +26,21 @@ Lamia Belouaer )
 # Liste des noms des robots
 GLOBAL_FRAME = "mocap" # nom du repère global, celui ci est défini dans tf2_manager
 
-
 #--------------------------------------------------------------------
 
-class SwarmController(Node):
+class EventBasedSwarmController(Node):
     def __init__(self):
-        super().__init__('swarm_controller')
+        super().__init__('event_swarm_controller')
 
         #--------------------------------------------------------------------
         # Variables TF2 pour les positions des robots 
         #--------------------------------------------------------------------
-
-        self.tf_buffer = tf2_ros.Buffer() # Buffer pour stocker les transformations
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self) # Listener pour recevoir les transformations
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
         #--------------------------------------------------------------------
         # Publishers 
         #--------------------------------------------------------------------
-
         # Publishers pour piloter chaque robot
         self.cmd_vel_publishers = {}
         self.control_component_publishers = {}
@@ -79,21 +75,14 @@ class SwarmController(Node):
         #--------------------------------------------------------------------
         # Subscribers 
         #--------------------------------------------------------------------
-
         # Souscription au topic de contrôle de l'essaim (arret ou démarrage)
         self.create_subscription(
-            Int32,
-            "/master",
-            self.master_callback,
-            10
+            Int32, "/master", self.master_callback, 10
         )
 
         # Souscription au topic de position cible
         self.create_subscription(
-            Point,
-            "/goal_point",
-            self.goal_point_callback,
-            10
+            Point, "/goal_point", self.goal_point_callback, 10
         )
 
         # Souscription au topic '/formation' pour réinitialiser la formation à la demande
@@ -104,21 +93,20 @@ class SwarmController(Node):
         #--------------------------------------------------------------------
         # Variables de classe 
         #--------------------------------------------------------------------
-
         self.active = False
         
         # Les distances initiales entre les robots seront retenues
-        self.desired_distances = {}  # tableau pour stocker les distances désirées entre les paires de robots
+        self.desired_distances = {}
         
         # Vecteurs relatifs initiaux de chaque robot par rapport au barycentre initial
-        self.initial_relative_vectors = []  # Vecteur du barycentre vers chaque robot
+        self.initial_relative_vectors = []
         
         # Positions des robots
         self.robot_positions = [{'x': 0, 'y': 0} for _ in ALL_ROBOT_NAMES]
         
         # Objectifs de l'essaim
         self.goal_point = (0.0, 0.0)
-        self.goal_point_set = False  # Initialiser à False pour ne pas aller à (0,0) par défaut
+        self.goal_point_set = False
         
         # La formation désirée sera définie en fonction des positions initiales
         self.desired_formation = None
@@ -139,11 +127,26 @@ class SwarmController(Node):
         # État actuel d'atteinte de la cible
         self.is_target_reached_state = False
 
+        # Configuration des voisins
+        self.robot_neighbors = ROBOT_NEIGHBORS
+
         # Timer pour recharger la configuration des voisins
-        self.create_timer(2.0, self.reload_neighbor_config)  # Recharger toutes les 2 secondes
+        self.create_timer(2.0, self.reload_neighbor_config)
         
         # Timer pour l'affichage périodique des positions et le contrôle
         self.create_timer(self.dt, self.timer_callback)
+
+        # Seuils pour la commande événementielle
+        self.distance_threshold = 0.05  # seuil d'écart de distance avec voisins (m)
+        self.target_threshold = 0.02  # seuil de changement de position cible individuelle (m)
+        self.target_distance_threshold = 0.1  # seuil de distance à la cible individuelle (m)
+
+        # Stockage des valeurs précédentes pour chaque robot
+        self.prev_neighbor_errors = [{} for _ in ALL_ROBOT_NAMES]
+        self.prev_individual_targets = [None for _ in ALL_ROBOT_NAMES]
+        self.prev_goal_point = None
+        self.prev_control_vectors = [np.array([0.0, 0.0]) for _ in ALL_ROBOT_NAMES]
+        self.prev_target_distances = [float('inf') for _ in ALL_ROBOT_NAMES]  # Distance précédente à la cible
 
     def reload_neighbor_config(self):
         """Recharger la configuration des voisins depuis le fichier YAML"""
@@ -165,17 +168,8 @@ class SwarmController(Node):
     #--------------------------------------------------------------------
     # callbacks pour le topic de contrôle /master
     #--------------------------------------------------------------------
-
     def master_callback(self, msg):
-        ''' 
-        Callback pour le topic de contrôle
-
-        Si 1 est reçu, le contrôle de consensus est activé.
-        Si 0 est reçu, le contrôle de consensus est désactivé et tous les robots sont arrêtés.
-        Penser à lancer le noeud swarm_master.py dans un autre terminal avant de lancer celui-ci.
-        
-        :param msg: message reçu
-        '''
+        """Callback pour le topic de contrôle"""
         self.active = (msg.data == 1)
         if self.active:
             self.get_logger().info("Contrôle actif")
@@ -203,241 +197,140 @@ class SwarmController(Node):
         if self._debug_counter % 50 == 0:
             self.get_logger().info(f"Positions des robots: {self.robot_positions}")
             self.get_logger().info(f"Formation initialisée: {self.formation_initialized}")
-            
-            # Lister les frames TF2 disponibles pour debug
-            try:
-                available_frames = self.tf_buffer.all_frames_as_string()
-                #self.get_logger().info(f"Frames TF2 disponibles: {available_frames}")
-            except Exception as e:
-                self.get_logger().debug(f"Impossible de lister les frames TF2: {e}")
         
         # Initialiser la formation si ce n'est pas déjà fait
         if not self.formation_initialized and self.all_positions_available():
             self.initialize_formation()
             self.formation_initialized = True
-            self.get_logger().info("Formation initialized ")
+            self.get_logger().info("Formation initialized")
             
-        # Appliquer le contrôle de consensus si actif ET goal_point_set
+        # Appliquer le contrôle de consensus événementiel si actif ET goal_point_set
         if self.active and self.formation_initialized and self.goal_point_set:
-            self.apply_consensus_control()
+            # Déterminer quels robots nécessitent une mise à jour de commande
+            robots_to_update = self.get_robots_needing_update()
+            
+            if robots_to_update:
+                self.apply_event_based_consensus_control(robots_to_update)
+            else:
+                # NE PAS envoyer de commandes - les robots continuent avec leur dernière vitesse
+                self.get_logger().info("Aucun événement détecté - aucune nouvelle commande envoyée")
             
             # Vérifier si chaque robot a atteint sa cible individuelle
-            if self.goal_point_set:
-                for i, robot_name in enumerate(ALL_ROBOT_NAMES):
-                    # Position actuelle du robot
-                    robot_pos = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
+            for i, robot_name in enumerate(ALL_ROBOT_NAMES):
+                # Position actuelle du robot
+                robot_pos = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
+                
+                # Point cible individuel pour ce robot
+                robot_target = np.array(self.goal_point) + self.initial_relative_vectors[i]
+                
+                # Vérifier si ce robot a atteint sa cible
+                robot_reached = self.is_robot_target_reached(robot_pos, robot_target)
+                
+                # Publier le statut pour ce robot
+                self.publish_individual_target_status(robot_name, 1 if robot_reached else 0)
+
+    def get_robots_needing_update(self):
+        """Détermine quels robots nécessitent une mise à jour de commande"""
+        robots_to_update = []
+        
+        for i, robot_name in enumerate(ALL_ROBOT_NAMES):
+            event_triggered = False
+            
+            # Position du robot courant
+            pi = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
+            
+            # 1. Vérifier l'écart de distance avec chaque voisin
+            neighbors_names = self.robot_neighbors.get(robot_name, [])
+            if not neighbors_names:
+                neighbors_names = [r for r in ALL_ROBOT_NAMES if r != robot_name]
+            
+            for neighbor_name in neighbors_names:
+                try:
+                    j = ALL_ROBOT_NAMES.index(neighbor_name)
+                    pj = np.array([self.robot_positions[j]['x'], self.robot_positions[j]['y']])
                     
-                    # Point cible individuel pour ce robot
-                    robot_target = np.array(self.goal_point) + self.initial_relative_vectors[i]
+                    # Distance actuelle
+                    current_distance = math.sqrt((pi[0] - pj[0])**2 + (pi[1] - pj[1])**2)
                     
-                    # Vérifier si ce robot a atteint sa cible
-                    robot_reached = self.is_robot_target_reached(robot_pos, robot_target)
-                    
-                    # Publier le statut pour ce robot
-                    self.publish_individual_target_status(robot_name, 1 if robot_reached else 0)
-
-    #--------------------------------------------------------------------
-    # Méthodes liées à l'atteinte de la cible
-    #--------------------------------------------------------------------
-    def is_robot_target_reached(self, robot_pos, target_pos):
-        """
-        Vérifie si un robot individuel est suffisamment proche de son point cible.
-        
-        :param robot_pos: Position actuelle du robot [x, y]
-        :param target_pos: Position cible du robot [x, y]
-        :return: True si la cible est atteinte, False sinon
-        """
-        # Calculer la distance entre le robot et son point cible
-        distance = math.sqrt((robot_pos[0] - target_pos[0])**2 + (robot_pos[1] - target_pos[1])**2)
-        # Vérifier si la distance est inférieure à la tolérance
-        return distance <= self.target_tolerance
-
-    def publish_target_reached(self, status):
-        """
-        Publie un message indiquant si la cible est atteinte.
-        
-        :param status: 1 si la cible est atteinte, 0 sinon
-        """
-        msg = Int32()
-        msg.data = status
-        self.target_reached_publisher.publish(msg)
-
-    #--------------------------------------------------------------------
-    # Mise à jour des positions des robots
-    #--------------------------------------------------------------------
-    def update_robot_positions(self):
-        for i, robot_name in enumerate(ALL_ROBOT_NAMES): # Pour chaque robot
-            try:
-                trans: TransformStamped = self.tf_buffer.lookup_transform(
-                    GLOBAL_FRAME, f"{robot_name}/base_link", rclpy.time.Time()
-                ) # Obtenir la transformation du repère body du robot vers le repère global
-                pos = trans.transform.translation
-                self.robot_positions[i] = {'x': pos.x, 'y': pos.y}
-
-                #self.get_logger().info(
-                #    f"{robot_name}: x={pos.x:.3f}, y={pos.y:.3f}, z={pos.z:.3f}"
-                # ) # Afficher la position du robot
-
-            except Exception as e:
-                self.get_logger().warn(
-                    f"Echec TF2 {robot_name}: {e}"
-                )
-    #--------------------------------------------------------------------
-    # Calcul du contrôle de consensus
-    #--------------------------------------------------------------------
-    def initialize_formation(self):
-        """
-        Initialise la formation désirée basée sur les positions actuelles des robots
-        et capture les distances initiales entre robots
-        """
-        if self.formation_initialized:
-            self.get_logger().warn("Formation already initialized! Skipping re-initialization.")
-            return
+                    # Distance désirée
+                    dij = self.desired_distances.get((i, j))
+                    if dij is not None:
+                        error = abs(current_distance - dij)
+                        prev_error = self.prev_neighbor_errors[i].get(neighbor_name, 0.0)
+                        
+                        if error > self.distance_threshold:
+                            event_triggered = True
+                            self.get_logger().debug(f"Distance event triggered for {robot_name}-{neighbor_name}: error={error:.3f}")
+                        
+                        self.prev_neighbor_errors[i][neighbor_name] = error
+                        
+                except ValueError:
+                    continue
             
-        # Calculer le barycentre initial
-        initial_barycenter = self.compute_swarm_center()
-        
-        # Calculer et stocker les vecteurs relatifs initiaux
-        self.initial_relative_vectors = []
-        for i, pos in enumerate(self.robot_positions):
-            # Vecteur du barycentre vers le robot
-            relative_vector = np.array([
-                pos['x'] - initial_barycenter[0],
-                pos['y'] - initial_barycenter[1]
-            ])
-            self.initial_relative_vectors.append(relative_vector)
+            # 2. Vérifier le changement de position cible individuelle
+            global_goal = np.array(self.goal_point)
+            current_individual_target = global_goal + self.initial_relative_vectors[i]
             
-        self.get_logger().info(f"Vecteurs relatifs initiaux calculés: {self.initial_relative_vectors}")
+            if self.prev_individual_targets[i] is not None:
+                target_change = np.linalg.norm(current_individual_target - self.prev_individual_targets[i])
+                if target_change > self.target_threshold:
+                    event_triggered = True
+                    self.get_logger().debug(f"Individual target change event triggered for {robot_name}: change={target_change:.3f}")
             
-        # Calculer les positions relatives par rapport au centre
-        self.desired_formation = []
-        for pos in self.robot_positions:
-            rel_x = pos['x'] 
-            rel_y = pos['y']
-            self.desired_formation.append((rel_x, rel_y))
+            self.prev_individual_targets[i] = current_individual_target.copy()
+            
+            # 3. Vérifier si le goal point a changé
+            if self.prev_goal_point != self.goal_point:
+                event_triggered = True
+                self.get_logger().debug(f"Goal point change event triggered for {robot_name}")
+            
+            # 4. NOUVEAU: Vérifier la distance à la cible individuelle
+            current_target_distance = np.linalg.norm(pi - current_individual_target)
+            prev_target_distance = self.prev_target_distances[i]
+            
+            # Déclencher si on s'approche de la cible ou si on s'en éloigne significativement
+            distance_change = abs(current_target_distance - prev_target_distance)
+            if (current_target_distance < self.target_distance_threshold or  # Proche de la cible
+                distance_change > self.target_threshold):  # Changement significatif de distance
+                event_triggered = True
+                self.get_logger().debug(f"Target distance event triggered for {robot_name}: distance={current_target_distance:.3f}, change={distance_change:.3f}")
+            
+            self.prev_target_distances[i] = current_target_distance
+            
+            if event_triggered:
+                robots_to_update.append(i)
         
-        # Calculer et stocker les distances initiales entre chaque paire de robots
-        for i in range(len(ALL_ROBOT_NAMES)):
-            for j in range(i+1, len(ALL_ROBOT_NAMES)):  # Stocker chaque paire une seule fois
-                pos_i = self.robot_positions[i]
-                pos_j = self.robot_positions[j]
-                
-                # Calculer la distance entre les robots i et j
-                dist = math.sqrt((pos_i['x'] - pos_j['x'])**2 + (pos_i['y'] - pos_j['y'])**2)
-                
-                self.desired_distances[(i, j)] = dist
-                self.desired_distances[(j, i)] = dist  # Stocker les deux directions
+        # Mettre à jour prev_goal_point après vérification
+        self.prev_goal_point = self.goal_point
         
-        self.formation_initialized = True  # Verrouille l'initialisation ici
-        self.get_logger().info(f"Desired formation set to initial positions: {self.desired_formation}")
-        self.get_logger().info(f"Initial inter-robot distances captured: {self.desired_distances}")
-        
-        # Afficher la position du barycentre à l'initialisation
-        barycentre = self.compute_swarm_center()
-        self.get_logger().info(
-            f"Barycentre (init): X:{barycentre[0]:.3f} ; Y:{barycentre[1]:.3f}"
-        )
+        return robots_to_update
 
-    def compute_swarm_center(self):
-        """
-        Calcule le centre de masse de l'essaim
-        
-        :return: Coordonnées du centre (x, y)
-        """
-        try:
-            trans: TransformStamped = self.tf_buffer.lookup_transform(
-                GLOBAL_FRAME, f"barycenter", rclpy.time.Time()
-            ) # Obtenir la transformation du repère body du robot vers le repère global
-            pos = trans.transform.translation
-
-            #self.get_logger().info(
-            #    f"barycentre : x={pos.x:.3f}, y={pos.y:.3f}, z={pos.z:.3f}"
-            #    ) # Afficher la position du robot
-            return [pos.x, pos.y]
-        except Exception as e:
-            self.get_logger().warn(
-                f"Echec TF2 barycentre {e}"
-            )
-            total_x = sum(robot['x'] for robot in self.robot_positions)
-            total_y = sum(robot['y'] for robot in self.robot_positions)
-            return [total_x / len(self.robot_positions), total_y / len(self.robot_positions)]
-     
-
-    def transform_velocity(self, global_lin_x, global_lin_y, robot_name):
-        """
-        Transforme les vitesses du repère global au repère du robot en utilisant TF2.
-        
-        :param global_lin_x: Composante x de la vitesse dans le repère global
-        :param global_lin_y: Composante y de la vitesse dans le repère global
-        :param robot_name: Nom du robot pour lequel transformer la vitesse
-        :return: Tuple (robot_lin_x, robot_lin_y) contenant les vitesses dans le repère du robot
-        """
-        try:
-            # Convertir les entrées en float
-            global_lin_x = float(global_lin_x)
-            global_lin_y = float(global_lin_y)
-            
-            # Créer un vecteur estampillé pour représenter la vitesse globale
-            global_vel = Vector3Stamped()
-            global_vel.header.frame_id = GLOBAL_FRAME
-            global_vel.header.stamp = self.get_clock().now().to_msg()
-            global_vel.vector.x = global_lin_x
-            global_vel.vector.y = global_lin_y
-            global_vel.vector.z = 0.0
-            
-            # Récupérer la transformation entre les frames
-            try:
-                now = rclpy.time.Time()
-                robot_frame_id = f"{robot_name}/base_link"
-                
-                transform = self.tf_buffer.lookup_transform(
-                    robot_frame_id,            # Frame cible (robot)
-                    GLOBAL_FRAME,              # Frame source (globale)
-                    now,                       # Temps de la transformation
-                    timeout=rclpy.duration.Duration(seconds=0.1)
-                )
-                
-                # Appliquer la transformation à la vitesse globale
-                robot_vel = tf2_geometry_msgs.do_transform_vector3(global_vel, transform)
-                
-                return robot_vel.vector.x, robot_vel.vector.y
-                #return global_lin_x, global_lin_y
-            except TransformException as ex:
-                self.get_logger().error(f'Échec de la transformation TF2 pour {robot_name}: {ex}')
-                self.get_logger().info(f'Utilisation des vitesses globales par défaut')
-                return global_lin_x, global_lin_y
-            
-        except Exception as e:
-            self.get_logger().error(f'Erreur dans transform_velocity: {e}')
-            return global_lin_x, global_lin_y
-
-    def apply_consensus_control(self):
+    def apply_event_based_consensus_control(self, robots_to_update):
+        """Applique le contrôle de consensus uniquement aux robots nécessitant une mise à jour"""
         # Ne rien faire si aucun goal n'a été reçu
         if not self.goal_point_set:
             return
-        """
-        Applique le contrôle de consensus à tous les robots en utilisant
-        la fonction control importée de formules.py avec les relations de voisinage du YAML
-        """
+
         # Calcul du centre de masse actuel comme référence
         swarm_center = self.compute_swarm_center()
         
         # Point de référence global (goal point de l'essaim)
         global_goal = np.array(self.goal_point)
         self.get_logger().info(
-                f"Goal point global : X:{global_goal[0]:.3f} ; Y:{global_goal[1]:.3f}"
-            )
+            f"Goal point global : X:{global_goal[0]:.3f} ; Y:{global_goal[1]:.3f}"
+        )
         self.get_logger().info(
-                f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
-            )
+            f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
+        )
         
-        # Pour chaque robot
-        for i, robot_name in enumerate(ALL_ROBOT_NAMES):
+        # Pour chaque robot nécessitant une mise à jour
+        for i in robots_to_update:
+            robot_name = ALL_ROBOT_NAMES[i]
+            
             # Position du robot courant (pi)
             pi = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
             
             # Calculer le point cible individuel (pr) pour ce robot
-            # pr = goal_point_global + vecteur_relatif_initial
             pr = global_goal + self.initial_relative_vectors[i]
             
             self.get_logger().info(
@@ -451,7 +344,7 @@ class SwarmController(Node):
             dij_list = []
             
             # Obtenir la liste des voisins pour ce robot depuis la configuration
-            neighbors_names = getattr(self, 'robot_neighbors', ROBOT_NEIGHBORS).get(robot_name, [])
+            neighbors_names = self.robot_neighbors.get(robot_name, [])
             
             if not neighbors_names:
                 self.get_logger().warn(f"Aucun voisin défini pour {robot_name}, utilisation de tous les autres robots")
@@ -464,7 +357,6 @@ class SwarmController(Node):
             
             # Pour chaque voisin défini dans la configuration
             for neighbor_name in neighbors_names:
-                # Trouver l'index du voisin dans ALL_ROBOT_NAMES
                 try:
                     j = ALL_ROBOT_NAMES.index(neighbor_name)
                 except ValueError:
@@ -478,16 +370,13 @@ class SwarmController(Node):
                 # Calculer la distance actuelle
                 current_distance = math.sqrt((pi[0] - pj[0])**2 + (pi[1] - pj[1])**2)
                 
-                # Distance désirée entre i et j (utiliser la distance initiale)
+                # Distance désirée entre i et j
                 dij = self.desired_distances.get((i, j))
                 if dij is None:
-                    # Si pas de distance initiale enregistrée, calculer la distance actuelle
                     dij = current_distance
                     self.get_logger().debug(f"Distance initiale non trouvée pour {robot_name}-{neighbor_name}, utilisation de la distance actuelle: {dij:.3f}m")
                 
                 dij_list.append(dij)
-                
-                # Ajouter les informations de distance pour l'affichage
                 distance_info.append(f"{neighbor_name}: actuelle={current_distance:.3f}m, désirée={dij:.3f}m")
             
             # Afficher les distances avec les voisins
@@ -498,8 +387,9 @@ class SwarmController(Node):
             # Si aucun voisin valide n'a été trouvé, passer au robot suivant
             if not pj_array:
                 self.get_logger().warn(f"Aucun voisin valide pour {robot_name}, robot arrêté")
-                twist_msg = Twist()  # Vitesse nulle
+                twist_msg = Twist()
                 self.cmd_vel_publishers[robot_name].publish(twist_msg)
+                self.prev_control_vectors[i] = np.array([0.0, 0.0])
                 continue
             
             # Appliquer la fonction de contrôle avec composantes
@@ -507,7 +397,7 @@ class SwarmController(Node):
                 pj_array=pj_array,
                 pi=pi,
                 dij_list=dij_list,
-                pr=pr,  # Utiliser le point cible individuel
+                pr=pr,
                 dt=self.dt,
                 integral_term=self.integral_terms[i],
                 derivative_term=self.derivative_terms[i],
@@ -526,9 +416,7 @@ class SwarmController(Node):
             
             # Transformer les vitesses du repère global au repère du robot
             robot_lin_x, robot_lin_y = self.transform_velocity(
-                control_vector[0], 
-                control_vector[1],
-                robot_name
+                control_vector[0], control_vector[1], robot_name
             )
             
             # Conversion en message Twist avec les vitesses transformées
@@ -544,29 +432,152 @@ class SwarmController(Node):
                 twist_msg.linear.x *= scaling
                 twist_msg.linear.y *= scaling
             
-            # Publier la commande
+            # Publier la commande et stocker pour réutilisation
             self.cmd_vel_publishers[robot_name].publish(twist_msg)
+            self.prev_control_vectors[i] = np.array([twist_msg.linear.x, twist_msg.linear.y])
+            
             self.get_logger().info(
                 f"Robot {robot_name} (voisins: {len(neighbors_names)}): Global:{control_vector[0]:.3f},{control_vector[1]:.3f} -> Robot:{twist_msg.linear.x:.3f},{twist_msg.linear.y:.3f}"
             )
+        
+        # NE PLUS envoyer les dernières commandes aux robots qui n'ont pas d'événements
+        self.get_logger().info(f"Commandes mises à jour pour {len(robots_to_update)} robots sur {len(ALL_ROBOT_NAMES)}")
+
+    #--------------------------------------------------------------------
+    # Méthodes liées à l'atteinte de la cible
+    #--------------------------------------------------------------------
+    def is_robot_target_reached(self, robot_pos, target_pos):
+        """Vérifie si un robot individuel est suffisamment proche de son point cible"""
+        distance = math.sqrt((robot_pos[0] - target_pos[0])**2 + (robot_pos[1] - target_pos[1])**2)
+        return distance <= self.target_tolerance
+
+    def publish_target_reached(self, status):
+        """Publie un message indiquant si la cible est atteinte"""
+        msg = Int32()
+        msg.data = status
+        self.target_reached_publisher.publish(msg)
+
+    #--------------------------------------------------------------------
+    # Mise à jour des positions des robots
+    #--------------------------------------------------------------------
+    def update_robot_positions(self):
+        for i, robot_name in enumerate(ALL_ROBOT_NAMES):
+            try:
+                trans: TransformStamped = self.tf_buffer.lookup_transform(
+                    GLOBAL_FRAME, f"{robot_name}/base_link", rclpy.time.Time()
+                )
+                pos = trans.transform.translation
+                self.robot_positions[i] = {'x': pos.x, 'y': pos.y}
+            except Exception as e:
+                self.get_logger().warn(f"Echec TF2 {robot_name}: {e}")
+
+    #--------------------------------------------------------------------
+    # Calcul du contrôle de consensus
+    #--------------------------------------------------------------------
+    def initialize_formation(self):
+        """Initialise la formation désirée basée sur les positions actuelles des robots"""
+        if self.formation_initialized:
+            self.get_logger().warn("Formation already initialized! Skipping re-initialization.")
+            return
+            
+        # Calculer le barycentre initial
+        initial_barycenter = self.compute_swarm_center()
+        
+        # Calculer et stocker les vecteurs relatifs initiaux
+        self.initial_relative_vectors = []
+        for i, pos in enumerate(self.robot_positions):
+            relative_vector = np.array([
+                pos['x'] - initial_barycenter[0],
+                pos['y'] - initial_barycenter[1]
+            ])
+            self.initial_relative_vectors.append(relative_vector)
+            
+        self.get_logger().info(f"Vecteurs relatifs initiaux calculés: {self.initial_relative_vectors}")
+            
+        # Calculer les positions relatives par rapport au centre
+        self.desired_formation = []
+        for pos in self.robot_positions:
+            rel_x = pos['x'] 
+            rel_y = pos['y']
+            self.desired_formation.append((rel_x, rel_y))
+        
+        # Calculer et stocker les distances initiales entre chaque paire de robots
+        for i in range(len(ALL_ROBOT_NAMES)):
+            for j in range(i+1, len(ALL_ROBOT_NAMES)):
+                pos_i = self.robot_positions[i]
+                pos_j = self.robot_positions[j]
+                
+                dist = math.sqrt((pos_i['x'] - pos_j['x'])**2 + (pos_i['y'] - pos_j['y'])**2)
+                
+                self.desired_distances[(i, j)] = dist
+                self.desired_distances[(j, i)] = dist
+        
+        self.formation_initialized = True
+        self.get_logger().info(f"Desired formation set to initial positions: {self.desired_formation}")
+        self.get_logger().info(f"Initial inter-robot distances captured: {self.desired_distances}")
+        
+        # Afficher la position du barycentre à l'initialisation
+        barycentre = self.compute_swarm_center()
+        self.get_logger().info(f"Barycentre (init): X:{barycentre[0]:.3f} ; Y:{barycentre[1]:.3f}")
+
+    def compute_swarm_center(self):
+        """Calcule le centre de masse de l'essaim"""
+        try:
+            trans: TransformStamped = self.tf_buffer.lookup_transform(
+                GLOBAL_FRAME, f"barycenter", rclpy.time.Time()
+            )
+            pos = trans.transform.translation
+            return [pos.x, pos.y]
+        except Exception as e:
+            self.get_logger().warn(f"Echec TF2 barycentre {e}")
+            total_x = sum(robot['x'] for robot in self.robot_positions)
+            total_y = sum(robot['y'] for robot in self.robot_positions)
+            return [total_x / len(self.robot_positions), total_y / len(self.robot_positions)]
+
+    def transform_velocity(self, global_lin_x, global_lin_y, robot_name):
+        """Transforme les vitesses du repère global au repère du robot en utilisant TF2"""
+        try:
+            global_lin_x = float(global_lin_x)
+            global_lin_y = float(global_lin_y)
+            
+            global_vel = Vector3Stamped()
+            global_vel.header.frame_id = GLOBAL_FRAME
+            global_vel.header.stamp = self.get_clock().now().to_msg()
+            global_vel.vector.x = global_lin_x
+            global_vel.vector.y = global_lin_y
+            global_vel.vector.z = 0.0
+            
+            try:
+                now = rclpy.time.Time()
+                robot_frame_id = f"{robot_name}/base_link"
+                
+                transform = self.tf_buffer.lookup_transform(
+                    robot_frame_id, GLOBAL_FRAME, now,
+                    timeout=rclpy.duration.Duration(seconds=0.1)
+                )
+                
+                robot_vel = tf2_geometry_msgs.do_transform_vector3(global_vel, transform)
+                return robot_vel.vector.x, robot_vel.vector.y
+                
+            except TransformException as ex:
+                self.get_logger().error(f'Échec de la transformation TF2 pour {robot_name}: {ex}')
+                return global_lin_x, global_lin_y
+            
+        except Exception as e:
+            self.get_logger().error(f'Erreur dans transform_velocity: {e}')
+            return global_lin_x, global_lin_y
 
     def stop_all_robots(self):
-        # Créer une commande de vitesse nulle
+        """Arrêter tous les robots"""
         stop_cmd = Twist()
-        # Publier à tous les robots
         for robot_name in ALL_ROBOT_NAMES:
             self.cmd_vel_publishers[robot_name].publish(stop_cmd)
 
     def goal_point_callback(self, msg):
-        """
-        Callback pour le topic de position cible.
-        Met à jour la position cible pour l'essaim.
-        
-        :param msg: Position cible (Point)
-        """
+        """Callback pour le topic de position cible"""
         self.goal_point = (msg.x, msg.y)
         self.goal_point_set = True
-        self.is_target_reached_state = False  # Réinitialiser l'état
+        self.is_target_reached_state = False
         
         # Publier le statut pour chaque robot individuellement (tous à 0 au début)
         for name in ALL_ROBOT_NAMES:
@@ -604,7 +615,7 @@ class SwarmController(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = SwarmController()
+    node = EventBasedSwarmController()
     try:
         rclpy.spin(node)
     finally:

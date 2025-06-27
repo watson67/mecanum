@@ -30,7 +30,7 @@ x_max = 2
 
 # Paramètres du contrôle
 h = 0.2
-c1_gamma = 0.15 # navigation gain (position)
+c1_gamma = 0.2 # navigation gain (position)
 c2_gamma = 0.05 # navigation gain (vitesse)
 c1_beta = 0.3
 c = 5         
@@ -230,7 +230,7 @@ def control_with_components(pj_array=None, pi=None, dij_list=None, pr=None, dt=0
     if logger:
         logger.info(f"ui_alpha (PID): {ui_alpha}, ui_gamma: {ui_gamma}")
 
-    ui = 1 * (ui_alpha) + 1 * ui_gamma
+    ui = 1 * (ui_alpha) + ui_gamma  
     
     return  ui, integral_term, derivative_term, ui_alpha, ui_gamma
 

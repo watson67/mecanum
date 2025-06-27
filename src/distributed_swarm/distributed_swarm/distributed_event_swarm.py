@@ -170,12 +170,14 @@ class DistributedSwarmController(Node):
         # Seuils pour la commande événementielle
         self.distance_threshold = 0.05  # seuil d'écart de distance avec voisins (m)
         self.target_threshold = 0.02  # seuil de changement de position cible individuelle (m)
+        self.target_distance_threshold = 0.15  # seuil de distance à la cible individuelle (m)
 
         # Stockage des valeurs précédentes
         self.prev_neighbor_errors = {}
         self.prev_individual_target = None
         self.prev_goal_point = None
         self.prev_control_vector = np.array([0.0, 0.0])
+        self.prev_target_distance = float('inf')  # Distance précédente à la cible
 
     #--------------------------------------------------------------------
     # Callbacks pour les topics de contrôle
@@ -645,6 +647,19 @@ class DistributedSwarmController(Node):
             event_triggered = True
             self.prev_goal_point = goal_point
             self.get_logger().debug("Goal point change event triggered")
+
+        # 4. NOUVEAU: Vérifier la distance à la cible individuelle
+        pi = np.array([self.my_position['x'], self.my_position['y']])
+        current_target_distance = np.linalg.norm(pi - current_individual_target)
+        
+        # Déclencher si on s'approche de la cible ou si on s'en éloigne significativement
+        distance_change = abs(current_target_distance - self.prev_target_distance)
+        if (current_target_distance < self.target_distance_threshold or  # Proche de la cible
+            distance_change > self.target_threshold):  # Changement significatif de distance
+            event_triggered = True
+            self.get_logger().debug(f"Target distance event triggered: distance={current_target_distance:.3f}, change={distance_change:.3f}")
+        
+        self.prev_target_distance = current_target_distance
 
         return event_triggered
 

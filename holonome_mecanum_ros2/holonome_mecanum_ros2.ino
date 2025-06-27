@@ -29,8 +29,8 @@ rcl_allocator_t allocator;
 rclc_support_t support;
 rcl_node_t node;
 
-const char *node_name = "Porthos_cmd";
-const char *topic_name = "Porthos/cmd_vel";
+const char *node_name = "Mercedes_cmd";
+const char *topic_name = "Mercedes/cmd_vel";
 
 #define LED_PIN 13
 

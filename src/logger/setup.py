@@ -25,6 +25,7 @@ setup(
             'distances_logger = logger.distances_logger:main',
             'goal_point_logger = logger.goal_point_logger:main',
             'event_logger = logger.event:main',
+            'predictive_logger = logger.predictive_logger:main',
         ],
     },
 )

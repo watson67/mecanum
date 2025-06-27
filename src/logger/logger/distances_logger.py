@@ -10,7 +10,7 @@ from datetime import datetime
 import os
 import math
 import sys
-from mecanum_swarm.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
+from swarm_manager.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 GLOBAL_FRAME = "mocap"
 

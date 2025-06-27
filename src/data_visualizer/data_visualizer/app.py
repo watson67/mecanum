@@ -135,7 +135,7 @@ class RobotVisualizerApp(Node):
         """Load robot configuration from YAML file"""
         try:
             # Get the path to the YAML file
-            config_path = "/home/eswarm/mecanum/src/mecanum_swarm/config/robots.yaml"
+            config_path = "/home/eswarm/mecanum/src/swarm_manager/config/robots.yaml"
             
             with open(config_path, 'r') as file:
                 config = yaml.safe_load(file)
