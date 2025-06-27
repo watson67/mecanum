@@ -23,6 +23,8 @@ setup(
             'distributed_swarm = distributed_swarm.distributed_swarm:main',
             'distributed_obstacle_swarm = distributed_swarm.distributed_obstacle_swarm:main',
             'distributed_event_swarm = distributed_swarm.distributed_event_swarm:main',
+            'distributed_predictive_swarm = distributed_swarm.distributed_predictive_swarm:main',
+
         ],
     },
 )
