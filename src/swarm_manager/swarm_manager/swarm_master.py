@@ -16,6 +16,8 @@ import math
 import tf2_ros
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+import yaml
+from itertools import combinations
 
 def get_key():
     """Lit une touche clavier sans bloquer."""
@@ -34,9 +36,23 @@ def get_key():
     
     return key
 
+def load_robot_config():
+    """Load robot configuration from YAML file."""
+    config_path = os.path.expanduser('~/mecanum/src/swarm_manager/config/robots.yaml')
+    try:
+        with open(config_path, 'r') as file:
+            config = yaml.safe_load(file)
+        all_robots = config.get('all_robot_names', [])
+        # Generate all possible pairs from robot names
+        pairs = list(combinations(all_robots, 2))
+        return all_robots, pairs
+    except Exception as e:
+        print(f"Error loading robot config: {e}")
+        # Fallback to original configuration
+        return ["Aramis", "Athos", "Porthos"], [("Aramis", "Athos"), ("Aramis", "Porthos"), ("Athos", "Porthos")]
+
 GLOBAL_FRAME = "mocap"
-PAIRS = [("Aramis", "Athos"), ("Aramis", "Porthos"), ("Athos", "Porthos")]
-ALL_ROBOT_NAMES = ["Aramis", "Athos", "Porthos"]
+ALL_ROBOT_NAMES, PAIRS = load_robot_config()
 
 class MasterNode(Node):
     def __init__(self, mode='classic', csv_filename='distances_master.csv'):
@@ -50,10 +66,12 @@ class MasterNode(Node):
         # Publishers
         self.master_pub = self.create_publisher(Int32, '/master', 10)
         self.formation_pub = self.create_publisher(Int32, '/formation', 10)
+        self.rotation_pub = self.create_publisher(Int32, '/rotation', 10)
 
-        self.athos_pub = self.create_publisher(Twist, '/Athos/cmd_vel', 10)
-        self.aramis_pub = self.create_publisher(Twist, '/Aramis/cmd_vel', 10)
-        self.porthos_pub = self.create_publisher(Twist, '/Porthos/cmd_vel', 10)
+        # Create publishers for all robots from config
+        self.robot_pubs = {}
+        for robot_name in ALL_ROBOT_NAMES:
+            self.robot_pubs[robot_name] = self.create_publisher(Twist, f'/{robot_name}/cmd_vel', 10)
         
         self.get_logger().info("Nœud de contrôle maître démarré. Appuyez sur espace pour lancer les autres noeuds.")
         
@@ -149,12 +167,18 @@ class MasterNode(Node):
         twist_msg.linear.y = 0.0
         twist_msg.angular.z = 0.0
         
-        # Envoyer à tous les robots
-        self.athos_pub.publish(twist_msg)
-        self.aramis_pub.publish(twist_msg)
-        self.porthos_pub.publish(twist_msg)
+        # Envoyer à tous les robots depuis la config
+        for robot_name, pub in self.robot_pubs.items():
+            pub.publish(twist_msg)
         
         self.get_logger().info("Messages Twist envoyés à tous les robots pour les stopper")
+
+    def send_rotation_command(self):
+        """Send rotation command on /rotation topic."""
+        msg = Int32()
+        msg.data = 1
+        self.rotation_pub.publish(msg)
+        self.get_logger().info("Commande de rotation envoyée: 1")
         
     def travel_finished_callback(self, msg):
         if msg.data == 1:
@@ -190,6 +214,8 @@ class MasterNode(Node):
                     self.toggle_state_formation()
                     self.get_logger().info("État de formation basculé")
 
+                if key == 'r':
+                    self.send_rotation_command()
                     
         except Exception as e:
             self.get_logger().error(f'Erreur: {e}')

@@ -4,7 +4,6 @@ from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-type='predictive'  # 'event' or 'classic'
 def generate_launch_description():
     # Declare launch argument for enabling logging
     enable_logging_arg = DeclareLaunchArgument(
@@ -33,7 +32,7 @@ def generate_launch_description():
        
         Node(
             package='centralized_swarm',
-            executable='predictive_swarm',
+            executable='swarm2',
             name='swarm_controller'
         ),
         Node(
@@ -48,7 +47,7 @@ def generate_launch_description():
             executable='cmd_vel_rate_logger',
             namespace='logger',
             name='cmd_vel_rate_logger',
-            arguments=[type],
+            arguments=['classic'],
             condition=IfCondition(enable_logging)
         ),
         Node(
@@ -57,7 +56,7 @@ def generate_launch_description():
             namespace='logger',
             name='barycenter_logger',
             parameters=[{'csv_filename': 'distributed_barycenter_logger.csv'}],
-            arguments=[type],
+            arguments=['classic'],
             condition=IfCondition(enable_logging)
         ),
         Node(
@@ -66,7 +65,7 @@ def generate_launch_description():
             namespace='logger',
             name='distances_logger',
             parameters=[{'csv_filename': 'distributed_distance_logger.csv'}],
-            arguments=[type],
+            arguments=['classic'],
             condition=IfCondition(enable_logging)
         ),
         Node(
@@ -75,15 +74,7 @@ def generate_launch_description():
             namespace='logger',
             name='goal_point_logger',
             parameters=[{'csv_filename': 'distributed_goal_point_logger.csv'}],
-            arguments=[type],
-            condition=IfCondition(enable_logging)
-        ),
-        Node(
-            package='logger',
-            executable='predictive_logger',
-            namespace='logger',
-            name='predictive_logger',
-            arguments=[type],
+            arguments=['classic'],
             condition=IfCondition(enable_logging)
         ),
     ])

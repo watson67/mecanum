@@ -12,9 +12,15 @@ class DistributedManager(Node):
     def __init__(self):
         super().__init__('distributed_manager')
         self.target_status = {name: 0 for name in ALL_ROBOT_NAMES}
+        self.rotation_status = {name: 0 for name in ALL_ROBOT_NAMES}
+        
         self.target_reached_publisher = self.create_publisher(Int32, "/target_reached", 10)
-        self.last_published = 0
+        self.rotation_completed_publisher = self.create_publisher(Int32, "/rotation_completed", 10)
+        
+        self.last_published_target = 0
+        self.last_published_rotation = 0
 
+        # Subscriptions pour target_status (existant)
         for name in ALL_ROBOT_NAMES:
             self.create_subscription(
                 Int32,
@@ -23,23 +29,50 @@ class DistributedManager(Node):
                 10
             )
 
+        # Subscriptions pour rotation_status (nouveau)
+        for name in ALL_ROBOT_NAMES:
+            self.create_subscription(
+                Int32,
+                f"/{name}/rotation_status",
+                lambda msg, robot=name: self.rotation_status_callback(msg, robot),
+                10
+            )
+
     def target_status_callback(self, msg, robot_name):
         self.target_status[robot_name] = msg.data
         # Tous à 1 -> publier 1, sinon publier 0 si déjà publié 1
         if all(status == 1 for status in self.target_status.values()):
-            if self.last_published != 1:
+            if self.last_published_target != 1:
                 out = Int32()
                 out.data = 1
                 self.target_reached_publisher.publish(out)
                 self.get_logger().info("Tous les robots ont atteint leur cible. /target_reached = 1")
-                self.last_published = 1
+                self.last_published_target = 1
         else:
-            if self.last_published != 0:
+            if self.last_published_target != 0:
                 out = Int32()
                 out.data = 0
                 self.target_reached_publisher.publish(out)
                 self.get_logger().info("/target_reached = 0 (au moins un robot n'a pas atteint la cible)")
-                self.last_published = 0
+                self.last_published_target = 0
+
+    def rotation_status_callback(self, msg, robot_name):
+        self.rotation_status[robot_name] = msg.data
+        # Tous à 1 -> publier 1, sinon publier 0 si déjà publié 1
+        if all(status == 1 for status in self.rotation_status.values()):
+            if self.last_published_rotation != 1:
+                out = Int32()
+                out.data = 1
+                self.rotation_completed_publisher.publish(out)
+                self.get_logger().info("Tous les robots ont terminé leur rotation. /rotation_completed = 1")
+                self.last_published_rotation = 1
+        else:
+            if self.last_published_rotation != 0:
+                out = Int32()
+                out.data = 0
+                self.rotation_completed_publisher.publish(out)
+                self.get_logger().info("/rotation_completed = 0 (au moins un robot n'a pas terminé sa rotation)")
+                self.last_published_rotation = 0
 
 def main(args=None):
     rclpy.init(args=args)

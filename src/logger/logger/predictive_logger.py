@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Point, Twist, Vector3
+from geometry_msgs.msg import Point, Vector3
 from std_msgs.msg import Int32
 import csv
 from datetime import datetime
@@ -33,7 +33,6 @@ class PredictiveLogger(Node):
         # Stockage temporaire des données pour synchronisation
         self.latest_positions = {name: None for name in ALL_ROBOT_NAMES}
         self.latest_velocities = {name: None for name in ALL_ROBOT_NAMES}
-        self.latest_cmd_vel = {name: None for name in ALL_ROBOT_NAMES}
         
         # État d'activation
         self.active = False
@@ -61,16 +60,6 @@ class PredictiveLogger(Node):
                 10
             )
         
-        # Subscribers pour les commandes de vitesse
-        self.cmd_vel_subscribers = {}
-        for name in ALL_ROBOT_NAMES:
-            self.cmd_vel_subscribers[name] = self.create_subscription(
-                Twist,
-                f"/{name}/cmd_vel",
-                self._make_cmd_vel_callback(name),
-                10
-            )
-        
         # Subscriber pour le contrôle d'activation
         self.create_subscription(
             Int32,
@@ -94,10 +83,9 @@ class PredictiveLogger(Node):
         """Initialise les fichiers CSV avec les en-têtes"""
         headers = [
             'timestamp',
-            'event_type',  # 'position_published', 'velocity_updated', 'cmd_vel_sent'
+            'event_type',  # 'position_published', 'velocity_updated'
             'pos_x', 'pos_y',  # Position publiée
-            'vel_x', 'vel_y',  # Vitesse de prédiction
-            'cmd_vel_x', 'cmd_vel_y', 'cmd_vel_angular'  # Commande de vitesse
+            'vel_x', 'vel_y'   # Vitesse de prédiction
         ]
         
         for name in ALL_ROBOT_NAMES:
@@ -165,41 +153,14 @@ class PredictiveLogger(Node):
         
         return callback
 
-    def _make_cmd_vel_callback(self, robot_name):
-        """Crée un callback pour les commandes de vitesse d'un robot"""
-        def callback(msg):
-            if not self.active:
-                return
-            
-            timestamp = datetime.now().isoformat()
-            
-            # Stocker la dernière commande de vitesse
-            self.latest_cmd_vel[robot_name] = {
-                'linear_x': msg.linear.x,
-                'linear_y': msg.linear.y,
-                'angular_z': msg.angular.z,
-                'timestamp': timestamp
-            }
-            
-            # Enregistrer l'événement de commande de vitesse
-            self._log_event(robot_name, timestamp, 'cmd_vel_sent',
-                          cmd_vel_x=msg.linear.x, cmd_vel_y=msg.linear.y, 
-                          cmd_vel_angular=msg.angular.z)
-            
-            self.get_logger().debug(f"Commande vitesse enregistrée pour {robot_name}: ({msg.linear.x:.3f}, {msg.linear.y:.3f})")
-        
-        return callback
-
     def _log_event(self, robot_name, timestamp, event_type, 
-                   pos_x=None, pos_y=None, vel_x=None, vel_y=None, 
-                   cmd_vel_x=None, cmd_vel_y=None, cmd_vel_angular=None):
+                   pos_x=None, pos_y=None, vel_x=None, vel_y=None):
         """Enregistre un événement dans le fichier CSV du robot"""
         
         try:
             # Récupérer les dernières valeurs connues si pas fournies
             latest_pos = self.latest_positions.get(robot_name, {})
             latest_vel = self.latest_velocities.get(robot_name, {})
-            latest_cmd = self.latest_cmd_vel.get(robot_name, {})
             
             # Utiliser les valeurs fournies ou les dernières connues
             row_data = [
@@ -208,10 +169,7 @@ class PredictiveLogger(Node):
                 pos_x if pos_x is not None else latest_pos.get('x', 0.0),
                 pos_y if pos_y is not None else latest_pos.get('y', 0.0),
                 vel_x if vel_x is not None else latest_vel.get('vx', 0.0),
-                vel_y if vel_y is not None else latest_vel.get('vy', 0.0),
-                cmd_vel_x if cmd_vel_x is not None else latest_cmd.get('linear_x', 0.0),
-                cmd_vel_y if cmd_vel_y is not None else latest_cmd.get('linear_y', 0.0),
-                cmd_vel_angular if cmd_vel_angular is not None else latest_cmd.get('angular_z', 0.0)
+                vel_y if vel_y is not None else latest_vel.get('vy', 0.0)
             ]
             
             with open(self.csv_paths[robot_name], 'a', newline='') as csvfile:

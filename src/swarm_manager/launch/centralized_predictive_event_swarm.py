@@ -4,7 +4,7 @@ from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-type='predictive'  # 'event' or 'classic'
+type='predictive_event'  # 'event' or 'classic'
 def generate_launch_description():
     # Declare launch argument for enabling logging
     enable_logging_arg = DeclareLaunchArgument(
@@ -33,7 +33,7 @@ def generate_launch_description():
        
         Node(
             package='centralized_swarm',
-            executable='predictive_swarm',
+            executable='predictive_event_swarm',
             name='swarm_controller'
         ),
         Node(

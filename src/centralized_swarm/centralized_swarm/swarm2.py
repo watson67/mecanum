@@ -10,7 +10,7 @@ from geometry_msgs.msg import TransformStamped, Vector3Stamped
 import tf2_geometry_msgs
 from tf2_ros import TransformException
 # Import formules.py
-from swarm_manager.old_formules import *
+from swarm_manager.formules import *
 from swarm_manager.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
 
 '''
@@ -19,6 +19,8 @@ Il suit le papier suivant :
 "Consensus-based formation control and obstacle avoidance for nonholonomic 
 multi-robot system"  (Daravuth Koung; Isabelle Fantoni; Olivier Kermorgant; 
 Lamia Belouaer )
+Variante implémentant une rotation de l'essaim autour d'un barycentre
+et une formation initiale basée sur les positions initiales des robots.
 '''
 
 #--------------------------------------------------------------------
@@ -76,6 +78,18 @@ class SwarmController(Node):
                 Int32, f"/{name}/target_status", 10
             )
 
+        # Publishers pour le statut de rotation individuel de chaque robot
+        self.rotation_status_publishers = {}
+        for name in ALL_ROBOT_NAMES:
+            self.rotation_status_publishers[name] = self.create_publisher(
+                Int32, f"/{name}/rotation_status", 10
+            )
+
+        # Publisher pour indiquer si la rotation globale est terminée
+        self.rotation_completed_publisher = self.create_publisher(
+            Int32, "/rotation_completed", 10
+        )
+
         #--------------------------------------------------------------------
         # Subscribers 
         #--------------------------------------------------------------------
@@ -101,6 +115,11 @@ class SwarmController(Node):
             Int32, "/formation", self.formation_callback, 10
         )
 
+        # Souscription au topic '/rotation' pour faire tourner la formation
+        self.create_subscription(
+            Int32, "/rotation", self.rotation_callback, 10
+        )
+
         #--------------------------------------------------------------------
         # Variables de classe 
         #--------------------------------------------------------------------
@@ -112,6 +131,12 @@ class SwarmController(Node):
         
         # Vecteurs relatifs initiaux de chaque robot par rapport au barycentre initial
         self.initial_relative_vectors = []  # Vecteur du barycentre vers chaque robot
+        
+        # Angles initiaux entre robots voisins (nouveau)
+        self.initial_neighbor_angles = []  # Pour chaque robot, dictionnaire {index_voisin: angle_initial}
+        
+        # Compteur de rotations pour ajuster les angles cibles
+        self.rotation_count = 0
         
         # Positions des robots
         self.robot_positions = [{'x': 0, 'y': 0} for _ in ALL_ROBOT_NAMES]
@@ -130,14 +155,23 @@ class SwarmController(Node):
         # Stockage des termes dérivés pour chaque robot
         self.derivative_terms = [None for _ in ALL_ROBOT_NAMES]
         
+        # Stockage des ui_gamma précédents pour le lissage
+        self.previous_gamma_terms = [None for _ in ALL_ROBOT_NAMES]
+        
         # Pas de temps pour l'intégration
         self.dt = 0.1
         
         # Tolérance pour considérer que la cible est atteinte (en mètres)
-        self.target_tolerance = 0.05
+        self.target_tolerance = 0.08
         
         # État actuel d'atteinte de la cible
         self.is_target_reached_state = False
+
+        # Variables pour la rotation
+        self.is_rotating = False
+        self.rotation_goal_point = None  # Goal point temporaire pour la rotation
+        self.original_goal_point = None  # Goal point original à conserver pendant toute la trajectoire
+        self.rotation_tolerance = 0.1  # Tolérance pour considérer la rotation terminée
 
         # Timer pour recharger la configuration des voisins
         self.create_timer(2.0, self.reload_neighbor_config)  # Recharger toutes les 2 secondes
@@ -204,12 +238,13 @@ class SwarmController(Node):
             self.get_logger().info(f"Positions des robots: {self.robot_positions}")
             self.get_logger().info(f"Formation initialisée: {self.formation_initialized}")
             
-            # Lister les frames TF2 disponibles pour debug
-            try:
-                available_frames = self.tf_buffer.all_frames_as_string()
-                #self.get_logger().info(f"Frames TF2 disponibles: {available_frames}")
-            except Exception as e:
-                self.get_logger().debug(f"Impossible de lister les frames TF2: {e}")
+            # Afficher les distances avec le goal point
+            if self.goal_point_set:
+                swarm_center = self.compute_swarm_center()
+                goal_distance = math.sqrt((swarm_center[0] - self.goal_point[0])**2 + (swarm_center[1] - self.goal_point[1])**2)
+                self.get_logger().info(f"Distance barycentre -> goal point: {goal_distance:.3f}m")
+                if self.original_goal_point:
+                    self.get_logger().info(f"Goal point original sauvegardé: {self.original_goal_point}")
         
         # Initialiser la formation si ce n'est pas déjà fait
         if not self.formation_initialized and self.all_positions_available():
@@ -221,8 +256,12 @@ class SwarmController(Node):
         if self.active and self.formation_initialized and self.goal_point_set:
             self.apply_consensus_control()
             
-            # Vérifier si chaque robot a atteint sa cible individuelle
-            if self.goal_point_set:
+            # Vérifier si la rotation est terminée
+            if self.is_rotating:
+                self.check_rotation_completion()
+            
+            # Vérifier si chaque robot a atteint sa cible individuelle SEULEMENT si pas en rotation
+            if self.goal_point_set and not self.is_rotating:
                 for i, robot_name in enumerate(ALL_ROBOT_NAMES):
                     # Position actuelle du robot
                     robot_pos = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
@@ -235,6 +274,65 @@ class SwarmController(Node):
                     
                     # Publier le statut pour ce robot
                     self.publish_individual_target_status(robot_name, 1 if robot_reached else 0)
+
+    def check_rotation_completion(self):
+        """
+        Vérifie si tous les robots ont atteint leur position cible de rotation.
+        Si oui, restaure le goal point original (qui n'a pas changé).
+        """
+        if not self.is_rotating:
+            return
+        
+        all_robots_at_target = True
+        
+        for i, robot_name in enumerate(ALL_ROBOT_NAMES):
+            # Position actuelle du robot
+            robot_pos = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
+            
+            # Point cible pour la rotation (barycentre + nouveau vecteur relatif)
+            rotation_target = np.array(self.rotation_goal_point) + self.initial_relative_vectors[i]
+            
+            # Vérifier si ce robot a atteint sa cible de rotation
+            distance = math.sqrt((robot_pos[0] - rotation_target[0])**2 + (robot_pos[1] - rotation_target[1])**2)
+            
+            # Publier le statut de rotation pour ce robot individuel
+            rotation_reached = 1 if distance <= self.rotation_tolerance else 0
+            self.publish_individual_rotation_status(robot_name, rotation_reached)
+            
+            if distance > self.rotation_tolerance:
+                all_robots_at_target = False
+        
+        if all_robots_at_target:
+            self.get_logger().info("Rotation terminée, restauration du goal point original")
+            
+            # Publier que la rotation globale est terminée
+            rotation_msg = Int32()
+            rotation_msg.data = 1
+            self.rotation_completed_publisher.publish(rotation_msg)
+            
+            # Restaurer le goal point original si il existait (il n'a pas changé)
+            if self.original_goal_point is not None:
+                self.goal_point = self.original_goal_point
+                self.goal_point_set = True
+                self.get_logger().info(f"Goal point original restauré: {self.goal_point}")
+                
+                # Réinitialiser le statut de cible pour tous les robots (recommencer la navigation)
+                for name in ALL_ROBOT_NAMES:
+                    self.publish_individual_target_status(name, 0)
+            else:
+                # Si pas de goal point original, rester sur le barycentre
+                self.goal_point = tuple(self.rotation_goal_point)
+                self.goal_point_set = True
+                self.get_logger().info("Aucun goal point original, maintien du barycentre actuel")
+            
+            # Réinitialiser les variables de rotation (MAIS GARDER original_goal_point)
+            self.is_rotating = False
+            self.rotation_goal_point = None
+        else:
+            # Publier que la rotation globale n'est pas terminée
+            rotation_msg = Int32()
+            rotation_msg.data = 0
+            self.rotation_completed_publisher.publish(rotation_msg)
 
     #--------------------------------------------------------------------
     # Méthodes liées à l'atteinte de la cible
@@ -288,7 +386,7 @@ class SwarmController(Node):
     def initialize_formation(self):
         """
         Initialise la formation désirée basée sur les positions actuelles des robots
-        et capture les distances initiales entre robots
+        et capture les distances initiales entre robots ET les angles initiaux
         """
         if self.formation_initialized:
             self.get_logger().warn("Formation already initialized! Skipping re-initialization.")
@@ -327,6 +425,42 @@ class SwarmController(Node):
                 
                 self.desired_distances[(i, j)] = dist
                 self.desired_distances[(j, i)] = dist  # Stocker les deux directions
+        
+        # Calculer et stocker les angles initiaux entre robots voisins (nouveau)
+        self.initial_neighbor_angles = []
+        for i, robot_name in enumerate(ALL_ROBOT_NAMES):
+            robot_angles = {}
+            
+            # Obtenir les voisins pour ce robot
+            neighbors_names = getattr(self, 'robot_neighbors', ROBOT_NEIGHBORS).get(robot_name, [])
+            if not neighbors_names:
+                neighbors_names = [r for r in ALL_ROBOT_NAMES if r != robot_name]
+            
+            neighbor_idx = 0
+            for neighbor_name in neighbors_names:
+                try:
+                    j = ALL_ROBOT_NAMES.index(neighbor_name)
+                    # Vecteur du robot i vers le robot j
+                    vector_to_neighbor = np.array([
+                        self.robot_positions[j]['x'] - self.robot_positions[i]['x'],
+                        self.robot_positions[j]['y'] - self.robot_positions[i]['y']
+                    ])
+                    
+                    if np.linalg.norm(vector_to_neighbor) > 0.01:
+                        # Calculer l'angle par rapport à l'axe X du repère mocap
+                        angle = math.atan2(vector_to_neighbor[1], vector_to_neighbor[0])
+                        robot_angles[neighbor_idx] = angle
+                        
+                    neighbor_idx += 1
+                except ValueError:
+                    continue
+            
+            self.initial_neighbor_angles.append(robot_angles)
+        
+        self.get_logger().info(f"Angles initiaux de formation calculés: {len(self.initial_neighbor_angles)} robots")
+        for i, angles in enumerate(self.initial_neighbor_angles):
+            angle_info = {k: f"{math.degrees(v):.1f}°" for k, v in angles.items()}
+            self.get_logger().info(f"Robot {ALL_ROBOT_NAMES[i]} - Angles: {angle_info}")
         
         self.formation_initialized = True  # Verrouille l'initialisation ici
         self.get_logger().info(f"Desired formation set to initial positions: {self.desired_formation}")
@@ -424,12 +558,17 @@ class SwarmController(Node):
         
         # Point de référence global (goal point de l'essaim)
         global_goal = np.array(self.goal_point)
-        self.get_logger().info(
-                f"Goal point global : X:{global_goal[0]:.3f} ; Y:{global_goal[1]:.3f}"
-            )
-        self.get_logger().info(
-                f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
-            )
+        
+        # Calculer et afficher la distance au goal point
+        goal_distance = math.sqrt((swarm_center[0] - global_goal[0])**2 + (swarm_center[1] - global_goal[1])**2)
+        
+        # Affichage différent selon si on est en rotation ou pas
+        if self.is_rotating:
+            self.get_logger().info(f"Rotation en cours - Goal temporaire: X:{global_goal[0]:.3f} ; Y:{global_goal[1]:.3f}, Distance: {goal_distance:.3f}m")
+        else:
+            self.get_logger().info(f"Goal point global : X:{global_goal[0]:.3f} ; Y:{global_goal[1]:.3f}, Distance: {goal_distance:.3f}m")
+        
+        self.get_logger().info(f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}")
         
         # Pour chaque robot
         for i, robot_name in enumerate(ALL_ROBOT_NAMES):
@@ -503,16 +642,39 @@ class SwarmController(Node):
                 continue
             
             # Appliquer la fonction de contrôle avec composantes
-            control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma = control_with_components(
-                pj_array=pj_array,
-                pi=pi,
-                dij_list=dij_list,
-                pr=pr,  # Utiliser le point cible individuel
-                dt=self.dt,
-                integral_term=self.integral_terms[i],
-                derivative_term=self.derivative_terms[i],
-                logger=self.get_logger()
-            )
+            try:
+                # Nouvelle version avec lissage et angles
+                control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma, updated_gamma = control_with_components(
+                    pj_array=pj_array,
+                    pi=pi,
+                    dij_list=dij_list,
+                    pr=pr,  # Utiliser le point cible individuel
+                    dt=self.dt,
+                    integral_term=self.integral_terms[i],
+                    derivative_term=self.derivative_terms[i],
+                    is_rotating=self.is_rotating,
+                    logger=self.get_logger(),
+                    previous_gamma=self.previous_gamma_terms[i],
+                    initial_angles=self.initial_neighbor_angles[i] if i < len(self.initial_neighbor_angles) else None,
+                    rotation_count=self.rotation_count
+                )
+                # Mettre à jour le terme gamma
+                self.previous_gamma_terms[i] = updated_gamma
+            except TypeError:
+                # Ancienne version sans angles
+                self.get_logger().warn("Utilisation de l'ancienne version de control_with_components sans angles")
+                control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma = control_with_components(
+                    pj_array=pj_array,
+                    pi=pi,
+                    dij_list=dij_list,
+                    pr=pr,
+                    dt=self.dt,
+                    integral_term=self.integral_terms[i],
+                    derivative_term=self.derivative_terms[i],
+                    is_rotating=self.is_rotating,
+                    logger=self.get_logger()
+                )
+                self.previous_gamma_terms[i] = ui_gamma
             
             # Mettre à jour les termes intégral et dérivé pour ce robot
             self.integral_terms[i] = updated_integral
@@ -561,24 +723,83 @@ class SwarmController(Node):
         """
         Callback pour le topic de position cible.
         Met à jour la position cible pour l'essaim.
+        Ne change le goal point que si aucune rotation n'est en cours.
         
         :param msg: Position cible (Point)
         """
-        self.goal_point = (msg.x, msg.y)
-        self.goal_point_set = True
-        self.is_target_reached_state = False  # Réinitialiser l'état
-        
-        # Publier le statut pour chaque robot individuellement (tous à 0 au début)
-        for name in ALL_ROBOT_NAMES:
-            self.publish_individual_target_status(name, 0)
+        if not self.is_rotating:
+            self.goal_point = (msg.x, msg.y)
+            self.goal_point_set = True
+            self.is_target_reached_state = False  # Réinitialiser l'état
             
-        self.get_logger().info(f"New goal point set: x={msg.x:.4f}, y={msg.y:.4f}")
+            # Réinitialiser original_goal_point seulement quand un nouveau goal point arrive
+            self.original_goal_point = None
+            
+            # Publier le statut pour chaque robot individuellement (tous à 0 au début)
+            for name in ALL_ROBOT_NAMES:
+                self.publish_individual_target_status(name, 0)
+                
+            self.get_logger().info(f"New goal point set: x={msg.x:.4f}, y={msg.y:.4f}")
+        else:
+            self.get_logger().info("Rotation en cours, goal point ignoré")
 
     def formation_callback(self, msg):
         """Callback pour réinitialiser la formation sur demande"""
         self.get_logger().info("Received formation reset command, re-initializing formation.")
         self.formation_initialized = False
         self.initialize_formation()
+
+    def rotation_callback(self, msg):
+        """
+        Callback pour le topic de rotation.
+        Si 1 est reçu, lance une rotation de 90° dans le sens trigonométrique.
+        """
+        if msg.data == 1 and not self.is_rotating and self.formation_initialized:
+            self.get_logger().info("Début de la rotation de 90° de la formation")
+            
+            # Sauvegarder le goal point actuel SEULEMENT si on n'en a pas déjà un
+            if self.goal_point_set and self.original_goal_point is None:
+                self.original_goal_point = self.goal_point
+                self.get_logger().info(f"Goal point original sauvegardé pour la première fois: {self.original_goal_point}")
+            else:
+                self.get_logger().info(f"Goal point original déjà sauvegardé: {self.original_goal_point}")
+            
+            # Calculer le barycentre actuel
+            current_barycenter = self.compute_swarm_center()
+            
+            # Appliquer une rotation de 90° (π/2 radians) aux vecteurs relatifs
+            rotation_angle = math.pi / 2  # 90° en radians
+            cos_angle = math.cos(rotation_angle)
+            sin_angle = math.sin(rotation_angle)
+            
+            # Rotation matrix: [cos -sin; sin cos]
+            rotated_vectors = []
+            for vector in self.initial_relative_vectors:
+                x, y = vector[0], vector[1]
+                new_x = cos_angle * x - sin_angle * y
+                new_y = sin_angle * x + cos_angle * y
+                rotated_vectors.append(np.array([new_x, new_y]))
+            
+            # Mettre à jour les vecteurs relatifs
+            self.initial_relative_vectors = rotated_vectors
+            
+            # Définir le goal point temporaire pour la rotation (barycentre actuel)
+            self.rotation_goal_point = current_barycenter
+            self.goal_point = tuple(current_barycenter)
+            self.goal_point_set = True
+            
+            # Incrémenter le compteur de rotations (nouveau)
+            self.rotation_count += 1
+            
+            # Marquer qu'une rotation est en cours
+            self.is_rotating = True
+            
+            # Réinitialiser tous les statuts de rotation à 0
+            for name in ALL_ROBOT_NAMES:
+                self.publish_individual_rotation_status(name, 0)
+            
+            self.get_logger().info(f"Rotation #{self.rotation_count} appliquée, goal temporaire: {self.rotation_goal_point}")
+            self.get_logger().info(f"Vecteurs relatifs après rotation: {self.initial_relative_vectors}")
 
     def all_positions_available(self):
         """Vérifie si toutes les positions des robots sont connues (non nulles)"""
@@ -601,6 +822,12 @@ class SwarmController(Node):
         msg = Int32()
         msg.data = status
         self.target_status_publishers[robot_name].publish(msg)
+
+    def publish_individual_rotation_status(self, robot_name, status):
+        """Publier le statut d'atteinte de cible de rotation pour un robot individuel"""
+        msg = Int32()
+        msg.data = status
+        self.rotation_status_publishers[robot_name].publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)

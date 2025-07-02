@@ -288,20 +288,12 @@ class DistributedPredictiveSwarmController(Node):
         """Publier ma position et vitesse de manière sélective"""
         current_time = time.time()
         
-        # Toujours publier ma vitesse actuelle (nécessaire pour la prédiction)
-        # Calculer la vitesse basée sur le changement de position
+        # Calculer ma vitesse actuelle basée sur le changement de position
         if hasattr(self, '_prev_my_position'):
             dt = self.dt
             if dt > 0:
                 vx = (self.my_real_position['x'] - self._prev_my_position['x']) / dt
                 vy = (self.my_real_position['y'] - self._prev_my_position['y']) / dt
-                
-                velocity_msg = Vector3()
-                velocity_msg.x = vx
-                velocity_msg.y = vy
-                velocity_msg.z = 0.0
-                
-                self.velocity_publisher.publish(velocity_msg)
                 
                 # Mettre à jour ma vitesse locale
                 self.my_current_velocity = {
@@ -310,14 +302,24 @@ class DistributedPredictiveSwarmController(Node):
                     'timestamp': current_time
                 }
         
-        # Publier ma position seulement si nécessaire
+        # Si l'estimation de ma position est fausse, republier position ET vitesse
         if self.should_publish_my_position():
+            # Publier ma position
             position_msg = Point()
             position_msg.x = self.my_real_position['x']
             position_msg.y = self.my_real_position['y']
             position_msg.z = 0.0
             
             self.published_pose_publisher.publish(position_msg)
+            
+            # Publier ma vitesse en même temps
+            if hasattr(self, '_prev_my_position'):
+                velocity_msg = Vector3()
+                velocity_msg.x = self.my_current_velocity['vx']
+                velocity_msg.y = self.my_current_velocity['vy']
+                velocity_msg.z = 0.0
+                
+                self.velocity_publisher.publish(velocity_msg)
             
             # Mettre à jour ma position publiée
             self.my_published_position = {
@@ -330,8 +332,8 @@ class DistributedPredictiveSwarmController(Node):
             self.position_updates_count += 1
             
             self.get_logger().info(
-                f"Position publiée pour {self.robot_name}: ({self.my_real_position['x']:.3f}, {self.my_real_position['y']:.3f}) "
-                f"[Mise à jour #{self.position_updates_count}]"
+                f"Position et vitesse publiées pour {self.robot_name}: pos=({self.my_real_position['x']:.3f}, {self.my_real_position['y']:.3f}) "
+                f"vel=({self.my_current_velocity['vx']:.3f}, {self.my_current_velocity['vy']:.3f}) [Mise à jour #{self.position_updates_count}]"
             )
         
         # Sauvegarder ma position pour le calcul de vitesse

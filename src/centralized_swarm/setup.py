@@ -21,7 +21,9 @@ setup(
     entry_points={
         'console_scripts': [
             'swarm = centralized_swarm.swarm:main',
+            'swarm2 = centralized_swarm.swarm2:main',
             'predictive_swarm = centralized_swarm.predictive_swarm:main',
+            'predictive_event_swarm = centralized_swarm.predictive_event_swarm:main',
             'event_swarm = centralized_swarm.event_swarm:main',
             'old_swarm = centralized_swarm.old_swarm:main',
         ],
