@@ -31,7 +31,6 @@ class PredictiveLogger(Node):
         }
         
         # Stockage temporaire des données pour synchronisation
-        self.latest_positions = {name: None for name in ALL_ROBOT_NAMES}
         self.latest_velocities = {name: None for name in ALL_ROBOT_NAMES}
         
         # État d'activation
@@ -83,7 +82,6 @@ class PredictiveLogger(Node):
         """Initialise les fichiers CSV avec les en-têtes"""
         headers = [
             'timestamp',
-            'event_type',  # 'position_published', 'velocity_updated'
             'pos_x', 'pos_y',  # Position publiée
             'vel_x', 'vel_y'   # Vitesse de prédiction
         ]
@@ -115,27 +113,27 @@ class PredictiveLogger(Node):
             
             timestamp = datetime.now().isoformat()
             
-            # Stocker la dernière position
-            self.latest_positions[robot_name] = {
-                'x': msg.x,
-                'y': msg.y,
-                'timestamp': timestamp
-            }
+            # Récupérer la dernière vitesse connue
+            latest_vel = self.latest_velocities.get(robot_name)
+            if latest_vel is not None:
+                vel_x = latest_vel.get('vx', 0.0)
+                vel_y = latest_vel.get('vy', 0.0)
+            else:
+                vel_x = 0.0
+                vel_y = 0.0
             
-            # Enregistrer l'événement de publication de position
-            self._log_event(robot_name, timestamp, 'position_published', 
-                          pos_x=msg.x, pos_y=msg.y)
+            # Enregistrer position et vitesse sur la même ligne
+            self._log_data(robot_name, timestamp, msg.x, msg.y, vel_x, vel_y)
             
-            self.get_logger().debug(f"Position publiée enregistrée pour {robot_name}: ({msg.x:.3f}, {msg.y:.3f})")
+            self.get_logger().debug(f"Données enregistrées pour {robot_name}: pos({msg.x:.3f}, {msg.y:.3f}), vel({vel_x:.3f}, {vel_y:.3f})")
         
         return callback
 
     def _make_velocity_callback(self, robot_name):
         """Crée un callback pour les vitesses de prédiction d'un robot"""
         def callback(msg):
-            if not self.active:
-                return
-            
+            # Toujours stocker la dernière vitesse, même si pas actif
+            # pour qu'elle soit disponible quand l'enregistrement démarre
             timestamp = datetime.now().isoformat()
             
             # Stocker la dernière vitesse
@@ -145,31 +143,21 @@ class PredictiveLogger(Node):
                 'timestamp': timestamp
             }
             
-            # Enregistrer l'événement de mise à jour de vitesse
-            self._log_event(robot_name, timestamp, 'velocity_updated',
-                          vel_x=msg.x, vel_y=msg.y)
-            
-            self.get_logger().debug(f"Vitesse enregistrée pour {robot_name}: ({msg.x:.3f}, {msg.y:.3f})")
+            if self.active:
+                self.get_logger().debug(f"Vitesse mise à jour pour {robot_name}: ({msg.x:.3f}, {msg.y:.3f})")
         
         return callback
 
-    def _log_event(self, robot_name, timestamp, event_type, 
-                   pos_x=None, pos_y=None, vel_x=None, vel_y=None):
-        """Enregistre un événement dans le fichier CSV du robot"""
+    def _log_data(self, robot_name, timestamp, pos_x, pos_y, vel_x, vel_y):
+        """Enregistre les données dans le fichier CSV du robot"""
         
         try:
-            # Récupérer les dernières valeurs connues si pas fournies
-            latest_pos = self.latest_positions.get(robot_name, {})
-            latest_vel = self.latest_velocities.get(robot_name, {})
-            
-            # Utiliser les valeurs fournies ou les dernières connues
             row_data = [
                 timestamp,
-                event_type,
-                pos_x if pos_x is not None else latest_pos.get('x', 0.0),
-                pos_y if pos_y is not None else latest_pos.get('y', 0.0),
-                vel_x if vel_x is not None else latest_vel.get('vx', 0.0),
-                vel_y if vel_y is not None else latest_vel.get('vy', 0.0)
+                pos_x,
+                pos_y,
+                vel_x,
+                vel_y
             ]
             
             with open(self.csv_paths[robot_name], 'a', newline='') as csvfile:

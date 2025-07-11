@@ -30,7 +30,7 @@ x_max = 2
 
 # Paramètres du contrôle
 h = 0.2
-c1_gamma = 0.15 # navigation gain (position)
+c1_gamma = 0.25 # navigation gain (position)
 c2_gamma = 0.05 # navigation gain (vitesse)
 c1_beta = 0.3
 c = 5         

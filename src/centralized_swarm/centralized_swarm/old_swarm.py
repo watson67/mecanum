@@ -57,11 +57,6 @@ class SwarmController(Node):
                 Float64MultiArray, f"/{name}/control_components", 10
             )
             
-        # Publisher pour indiquer si la cible est atteinte
-        self.target_reached_publisher = self.create_publisher(
-            Int32, "/target_reached", 10
-        )
-
         # Publishers pour partager les positions des robots
         self.position_publishers = {}
         for name in ALL_ROBOT_NAMES:
@@ -109,9 +104,6 @@ class SwarmController(Node):
         
         # Les distances initiales entre les robots seront retenues
         self.desired_distances = {}  # tableau pour stocker les distances désirées entre les paires de robots
-        
-        # Vecteurs relatifs initiaux de chaque robot par rapport au barycentre initial
-        self.initial_relative_vectors = []  # Vecteur du barycentre vers chaque robot
         
         # Positions des robots
         self.robot_positions = [{'x': 0, 'y': 0} for _ in ALL_ROBOT_NAMES]
@@ -221,31 +213,48 @@ class SwarmController(Node):
         if self.active and self.formation_initialized and self.goal_point_set:
             self.apply_consensus_control()
             
-            # Vérifier si la cible est atteinte
-            if self.goal_point_set:
-                # Obtenir le centre de l'essaim
-                swarm_center = self.compute_swarm_center()
-                
-                # Vérifier si la cible est atteinte
-                current_state = self.is_target_reached(swarm_center, self.goal_point)
-                
-                # Si l'état a changé, mettre à jour et publier
-                if current_state != self.is_target_reached_state:
-                    self.is_target_reached_state = current_state
-                    self.publish_target_reached(1 if current_state else 0)
-                    
-                    # Publier le statut pour chaque robot individuellement
-                    for name in ALL_ROBOT_NAMES:
-                        self.publish_individual_target_status(name, 1 if current_state else 0)
-                    
-                    if current_state:
-                        self.get_logger().info("Target reached!")
-                    else:
-                        self.get_logger().info("Target not reached")
+        # Vérifier si le barycentre de l'essaim a atteint la cible
+        if self.goal_point_set and self.formation_initialized:
+            # Obtenir le centre de l'essaim (barycentre)
+            swarm_center = self.compute_swarm_center()
+            
+            # Vérifier si le barycentre est proche du goal point
+            swarm_reached = self.is_target_reached(swarm_center, self.goal_point)
+            
+            # Debug: afficher la distance du barycentre à la cible
+            distance_to_goal = math.sqrt((swarm_center[0] - self.goal_point[0])**2 + (swarm_center[1] - self.goal_point[1])**2)
+            self.get_logger().debug(f"Barycentre: distance to goal = {distance_to_goal:.3f}m, reached = {swarm_reached}")
+            
+            # Publier le même statut pour tous les robots (basé sur le barycentre)
+            status_value = 1 if swarm_reached else 0
+            for robot_name in ALL_ROBOT_NAMES:
+                self.publish_individual_target_status(robot_name, status_value)
+            
+            # Log seulement si l'état change
+            if swarm_reached != self.is_target_reached_state:
+                self.is_target_reached_state = swarm_reached
+                if swarm_reached:
+                    self.get_logger().info(f"Swarm reached target! Barycentre distance: {distance_to_goal:.3f}m")
+                else:
+                    self.get_logger().info(f"Swarm target not reached. Barycentre distance: {distance_to_goal:.3f}m")
 
     #--------------------------------------------------------------------
     # Méthodes liées à l'atteinte de la cible
     #--------------------------------------------------------------------
+    def is_robot_target_reached(self, robot_pos, goal):
+        """
+        Vérifie si un robot individuel est suffisamment proche du point cible.
+        Cette méthode n'est plus utilisée dans la logique principale.
+        
+        :param robot_pos: Position actuelle du robot [x, y]
+        :param goal: Position cible (x, y)
+        :return: True si la cible est atteinte, False sinon
+        """
+        # Calculer la distance entre le robot et le point cible
+        distance = math.sqrt((robot_pos[0] - goal[0])**2 + (robot_pos[1] - goal[1])**2)
+        # Vérifier si la distance est inférieure à la tolérance
+        return distance <= self.target_tolerance
+
     def is_target_reached(self, swarm_center, goal):
         """
         Vérifie si le barycentre de l'essaim est suffisamment proche du point cible.
@@ -256,23 +265,9 @@ class SwarmController(Node):
         """
         # Calculer la distance entre le barycentre et le point cible
         distance = math.sqrt((swarm_center[0] - goal[0])**2 + (swarm_center[1] - goal[1])**2)
-        self.get_logger().info(f"distance to goal: {distance:.3f}")
         # Vérifier si la distance est inférieure à la tolérance
         return distance <= self.target_tolerance
-    
-    def publish_target_reached(self, status):
-        """
-        Publie un message indiquant si la cible est atteinte.
-        
-        :param status: 1 si la cible est atteinte, 0 sinon
-        """
-        msg = Int32()
-        msg.data = status
-        self.target_reached_publisher.publish(msg)
 
-    #--------------------------------------------------------------------
-    # Mise à jour des positions des robots
-    #--------------------------------------------------------------------
     def update_robot_positions(self):
         for i, robot_name in enumerate(ALL_ROBOT_NAMES): # Pour chaque robot
             try:
@@ -302,28 +297,6 @@ class SwarmController(Node):
             self.get_logger().warn("Formation already initialized! Skipping re-initialization.")
             return
             
-        # Calculer le barycentre initial
-        initial_barycenter = self.compute_swarm_center()
-        
-        # Calculer et stocker les vecteurs relatifs initiaux
-        self.initial_relative_vectors = []
-        for i, pos in enumerate(self.robot_positions):
-            # Vecteur du barycentre vers le robot
-            relative_vector = np.array([
-                pos['x'] - initial_barycenter[0],
-                pos['y'] - initial_barycenter[1]
-            ])
-            self.initial_relative_vectors.append(relative_vector)
-            
-        self.get_logger().info(f"Vecteurs relatifs initiaux calculés: {self.initial_relative_vectors}")
-            
-        # Calculer les positions relatives par rapport au centre
-        self.desired_formation = []
-        for pos in self.robot_positions:
-            rel_x = pos['x'] 
-            rel_y = pos['y']
-            self.desired_formation.append((rel_x, rel_y))
-        
         # Calculer et stocker les distances initiales entre chaque paire de robots
         for i in range(len(ALL_ROBOT_NAMES)):
             for j in range(i+1, len(ALL_ROBOT_NAMES)):  # Stocker chaque paire une seule fois
@@ -337,7 +310,7 @@ class SwarmController(Node):
                 self.desired_distances[(j, i)] = dist  # Stocker les deux directions
         
         self.formation_initialized = True  # Verrouille l'initialisation ici
-        self.get_logger().info(f"Desired formation set to initial positions: {self.desired_formation}")
+        self.get_logger().info("Formation initialized with initial inter-robot distances")
         self.get_logger().info(f"Initial inter-robot distances captured: {self.desired_distances}")
         
         # Afficher la position du barycentre à l'initialisation
@@ -369,7 +342,6 @@ class SwarmController(Node):
             total_x = sum(robot['x'] for robot in self.robot_positions)
             total_y = sum(robot['y'] for robot in self.robot_positions)
             return [total_x / len(self.robot_positions), total_y / len(self.robot_positions)]
-     
 
     def transform_velocity(self, global_lin_x, global_lin_y, robot_name):
         """
@@ -436,7 +408,7 @@ class SwarmController(Node):
                 f"Goal point global : X:{global_goal[0]:.3f} ; Y:{global_goal[1]:.3f}"
             )
         self.get_logger().info(
-                f"Barycentre : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
+                f"Barycentre actuel : X:{swarm_center[0]:.3f} ; Y:{swarm_center[1]:.3f}"
             )
         
         # Pour chaque robot
@@ -444,11 +416,11 @@ class SwarmController(Node):
             # Position du robot courant (pi)
             pi = np.array([self.robot_positions[i]['x'], self.robot_positions[i]['y']])
             
-            # Utiliser le même point cible global pour tous les robots
+            # Tous les robots utilisent le même point cible global
             pr = global_goal
             
-            self.get_logger().info(
-                f"Robot {robot_name} - Goal commun : X:{pr[0]:.3f} ; Y:{pr[1]:.3f}"
+            self.get_logger().debug(
+                f"Robot {robot_name} - Position: X:{pi[0]:.3f}, Y:{pi[1]:.3f} -> Goal : X:{pr[0]:.3f} ; Y:{pr[1]:.3f}"
             )
             
             # Liste des positions des voisins (pj_array)
@@ -552,7 +524,7 @@ class SwarmController(Node):
             
             # Publier la commande
             self.cmd_vel_publishers[robot_name].publish(twist_msg)
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"Robot {robot_name} (voisins: {len(neighbors_names)}): Global:{control_vector[0]:.3f},{control_vector[1]:.3f} -> Robot:{twist_msg.linear.x:.3f},{twist_msg.linear.y:.3f}"
             )
 
@@ -573,9 +545,8 @@ class SwarmController(Node):
         self.goal_point = (msg.x, msg.y)
         self.goal_point_set = True
         self.is_target_reached_state = False  # Réinitialiser l'état
-        self.publish_target_reached(0)        # Indiquer que la cible n'est pas encore atteinte
         
-        # Publier le statut pour chaque robot individuellement
+        # Publier le statut pour chaque robot individuellement (tous à 0 au début)
         for name in ALL_ROBOT_NAMES:
             self.publish_individual_target_status(name, 0)
             

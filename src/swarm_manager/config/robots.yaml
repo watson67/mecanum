@@ -3,26 +3,26 @@ all_robot_names:
 - Athos
 - Porthos
 #- Dartagnan
-- Edmon
+#- Edmon
 #- Mercedes
 robot_neighbors:
   Aramis:
-  #- Athos
+  - Athos
   - Porthos
   #- Dartagnan
-  - Edmon
+  #- Edmon
   Athos:
   - Porthos
-  #- Aramis
+  - Aramis
   #- Dartagnan
-  - Edmon
+  #- Edmon
   #Dartagnan:
   #- Athos
   #- Aramis
   #- Porthos
-  Edmon:
-  - Aramis
-  - Athos
+  #Edmon:
+  #- Aramis
+  #- Athos
   #- Porthos
   Porthos:
   - Athos

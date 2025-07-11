@@ -156,7 +156,7 @@ class PredictiveSwarmController(Node):
         self.integral_terms = [None for _ in ALL_ROBOT_NAMES]
         self.derivative_terms = [None for _ in ALL_ROBOT_NAMES]
         self.dt = 0.1
-        self.target_tolerance = 0.08
+        self.target_tolerance = 0.05
         self.is_target_reached_state = False
         
         # Timer pour recharger la configuration des voisins
@@ -331,40 +331,27 @@ class PredictiveSwarmController(Node):
         if self.last_publish_time[robot_index] == 0.0:
             return True
         
-        # Récupérer la position réelle actuelle du robot
+        # Calculer l'erreur de prédiction seulement si on a une prédiction valide
         real_pos = self.real_positions[robot_index]
+        predicted_pos = self.predicted_positions[robot_index]
         
-        # Récupérer la dernière position publiée et vitesse de ce robot
-        last_published = self.published_positions[robot_index]
-        current_velocity = self.current_velocities[robot_index]
+        # Si pas de prédiction valide, ne pas publier
+        if predicted_pos['x'] == 0.0 and predicted_pos['y'] == 0.0:
+            return False
         
-        # Calculer l'estimation de position basée sur la dernière position publiée et la vitesse
-        if last_published['timestamp'] > 0 and current_velocity['timestamp'] > 0:
-            # Temps écoulé depuis la dernière publication
-            dt_since_publish = current_time - last_published['timestamp']
-            
-            # Position estimée = dernière position publiée + vitesse * temps écoulé
-            estimated_x = last_published['x'] + current_velocity['vx'] * dt_since_publish
-            estimated_y = last_published['y'] + current_velocity['vy'] * dt_since_publish
-            
-            # Calculer l'erreur entre position réelle et estimation
-            error = math.sqrt(
-                (real_pos['x'] - estimated_x)**2 + 
-                (real_pos['y'] - estimated_y)**2
+        error = math.sqrt(
+            (real_pos['x'] - predicted_pos['x'])**2 + 
+            (real_pos['y'] - predicted_pos['y'])**2
+        )
+        
+        # Log de debug pour comprendre les décisions
+        if error > self.prediction_error_threshold:
+            self.get_logger().info(
+                f"{ALL_ROBOT_NAMES[robot_index]} - Erreur prédiction: {error:.4f}m > {self.prediction_error_threshold}m, publication nécessaire"
             )
-            
-            # Log de debug pour comprendre les décisions
-            if error > self.prediction_error_threshold:
-                self.get_logger().info(
-                    f"{ALL_ROBOT_NAMES[robot_index]} - Erreur estimation: {error:.4f}m > {self.prediction_error_threshold}m, publication nécessaire"
-                    f" (réel: {real_pos['x']:.3f}, {real_pos['y']:.3f} vs estimé: {estimated_x:.3f}, {estimated_y:.3f})"
-                )
-            
-            # Publier si l'erreur dépasse le seuil
-            return error > self.prediction_error_threshold
-        else:
-            # Si pas de données précédentes, publier
-            return True
+        
+        # Publier si l'erreur dépasse le seuil
+        return error > self.prediction_error_threshold
 
     def publish_selective_positions_and_velocities(self):
         """Publier les positions et vitesses de manière sélective"""

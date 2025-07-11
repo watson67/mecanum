@@ -1,0 +1,21 @@
+{
+    "GraphicalInterface":{
+        "ExternalFileReferences":[
+            {
+                "Path":"$bdroot\/Unicycle Kinematic Model",
+                "Reference":"robotmobilelib\/Unicycle Kinematic Model",
+                "SID":"1",
+                "Type":"LIBRARY_BLOCK"
+            },
+            {
+                "Path":"$bdroot\/Unicycle Kinematic Model1",
+                "Reference":"robotmobilelib\/Unicycle Kinematic Model",
+                "SID":"52",
+                "Type":"LIBRARY_BLOCK"
+            }
+        ],
+        "PreCompExecutionDomainType":"Unset",
+        "SimulinkSubDomainType":"Simulink",
+        "SolverName":"VariableStepAuto"
+    }
+}
