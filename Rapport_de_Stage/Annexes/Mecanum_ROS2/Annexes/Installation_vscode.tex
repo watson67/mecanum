@@ -1,0 +1,31 @@
+\chapter{Installation de Visual Studio Code}
+\label{annexe:vscode}
+Ouvrir un terminal et exécuter les commandes suivantes :
+
+\begin{lstlisting}[style=commandstyle]
+sudo apt update
+sudo apt install curl apt-transport-https
+\end{lstlisting}
+
+Ajouter la clé GPG de Microsoft et le dépôt pour installer Visual Studio Code :
+
+\begin{lstlisting}[style=commandstyle]
+curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/packages.microsoft.gpg
+\end{lstlisting}
+
+Puis, ajouter le dépôt à la liste des sources du système :
+
+\begin{lstlisting}[style=commandstyle]
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
+\end{lstlisting}
+
+Mettre à jour les sources des paquets et installer Visual Studio Code :
+
+\begin{lstlisting}[style=commandstyle]
+sudo apt update
+sudo apt install code
+\end{lstlisting}
+
+Si l'installation s'est bien déroulée, Visual Studio Code est disponible dans \textit{Show Applications} en bas à gauche sur Ubuntu. Il est recommandé de faire un clic droit sur l'application et de sélectionner \textit{Ajouter aux favoris} pour y accéder facilement.
+
+Il est conseillé d'installer l'extension Python pour Visual Studio Code afin de bénéficier d'une prise en charge complète du langage, incluant l'auto-complétion et le débogage.

@@ -1,0 +1,59 @@
+% page_de_garde.tex
+\begin{titlepage}
+  \thispagestyle{empty}
+  \setcounter{page}{0} % utile pour éviter les warnings de hyperref
+
+  % Logos en haut
+  \noindent
+  \begin{minipage}{0.49\textwidth}
+    \raggedright
+    \includegraphics[width=7cm]{1-Page de garde/pic/Logo Master IRIV allonge couleur.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.49\textwidth}
+    \raggedleft
+    \includegraphics[width=7cm]{1-Page de garde/pic/Insas_logo.png}
+  \end{minipage}
+
+  \vspace{1.5cm}
+
+  % Nom et promotion
+  \begin{flushright}
+    {\Large \textbf{Thibaut Waechter}}\\
+    Promotion : 2024--2025\\
+    Année universitaire : 2024-2025
+  \end{flushright}
+
+  \vspace{1.5cm}
+
+  % Titre
+  \begin{center}
+    \rule{\linewidth}{0.5mm} \\[0.5cm]
+    {\Huge \textbf{Rapport de Projet de fin d'étude}}\\[0.5cm]
+    { \huge \textbf{eSWARM}}\\[0.2cm]
+    
+    \rule{\linewidth}{0.5mm} \\[1cm]
+
+    % Remplace l'environnement figure (interdit ici)
+    \includegraphics[scale=0.5]{1-Page de garde/pic/Mecanum.png}
+  \end{center}
+
+\vfill
+
+% Pied de page avec tableau bien aligné
+\begin{tabular}{p{0.45\textwidth} p{0.45\textwidth}}
+  \textbf{Organisme d’accueil : iCube} &  
+  \makebox[0.45\textwidth][r]{\textbf{Sylvain Durand}} \\[0.3cm]
+  
+  300 Boulevard Sébastien Brandt &  
+  \makebox[0.45\textwidth][r]{sylvain.durand@insa-strasbourg.fr} \\[0.3cm]
+  
+  67400 Illkirch &  
+  \makebox[0.45\textwidth][r]{03/03/25 -- 05/09/25} \\[0.3cm]
+
+  \includegraphics[width=3.5cm]{1-Page de garde/pic/csm_logo_icube_f34d851d78.png} & 
+  % Vide à droite
+  \makebox[0.45\textwidth][r]{}
+\end{tabular}
+
+\end{titlepage}

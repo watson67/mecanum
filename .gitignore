@@ -7,20 +7,34 @@ src/log/
 src/build/
 src/install/
 
+csv/
 +bus_conv_fcns/
 
 # Fichiers temporaires
 *.log
 *.pyc
 *.slx
-*.pdf
-*.csv
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.tex
 __pycache__/
+
+# Fichiers auxiliaires LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.lof
+*.lot
+*.gz
+*.bbl
+*.blg
+*.acn
+*.bcf 
+*.glo
+*.glsdefs
+*/ist 
+
 
 # VSCode ou autres éditeurs
 .vscode/

@@ -1,0 +1,66 @@
+\chapter{Modèle Mecanum}
+
+Les roues Mecanum sont des roues particulières, composées de plusieurs galets montés en biais autour de leur circonférence, ce qui permet au robot de réaliser des mouvements dans toutes les directions du plan en combinant les vitesses de rotation de chaque roue. Ce type de robot est dit \textit{holonome}.
+Dans le cadre du projet eSWARM, ces robots servent de substituts aux drones afin de simplifier les expérimentations. Ce choix permet de passer d’un système en trois dimensions à un système bidimensionnel, tout en évitant les risques de collisions ou de chutes inhérents à l’utilisation de drones. 
+
+Chaque robot est composé de quatre moteurs Dynamixel, d'une carte OpenCR assurant le pilotage bas niveau, et d'une Raspberry Pi 4 servant d’unité de calcul principale.
+Ils ont été conçus et programmés initialement sous ROS1 dans le cadre d’un projet de 5ème année à l’INSA Strasbourg. Trois robots sont disponibles, portant les noms des trois mousquetaires : Athos, Porthos et Aramis \cite{vrignaud_swarm_2025}.
+Avant de mettre en place un algorithme de contrôle, il a fallu migrer les robots vers ROS2 (annexe \ref{annexe:migration_ros2}). 
+
+La cinématique de ce type de robot est donné dans \cite{tan_research_2021}.
+Soit un robot mobile équipé de quatre roues Mecanum. Chaque roue est numérotée de 1 à 4, et sa vitesse angulaire est notée $\omega_i$ (pour $i = 1, 2, 3, 4$). La vitesse du centre de la roue est $V_i$.
+
+Les paramètres utilisés sont :
+\begin{itemize}
+\item $O$ : centre du robot
+  \item $R$ : rayon des roues.
+  \item $\alpha$ : angle d’orientation des galets des roues (souvent $45^\circ$).
+  \item $a$ : demi-largeur du robot (distance entre le centre $O$ et l’axe de la roue en $y$).
+  \item $b$ : demi-longueur du robot (distance entre $O$ et la roue en $x$).
+  \item $V_X$, $V_Y$ : composantes de la vitesse linéaire du centre du robot selon les axes $X$ et $Y$.
+  \item $\omega$ : vitesse angulaire du robot autour de son centre $O$.
+\end{itemize}
+
+\noindent Le modèle cinématique inverse général est donné par
+
+\[
+\begin{bmatrix}
+\omega_1 \\
+\omega_2 \\
+\omega_3 \\
+\omega_4
+\end{bmatrix}
+= \frac{1}{R}
+\begin{bmatrix}
+1 & -\frac{1}{\tan\alpha} & \frac{b+a\tan\alpha}{\tan\alpha} \\
+1 & \frac{1}{\tan\alpha} & \frac{b+a\tan\alpha}{\tan\alpha} \\
+1 & -\frac{1}{\tan\alpha} & \frac{b+a\tan\alpha}{\tan\alpha} \\
+1 & \frac{1}{\tan\alpha} & \frac{b+a\tan\alpha}{\tan\alpha}
+\end{bmatrix}
+\begin{bmatrix}
+V_X \\
+V_Y \\
+\omega
+\end{bmatrix}
+\]
+
+\noindent Le modèle cinématique direct  est :
+\[
+\begin{bmatrix}
+V_X \\
+V_Y \\
+\omega
+\end{bmatrix}
+= \frac{R}{4}
+\begin{bmatrix}
+1 & 1 & 1 & 1 \\
+-1 & 1 & -1 & 1 \\
+-\frac{1}{a+b} & -\frac{1}{a+b} & \frac{1}{a+b} & \frac{1}{a+b}
+\end{bmatrix}
+\begin{bmatrix}
+\omega_1 \\
+\omega_2 \\
+\omega_3 \\
+\omega_4
+\end{bmatrix}
+\]

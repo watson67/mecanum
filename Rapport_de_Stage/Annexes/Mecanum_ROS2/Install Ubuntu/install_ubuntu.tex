@@ -1,0 +1,127 @@
+\chapter{Installation Ubuntu sur Raspberry Pi4}
+
+\section{Raspberry Pi Imager}
+
+Raspberry Pi Imager est un outil permettant de flasher des images de système d'exploitation sur des cartes SD, ce qui permet dans notre cas d'installer Ubuntu sur la carte SD, qui sera ensuite insérée dans la Raspberry PI.
+
+ Télécharger le logiciel depuis le site officiel de Raspberry Pi : Raspberry Pi OS – Raspberry Pi : \url{https://www.raspberrypi.com/software/}.
+
+ 
+
+
+
+\subsection{Flasher l'OS sur la carte SD}
+
+\begin{itemize}
+    \item Lancer Raspberry Pi Imager.
+    \item Sélectionner le système d'exploitation :
+    \begin{itemize}
+        \item Aller dans \textit{"Other general-purpose OS"} > \textit{"Ubuntu"} > \textit{"Ubuntu Desktop 22.04.03 LTS (64-bit)"}.
+    \end{itemize}
+\end{itemize}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{Annexes/Mecanum_ROS2/Install Ubuntu/pictures/imager.png}
+    \caption{Raspberry Pi Imager}
+\end{figure}
+\begin{itemize}
+    \item Sélectionner le périphérique de stockage : insérer une carte SD formatée en FAT32.
+    \item Configurer les paramètres, dans ce tutoriel \textit{ubuntu} est choisi comme nom :
+    \begin{itemize}
+        \item Nom d'hôte : définir sur \textit{ubuntu.local}.
+        \item Activer SSH avec authentification par mot de passe.
+        \item Choisir un nom d'utilisateur et un mot de passe :
+        \begin{itemize}
+            \item Nom d'utilisateur : \textit{ubuntu}
+            \item Mot de passe : \textit{turtlebot}
+        \end{itemize}
+        \item Configurer le Wi-Fi avec le SSID et le mot de passe du réseau (s'assurer que le SSID n'est pas caché).
+        \item Définir le fuseau horaire sur \textit{Europe/Paris} et le clavier sur \textit{fr}.
+    \end{itemize}
+    \item Écrire l'OS sur la carte SD en cliquant sur le bouton rouge \textit{Write}. Ce processus peut prendre du temps en raison de l'écriture et de la vérification des données. 
+\end{itemize}
+
+\section{Configuration de la Raspberry Pi}
+
+Après avoir flashé l'OS, il est alors possible de mettre la carte SD dans la Raspberry PI, et de l'allumer, ce qui va lancer Ubuntu 22.04 nouvellement téléchargé. Il faut alors suivre les instructions liés au premier lancement, en choisissant le réseau Wifi a utiliser, ou encore le type de clavier.
+
+\section{Bibliothèques importantes}
+
+Tout d'abord, entrer les commandes suivantes:
+
+\begin{lstlisting}[style=commandstyle]
+sudo timedatectl set-ntp on
+\end{lstlisting}
+\noindent Cette commande permet de régler automatiquement l'heure de la Raspberry Pi, via connexion internet. Puis, mettre à jour le système :
+
+\begin{lstlisting}[style=commandstyle]
+sudo apt update
+sudo apt upgrade
+\end{lstlisting}
+
+\noindent Si l'utilisateur \textit{ubuntu} ne dispose pas des droits administrateurs, les ajouter :
+
+\begin{lstlisting}[style=commandstyle]
+sudo usermod -a -G dialout $USER
+\end{lstlisting}
+
+\noindent Puis vérifier que l'utilisateur appartient bien au groupe \textit{dialout} avec :
+
+\begin{lstlisting}[style=commandstyle]
+groups
+\end{lstlisting}
+
+\subsection{git}
+
+\textit{git} permet de télécharger des dépots se trouvant sur Github, ce qui est nécéssaire pour télécharger ROS2 par exemple.
+Pour télécharger \textit{git}, entrer la commande suivante :
+
+\begin{lstlisting}[style=commandstyle]
+sudo apt install git
+\end{lstlisting}
+
+\subsection{net-tools}
+
+\textit{net-tools} est un outil permettant de voir l'adresse IP et l'adresse MAC de la Raspberry Pi. Pour le télécharger, entrer la commande suivante : 
+\begin{lstlisting}[style=commandstyle]
+sudo apt install net-tools
+\end{lstlisting}
+
+\subsection{ssh}
+
+\noindent SSH permet de se connecter à distance à la Raspberry Pi. Pour l'installer, exécuter :
+
+\begin{lstlisting}[style=commandstyle]
+sudo apt install openssh-server
+\end{lstlisting}
+
+\noindent Ensuite, activer le service SSH et s'assurer qu'il démarre automatiquement au démarrage :
+
+\begin{lstlisting}[style=commandstyle]
+sudo systemctl enable ssh
+sudo systemctl start ssh
+\end{lstlisting}
+
+\noindent Vérifier que le service est bien en cours d'exécution :
+
+\begin{lstlisting}[style=commandstyle]
+systemctl status ssh
+\end{lstlisting}
+
+\noindent Enfin, pour se connecter en SSH à la Raspberry Pi depuis un autre ordinateur, utiliser :
+
+\begin{lstlisting}[style=commandstyle]
+ssh ubuntu@adresse_ip_de_la_pi
+\end{lstlisting}
+
+\noindent Remplacer \textit{adresse\_ip\_de\_la\_pi} par l'adresse IP de la Raspberry Pi, que l'on peut obtenir avec la commande (après avoir installé \textit{net-tools} :
+
+\begin{lstlisting}[style=commandstyle]
+ifconfig
+\end{lstlisting}
+
+\noindent \textit{ubuntu} correspond au nom utilisé sur la Raspberry Pi.
+
+
+
+

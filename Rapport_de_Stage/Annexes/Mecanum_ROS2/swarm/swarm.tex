@@ -1,0 +1,10 @@
+\chapter{Utilisation de ROS en réseau}
+
+Il est fortement recommandé d'utiliser un réseau privé, sur lequel il est possible d'attribuer des adresses IP fixes (routeurs, réseau INSA-Iot). S'assurer que chaque apparail du réseau ait le même \textit{ROS\_DOMAIN\_ID}. Pour cela, utiliser les commandes suivantes sur chaque appareil : 
+\begin{lstlisting}[style=commandstyle]
+echo export ROS_DOMAIN_ID=0 >> ~/.bashrc
+source ~/.bashrc
+\end{lstlisting}
+
+\noindent Connecter ensuite tous les appareils au même réseau, tous les topics seront alors accessibles à tous les appareils du réseau. Cela permet de faire un contrôle centralisé des différents robots. Par exemple, pour un essaim, un ordinateur central pourra directement publier sur les topics \textit{cmd\_vel} attribués à chaque module.
+

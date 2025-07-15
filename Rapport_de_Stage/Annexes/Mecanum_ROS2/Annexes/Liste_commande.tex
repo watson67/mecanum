@@ -1,0 +1,70 @@
+\chapter{Liste des commandes }
+
+Cette partie explique les commandes en développement, il se peut que les noeuds ROS ne fonctionnent pas comme prévu.
+
+\section{Package \textit{controller}}
+
+\underline{Note :} Ce tutoriel a été réalisé en utilisant une manette Dualshock4 (manette de PlayStation 4) et n'a pas été testé avec d'autres types de manettes. Si un autre type est utilisé, lance le programme dualshock\_test afin de tester les entrées de la manette utilisée.
+
+\subsection{\textit{dualshock\_test}}
+
+\begin{lstlisting}[style=commandstyle]
+ros2 run controller dualshock_test
+\end{lstlisting}
+
+Ce programme permet de tester une manette en affichant le nom des boutons pressés, ainsi que la valeur des sticks analogiques.
+
+\subsection{\textit{teleop\_dualshock}}
+\label{partie:teleop_dualshock}
+
+\begin{lstlisting}[style=commandstyle]
+ros2 run controller teleop_dualshock
+\end{lstlisting}
+
+Ce programme permet d'envoyer des commandes de vitesses linéaires et angulaires sur le topic \textit{cmd\_vel}
+
+\subsection{\textit{attitude\_dualshock}}
+
+\begin{lstlisting}[style=commandstyle]
+ros2 run controller attitude_dualshock
+\end{lstlisting}
+
+Ce programme permet d'envoyer des commandes de roll/pitch/yaw/thrust sur le topic \textit{cmd\_vel\_legacy}
+
+\section{Package \textit{control}}
+
+
+Ce package contient différents programme permettant de piloter un drone CrazyFlie.
+
+\subsection{\textit{test\_control.launch.py}}
+
+Un fichier \textit{launch} permet de lancer plusieurs noeuds ROS simultanément.
+
+\begin{lstlisting}[style=commandstyle]
+ros2 launch control test_control.launch.py
+\end{lstlisting}
+
+L'objectif de ce programme est de faire décoller le drone, puis le faire atterrir, par pression de la barre espace. Pour cela, il faut lancer le programme \textit{teleop.py} dans un second terminal. 
+
+\begin{lstlisting}[style=commandstyle]
+ros2 run control teleop.py
+\end{lstlisting}
+
+Ce programme permet d'envoye rles commandes de lancement du décollage ou de l'atterissage par pression de la barre espace. Appuyer sur \textit{e} lance l'arrêt d'urgence.
+
+\subsection{\textit{vel\_control.launch.py}}
+
+\begin{lstlisting}[style=commandstyle]
+ros2 launch control vel_control.launch.py
+\end{lstlisting}
+
+Ce fichier permet de piloter un drone en lui envoyant des vitesses linéaires et angulaires sur le topic \textit{cmd\_vel}. Lancer le noeud \textit{teleop\_dualshock} dans un second terminal pour piloter le drone à la manette.
+
+\subsection{\textit{att\_control.launch.py}}
+
+\begin{lstlisting}[style=commandstyle]
+ros2 launch control att_control.launch.py
+\end{lstlisting}
+
+Ce fichier permet de piloter un drone en lui envoyant des commandes roll/pitch/yaw/thrust sur le topic \textit{cmd\_vel\_legacy}. Lancer le noeud \textit{attitude\_dualshock} dans un second terminal pour piloter le drone à la manette.
+

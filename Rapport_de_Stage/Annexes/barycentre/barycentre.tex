@@ -1,0 +1,96 @@
+\chapter{Détermination du barycentre}
+
+Soit un graphe $\mathcal{G}$, comme expliqué en \ref{partie:graph},  composé d’un ensemble de nœuds, noté $\mathcal{E}$, et d’un ensemble d’arêtes, noté $\mathcal{V}$.
+\begin{itemize}
+    \item $\mathcal{V}=\{1, 2, \ldots, n\}$, l'ensemble des noeuds.
+    \item $\mathcal{E}\subseteq \{(i, j) : i, j \in \mathcal{V},\ j \ne i\}$. Une arête est composée de noeuds $i$ et $j$
+\end{itemize}
+
+\section{Définition }
+
+Soit un ensemble de $n$ robots dont les positions respectives à l’instant $t$ sont notées $p_i(t) \in \mathbb{R}^d$, avec $d = 2$ pour un plan ou $d = 3$ pour un espace tridimensionnel.
+Le \textbf{barycentre} de l’essaim est défini comme la moyenne arithmétique des positions des robots :
+
+\begin{equation}
+p_{\text{bary}}(t) = \frac{1}{n} \sum_{i=1}^{n} p_i(t)
+\end{equation}
+
+Il s’agit du centre géométrique de l’ensemble des robots à un instant donné.
+
+\section{Calcul du barycentre au sein d'un essaim distribué }
+
+Dans le cas d’un essaim de robots distribué, chaque robot n'a accès qu'à une quantité limité d'information : il peut uniquement communiquer avec ses voisins immédiats, définis par les arêtes du graphe $\mathcal{G}$.  
+Le calcul du barycentre global de l’essaim nécessite donc des échanges d’information entre les robots. Plusieurs méthodes existent pour estimer ce barycentre de manière distribuée.
+
+\subsection{Méthode flooding}
+
+La méthode dite \textit{flooding} consiste à propager l’information brute (les positions individuelles des robots) à travers le graphe de communication $\mathcal{G}$, de manière itérative.  
+L'objectif est que chaque robot puisse collecter la position de tous les robots de l’essaim, même ceux qui ne sont pas directement connectés à lui.
+Le déroulement de la méthode est le suivant :
+
+\begin{itemize}
+    \item À l’instant initial, chaque robot $i$ connaît uniquement sa propre position $p_i(t)$.
+    \item À la première étape, chaque robot envoie sa position $p_i(t)$ à ses voisins directs $\mathcal{N}_i$.
+    \item À l’étape suivante, chaque robot transmet à ses voisins non seulement sa propre position $p_i(t)$, mais aussi toutes les positions qu’il a reçues des autres robots au cours des étapes précédentes.
+    \item Ce processus se poursuit jusqu’à ce que toutes les positions $\{ p_j(t) \}_{j=1}^{n}$ aient circulé sur l’ensemble du graphe, et que chaque robot dispose de l’information complète.
+\end{itemize}
+
+À l’issue de ce processus, chaque robot peut calculer localement et exactement le barycentre de l’essaim :
+
+\begin{equation}
+p_{\text{bary}}(t) = \frac{1}{n} \sum_{j=1}^{n} p_j(t)
+\end{equation}
+
+Cette méthode assure un résultat exact et ne dépend pas du nombre d’itérations.  
+Cependant, elle est coûteuse en communication, car le volume de données augmente rapidement avec le nombre de robots — chaque robot doit relayer un vecteur contenant les positions de tous les robots qu’il connaît déjà.
+Le nombre total de messages échangés dans le réseau est de l’ordre de :
+
+\begin{equation}
+\mathcal{O}(n \cdot \mathcal{E})
+\end{equation}
+
+où $n$ est le nombre de robots et $\mathcal{E}$ est le nombre d’arêtes (liens de communication) du graphe $\mathcal{G}$.
+
+Chaque position de robot doit en effet être relayée à travers le graphe, en empruntant potentiellement plusieurs arêtes. Le coût en communication augmente donc linéairement avec le nombre de robots $n$, et proportionnellement à la taille du graphe.
+
+\subsection{Méthode de consensus}
+
+Une alternative plus légère en communication consiste à utiliser une \textit{méthode de consensus}.  
+Dans cette approche, chaque robot initialise une estimation locale de la position du barycentre :
+
+\begin{equation}
+p_i^{(0)} = p_i(t)
+\end{equation}
+
+À chaque itération $k$, le robot $i$ échange son estimation $p_i^{(k)}$ avec ses voisins, puis met à jour son estimation selon :
+
+\begin{equation}
+p_i^{(k+1)} = w_{ii} p_i^{(k)} + \sum_{j \in \mathcal{N}_i} w_{ij} p_j^{(k)}
+\end{equation}
+
+où $\mathcal{N}_i$ est l’ensemble des voisins de $i$, et $w_{ij}$ sont des coefficients de pondération tels que :
+
+\begin{equation}
+\sum_{j \in \mathcal{N}_i \cup \{i\}} w_{ij} = 1, \quad w_{ij} \geq 0
+\end{equation}
+
+Par exemple, on peut utiliser des poids uniformes :
+
+\begin{equation}
+w_{ij} = \frac{1}{d_i + 1}
+\end{equation}
+
+avec $d_i$ le degré (nombre de voisins) du nœud $i$.
+
+---
+
+Au fil des itérations, les estimations $p_i^{(k)}$ de chaque robot convergent vers le barycentre réel $p_{\text{bary}}(t)$, sous réserve que le graphe soit connexe et que les coefficients $w_{ij}$ soient bien choisis.
+
+Cette méthode présente plusieurs avantages :
+\begin{itemize}
+    \item Communication uniquement locale (entre voisins).
+    \item Réduction du coût de communication par rapport au flooding.
+    \item Estimation progressive : le nombre d’itérations $k$ permet de gérer le compromis précision/communication.
+\end{itemize}
+
+En contrepartie, la convergence vers le barycentre exact n’est jamais instantanée et dépend de la structure du graphe et du nombre d’itérations réalisées.

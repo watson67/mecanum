@@ -1,0 +1,156 @@
+\chapter{Motion Capture}
+\label{section_mocap}
+
+\section{Installation du package \textit{vrpn\_mocap}}
+
+La section suivante décrit comment récupérer, sur un topic ROS2, la position des \textit{Rigid Bodies} détectés par le système de Motion Capture Motive.
+
+Commencer par créer un nouvel espace de travail ROS2. Ouvrir un terminal et entrer les commandes suivantes pour créer le répertoire \textit{mocap\_ws} ainsi que son sous-répertoire \textit{src} :
+
+\begin{lstlisting}[style=commandstyle]
+mkdir -p ~/mocap_ws/src
+cd ~/mocap_ws
+\end{lstlisting}
+
+\noindent Cloner ensuite le dépôt GitHub du package \textit{vrpn\_mocap} dans le répertoire \textit{src} de l’espace de travail :
+
+\begin{lstlisting}[style=commandstyle]
+cd ~/mocap_ws/src
+git clone https://github.com/alvinsunyixiao/vrpn_mocap.git
+\end{lstlisting}
+
+\noindent Une fois le dépôt cloné, installer les dépendances nécessaires à la compilation en exécutant la commande suivante :
+
+\begin{lstlisting}[style=commandstyle]
+rosdep install --from-paths src -y --ignore-src
+\end{lstlisting}
+
+\noindent Procéder ensuite à la compilation du package :
+
+\begin{lstlisting}[style=commandstyle]
+colcon build
+\end{lstlisting}
+
+\noindent Enfin, sourcer l’espace de travail :
+
+\begin{lstlisting}[style=commandstyle]
+source install/setup.bash
+\end{lstlisting}
+
+Pour éviter d’avoir à sourcer l’environnement à chaque nouvelle session, ajouter cette ligne au fichier \textit{.bashrc} :
+
+\begin{lstlisting}[style=commandstyle]
+echo "source ~/mocap_ws/install/setup.bash" >> ~/.bashrc
+\end{lstlisting}
+
+Il est possible de personnaliser le comportement du package en modifiant le fichier \textit{client.launch.yaml}. Les principaux paramètres configurables sont les suivants :
+
+\begin{itemize}
+    \item \textit{server} : adresse IP ou nom de domaine du serveur VRPN (par défaut : \textit{localhost}).
+    \item \textit{port} : port utilisé par le serveur VRPN (par défaut : \textit{3883}).
+    \item \textit{frame\_id} : nom de la frame de référence fixe (par défaut : \textit{world}).
+    \item \textit{update\_freq} : fréquence de publication des données de capture de mouvement (par défaut : \textit{100.0 Hz}).
+\end{itemize}
+
+Pour tester le package, utiliser la commande suivante (modifier l'adresse IP et le port pour correspondre au système de Motion Capture) : 
+\begin{lstlisting}[style=commandstyle]
+ros2 launch vrpn_mocap client.launch.yaml server:=192.168.0.103 port:=3883
+\end{lstlisting}
+
+Il est possible de modifier le fichier \textit{client.launch.yaml}, afin de ne pas avoir à spécifier l'IP du serveur et le port dans la commande. Pour cela, modifier le fichier \textit{client.launch.yaml} se trouvant dans \textit{/mocap/src/vrpn\_mocap/launch} pour qu'il corresponde à : 
+\begin{lstlisting}[style=commandstyle]
+launch:
+
+- arg:
+    name: "server"
+    default: "192.168.0.103"
+- arg:
+    name: "port"
+    default: "3883"
+
+- node:
+    pkg: "vrpn_mocap"
+    namespace: "vrpn_mocap"
+    exec: "client_node"
+    name: "vrpn_mocap_client_node"
+    param:
+    -
+      from: "$(find-pkg-share vrpn_mocap)/config/client.yaml"
+    -
+      name: "server"
+      value: "$(var server)"
+    -
+      name: "port"
+      value: "$(var port)"
+
+\end{lstlisting}
+
+\noindent La nouvelle commande à utiliser pour lancer le noeud sera alors :
+\begin{lstlisting}[style=commandstyle]
+ros2 launch vrpn_mocap client.launch.yaml
+\end{lstlisting}
+\label{lancement_mocap}
+
+\section{Quality of Service (QoS) sur ROS2}
+
+Les paramètres de \textit{Quality of Service (QoS)} sur ROS2 permettent de contrôler la manière dont les données sont échangées entre les nœuds.
+Par exemple, le paramètre \textit{reliability} spécifie la garantie de livraison des messages entre les publishers et les subscribers. Deux options sont disponibles pour ce paramètre :
+
+\begin{itemize}
+    \item \textbf{Best Effort} : tente de livrer les messages, mais certains peuvent être perdus si le réseau est instable. Ce mode est analogue au protocole \textbf{UDP}, qui privilégie la rapidité d'envoi des paquets sans garantie de réception. 
+    \item \textbf{Reliable} : garantit la livraison des messages, quitte à effectuer plusieurs tentatives en cas d’échec. Ce comportement est similaire à \textbf{TCP}, qui assure la fiabilité de la transmission en retransmettant les données en cas de perte.
+\end{itemize}
+
+
+\noindent Cependant, ces deux modes ne sont pas toujours compatibles entre eux. Par exemple, un \textit{subscriber} configuré en \textit{Reliable} ne pourra pas recevoir les messages d’un \textit{publisher} en mode \textit{Best Effort}, car il s’attend à une garantie stricte de recevoir des données. En ROS2, les \textit{publisher} et \textit{subscriber} sont initialement réglés en \textit{Reliable}, et ne peuvent donc pas afficher les messages publiés par \textit{vrpn\_mocap} qui sont en \textit{Best Effort}. Pour régler ce problème, il faut, si possible, modifier les configurations QoS (voir Annexe \ref{annexe:qos}). 
+
+\noindent Ci-dessous un tableau récapitulatif des compatibilités du paramètre \textit{Reliable :}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Publisher} & \textbf{Subscriber} & \textbf{Compatible} \\
+        \hline
+        Best Effort & Best Effort & Oui \\
+        Best Effort & Reliable & Non \\
+        Reliable & Best Effort & Oui \\
+        Reliable & Reliable & Oui \\
+        \hline
+    \end{tabular}
+    \caption{Compatibilité du paramètre \textit{Reliable }}
+    \label{tab:qos_compatibility}
+\end{table}
+
+Si modifier les paramètres n'est pas possible (comme par exemple sur rqt), il est nécessaire de d'ajouter la ligne ci-dessous dans le fichier \textit{client.yaml}, situé dans \textit{mocap\_ws/src/vrpn\_mocap/config}, afin de forcer le paramètre \textit{Reliability} de \textit{vrpn\_mocap} en \textit{Reliable} :
+
+\begin{lstlisting}[style=commandstyle]
+sensor_data_qos: false
+\end{lstlisting}
+
+\noindent Le fichier \textit{client.yaml} final doit ressembler à ceci :
+
+\begin{lstlisting}[style=commandstyle]
+/vrpn_mocap/vrpn_mocap_client_node:
+  ros__parameters:
+    server: localhost
+    port: 3883
+    frame_id: world
+    update_freq: 100.
+    refresh_freq: 1.
+    sensor_data_qos: false
+    multi_sensor: false
+    use_vrpn_timestamps: false
+\end{lstlisting}
+
+\noindent 
+Puis, \textit{build} à nouveau pour être sur de prendre en compte les modifications.
+\begin{lstlisting}[style=commandstyle]
+colcon build
+source install/setup.bash
+\end{lstlisting}
+
+
+Une alternative, dans le cas où l'utilisation du mode \textit{Best Effort} est impérative pour la publication, consiste à créer un nœud intermédiaire contenant un \textit{subscriber} configuré en \textit{Best Effort}. Ce dernier souscrira aux topics fournis par \textit{vrpn\_mocap} et republiera les messages à l’aide d’un \textit{publisher} configuré en \textit{Reliable}, sur de nouveaux topicx. Cela permet ainsi d'assurer la compatibilité avec les outils nécessitant une QoS fiable, tout en conservant les topics réglés en \textit{Best Efforts}.
+
+Des informations supplémentaires sur les QoS sont disponibles ici : \newline
+\url{https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Quality-of-Service-Settings.html}

@@ -1,0 +1,147 @@
+\chapter{Changement de \textit{hostname} et renommage de l'utilisateur principal}
+
+\section*{Introduction}
+
+Cette partie s'adresse aux utilisateurs d'Ubuntu Server, ayant créé une image d'Ubuntu dans le but de la copier sur une nouvelle Raspberry Pi.  
+Nous verrons comment modifier de façon durable le hostname, car il est nécessaire d'en avoir des différents sur chaque robot pour utiliser les programmes du workspace \textit{mecanum}.  
+Nous verrons également comment renommer proprement l'utilisateur principal pour correspondre au nouveau hostname.
+
+
+
+\section{Création d'un utilisateur temporaire}
+
+Avant de modifier le hostname principal ou de renommer un utilisateur, il est recommandé de créer un utilisateur temporaire disposant des droits \textit{sudo} pour ne pas perdre l'accès administrateur en cas de problème.
+
+\begin{lstlisting}[style=commandstyle]
+sudo adduser tempadmin
+sudo usermod -aG sudo tempadmin
+\end{lstlisting}
+
+Déconnectez-vous, puis reconnectez-vous en tant que \textit{tempadmin} pour poursuivre les modifications.  
+Pour cela, vous pouvez soit redémarrer la Raspberry Pi, soit utiliser les commandes suivantes :
+
+\begin{lstlisting}[style=commandstyle]
+exit
+ssh tempadmin@ip_de_votre_machine
+\end{lstlisting}
+
+
+
+\section{Arrêter tous les processus de l'utilisateur à renommer}
+
+Pour éviter des conflits lors du renommage, arrêtez tous les processus de l'utilisateur à modifier (ici \textit{dartagnan}) :
+
+\begin{lstlisting}[style=commandstyle]
+sudo pkill -u dartagnan
+\end{lstlisting}
+
+
+\section{Renommer l'utilisateur principal}
+
+\subsection*{1. Renommer le login}
+
+\begin{lstlisting}[style=commandstyle]
+sudo usermod -l mercedes dartagnan
+\end{lstlisting}
+
+\subsection*{2. Renommer le dossier personnel}
+
+\begin{lstlisting}[style=commandstyle]
+sudo usermod -d /home/mercedes -m mercedes
+\end{lstlisting}
+
+\subsection*{3. Renommer le groupe principal (optionnel)}
+
+\begin{lstlisting}[style=commandstyle]
+sudo groupmod -n mercedes dartagnan
+\end{lstlisting}
+
+\subsection*{4. Assurer les bonnes permissions sur le dossier personnel}
+
+\begin{lstlisting}[style=commandstyle]
+sudo chown -R mercedes:mercedes /home/mercedes
+\end{lstlisting}
+
+
+\section{Modifier la configuration de \textit{cloud-init}}
+
+Commencez par éditer le fichier de configuration principal de \textit{cloud-init} :
+
+\begin{lstlisting}[style=commandstyle]
+sudo nano /etc/cloud/cloud.cfg
+\end{lstlisting}
+
+Localisez la ligne contenant \textit{preserve\_hostname: false} et remplacez-la par :
+
+\begin{lstlisting}[style=commandstyle]
+preserve\_hostname: true
+\end{lstlisting}
+
+Cela indique à \textit{cloud-init} de ne pas modifier le hostname au démarrage. Sauvegardez et quittez l'éditeur.
+
+
+\section{Modifier les fichiers \textit{/etc/hostname} et \textit{/etc/hosts}}
+
+Modifiez le fichier \textit{/etc/hostname} pour indiquer le nouveau nom souhaité (par exemple \textit{mercedes-desktop}) :
+
+\begin{lstlisting}[style=commandstyle]
+sudo nano /etc/hostname
+\end{lstlisting}
+
+Changez le contenu en remplaçant l'ancien hostname par le nouveau, puis sauvegardez.
+
+Modifiez aussi le fichier \textit{/etc/hosts} pour mettre à jour la correspondance avec le nouveau hostname :
+
+\begin{lstlisting}[style=commandstyle]
+sudo nano /etc/hosts
+\end{lstlisting}
+
+Recherchez la ligne contenant l'ancien hostname, par exemple :
+
+\begin{lstlisting}[style=commandstyle]
+127.0.1.1    mercedes
+\end{lstlisting}
+
+et remplacez-la par :
+
+\begin{lstlisting}[style=commandstyle]
+127.0.1.1    mercedes-desktop
+\end{lstlisting}
+
+Sauvegardez et fermez l'éditeur.
+
+
+\section{Vérification optionnelle de la configuration Netplan}
+
+Bien que rarement problématique, il est utile de vérifier si Netplan ne force pas un hostname au démarrage.
+
+Listez les fichiers de configuration Netplan :
+
+\begin{lstlisting}[style=commandstyle]
+ls /etc/netplan/
+\end{lstlisting}
+
+Ouvrez le fichier YAML principal (le nom peut varier, ici \textit{50-cloud-init.yaml}) :
+
+\begin{lstlisting}[style=commandstyle]
+sudo nano /etc/netplan/50-cloud-init.yaml
+\end{lstlisting}
+
+Si vous trouvez une ligne \textit{set-hostname} ou \textit{hostname}, commentez-la ou supprimez-la.
+
+
+
+\section{Redémarrage}
+
+Pour appliquer toutes les modifications, redémarrez la machine :
+
+\begin{lstlisting}[style=commandstyle]
+sudo reboot
+\end{lstlisting}
+
+Après redémarrage, votre invite de commande devrait refléter le nouveau hostname et utilisateur, par exemple :
+
+\begin{lstlisting}[style=commandstyle]
+mercedes@mercedes-desktop:~$
+\end{lstlisting}
+

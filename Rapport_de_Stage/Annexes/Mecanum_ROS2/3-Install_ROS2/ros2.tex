@@ -1,0 +1,100 @@
+\chapter{Installation de ROS2}
+
+\noindent Il est possible de retrouver ce tutoriel en cliquant \href{https://docs.ros.org/en/humble/Installation.html}{ici}. Il est conseillé de suivre le tutoriel sur le site internet plutôt que sur le présent document car il est plus simple de \textit{copier-coller} les commandes (les retours à la ligne, symbolisés par des flèches sur ce document, posent problème).
+
+\section{Configuration du système}
+
+Avant d'installer ROS2, il est nécessaire de mettre à jour le système. Suivre les étapes suivantes :
+
+\begin{enumerate}
+\item Mettre à jour les paquets et installer les locales :
+\begin{lstlisting}[style=commandstyle]
+sudo apt update && sudo apt install locales
+\end{lstlisting}
+
+\item Générer les locales pour l'anglais des États-Unis (\texttt{en\_US}) :
+\begin{lstlisting}[style=commandstyle]
+sudo locale-gen en_US en_US.UTF-8
+sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+\end{lstlisting}
+
+\item Exporter la variable d'environnement pour la langue :
+\begin{lstlisting}[style=commandstyle]
+export LANG=en_US.UTF-8
+\end{lstlisting}
+
+\item Vérifier les paramètres des locales :
+\begin{lstlisting}[style=commandstyle]
+locale
+\end{lstlisting}
+\end{enumerate}
+
+\section{Ajout des dépôts nécessaires et installation des prérequis}
+
+\begin{enumerate}
+\item Installer les outils nécessaires pour gérer les dépôts logiciels :
+\begin{lstlisting}[style=commandstyle]
+sudo apt install software-properties-common
+\end{lstlisting}
+
+\item Ajouter le dépôt "universe" :
+\begin{lstlisting}[style=commandstyle]
+sudo add-apt-repository universe
+\end{lstlisting}
+
+\item Mettre à jour les paquets et installer \texttt{curl} :
+\begin{lstlisting}[style=commandstyle]
+sudo apt update && sudo apt install curl -y
+\end{lstlisting}
+
+\item Télécharger la clé ROS2 :
+\begin{lstlisting}[style=commandstyle]
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+\end{lstlisting}
+
+\noindent \underline{Note :} la flèche dans la commande ci-dessous permet de montrer le retour à la ligne involontaire, du à l'écriture de ce tutoriel sur un pdf. Elle est à supprimer dans la commande finale. Cette note s'applique à toutes les commandes du présent document.
+
+\item Ajouter le dépôt ROS2 à la liste des sources :
+\begin{lstlisting}[style=commandstyle]
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo \jammy) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+\end{lstlisting}
+\end{enumerate}
+
+\section{Installation de ROS2}
+
+\begin{enumerate}
+\item Mettre à jour et améliorer le système :
+\begin{lstlisting}[style=commandstyle]
+sudo apt update
+sudo apt upgrade
+\end{lstlisting}
+
+\item Installer les paquets de base de ROS2. Deux options sont disponibles selon l'utilisation prévue de ROS2 :
+\begin{itemize}
+\item \textbf{Installation Desktop (Recommandée)} : Inclut ROS, RViz, des démonstrations et des tutoriels.
+\end{itemize}
+
+\begin{lstlisting}[style=commandstyle]
+sudo apt install ros-humble-desktop
+\end{lstlisting}
+\begin{itemize}
+
+\item \textbf{Installation ROS-Base (Version minimale)} : Inclut les bibliothèques de communication, les paquets de messages et les outils en ligne de commande.
+\end{itemize}
+
+\begin{lstlisting}[style=commandstyle]
+sudo apt install ros-humble-ros-base
+\end{lstlisting}
+
+\item Après avoir choisi entre ROS-Base et ROS-Desktop, ajouter l'environnement ROS2 au chemin système :
+\begin{lstlisting}[style=commandstyle]
+echo source /opt/ros/humble/setup.bash >> ~/.bashrc
+source ~/.bashrc
+\end{lstlisting}
+
+\noindent Ensuite, installer colcon :
+\begin{lstlisting}[style=commandstyle]
+sudo apt install python3-colcon-common-extensions
+\end{lstlisting}
+
+\end{enumerate}

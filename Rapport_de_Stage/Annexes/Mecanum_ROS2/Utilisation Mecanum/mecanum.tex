@@ -1,0 +1,30 @@
+\chapter{Package \textit{Mecanum}}
+
+\section{Téléchargement du package}
+L'ensemble des programmes pour utiliser les robots Mecanum se trouvent sur Github. Pour les utiliser, cloner le repository suivant : 
+
+\begin{lstlisting}[style=commandstyle]
+git clone https://github.com/watson67/mecanum.git
+\end{lstlisting}
+
+\noindent Puis, se placer dans le dossier cloné, et utiliser les commandes suivantes :
+
+\begin{lstlisting}[style=commandstyle]
+cd mecanum/src
+rm -rf build/install/log/
+colcon build --symlink-install --cmake-target clean
+colcon build --symlink-install
+source install/setup.bash
+\end{lstlisting}
+
+\noindent Pour ne pas avoir à sourcer le fichier \textit{setup.bash} à chaque ouverture de terminal, utiliser la commande suivante : 
+
+\begin{lstlisting}[style=commandstyle]
+echo "source ~/mecanum/install/setup.bash" >> ~/.bashrc
+\end{lstlisting}
+
+\section{Utilisation du package}
+
+\noindent Un tutoriel équivalent au format \textit{markdown} est disponible sur le Github suivant : 
+\url{https://github.com/watson67/mecanum/tree/main?tab=readme-ov-file#teleop_mecanum}.
+

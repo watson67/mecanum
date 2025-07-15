@@ -1,0 +1,294 @@
+\documentclass[12pt, openany]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,left=2cm,right=2cm,top=2.5cm,bottom=4cm]{geometry}
+\usepackage[french]{babel}
+\usepackage{libertine}
+\usepackage[pdftex]{graphicx}
+\usepackage{caption}
+\usepackage{subcaption} % Pour gérer les sous-figures
+\usepackage{adjustbox}  % Pour ajuster les tailles d'images
+\usepackage{fancyhdr}
+\usepackage{etoolbox}
+\usepackage{listings} % For code listings
+\usepackage{titlesec}
+\usepackage{amsmath}
+\usepackage{amssymb} % Pour les symboles mathématiques
+\usepackage{hyperref} % Ajout du package hyperref*
+\urlstyle{same}
+\usepackage{float}
+\usepackage{parskip}
+\usepackage{xcolor}
+\usepackage{listings} % Ajouter dans le préambule
+\usepackage{ragged2e}
+\usepackage{wrapfig}
+\usepackage{multicol}
+\usepackage{tikz}
+\usepackage{mathtools} % Nécessaire pour \prescript
+\usepackage{csquotes}
+\usepackage[backend=biber, style=numeric, sorting=none]{biblatex}
+\usepackage{graphicx} % Ensure this is in the preamble
+\usepackage[acronym]{glossaries}
+\makeglossaries
+
+
+\addbibresource{PFE.bib}
+\setlength{\bibitemsep}{0.5\baselineskip}
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+
+\renewcommand{\thesubfigure}{\thefigure.\arabic{subfigure}} % Numérotation classique pour les sous-figures
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\setlength{\headheight}{39pt}
+\setlength{\headsep}{8pt}
+
+
+% Définition du style pour les blocs de code
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{lightgray!10}, % Couleur de fond
+    frame=single, % Cadre autour du code
+    framesep=4pt, % Réduire l'espace entre le cadre et le texte (moins d'espace vertical)
+    rulecolor=\color{black}, % Couleur du cadre
+    basicstyle=\ttfamily\small, % Style de base, en utilisant \ttfamily et \small
+    keywordstyle=\color{blue}, % Style des mots-clés
+    commentstyle=\color{green!50!black}, % Style des commentaires
+    stringstyle=\color{red}, % Style des chaînes de caractères
+    showstringspaces=false, % Ne pas montrer les espaces dans les chaînes
+    breaklines=true, % Permettre les sauts de ligne
+    postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}}\space, % Symbole de continuation de ligne
+    tabsize=4, % Taille des tabulations
+    captionpos=b, % Position de la légende (bottom)
+    numbers=none, % Pas de numérotation des lignes
+    escapeinside={(*}{*)}, % Permettre l'utilisation de LaTeX dans les commentaires
+    xleftmargin=0pt, % Pas de marge gauche pour aligner le cadre
+    xrightmargin=0pt, % Pas de marge droite
+    aboveskip=10pt, belowskip=10pt % Espace avant et après le cadre
+    columns=flexible, % Évite les espaces inutiles entre les caractères
+    framexleftmargin=8pt, % Marge intérieure gauche du cadre
+    framexrightmargin=6pt, % Marge intérieure droite du cadre
+    lineskip=0pt, % Réduire l'espace entre les lignes dans le bloc de code
+}
+
+\lstdefinestyle{commandstyle}{
+    frame=single, % Cadre autour du code
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\small, % Style de base
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=1,
+    numbers=none, % Pas de numérotation des lignes
+    xleftmargin=5pt, framexleftmargin=5pt, framexrightmargin=-4pt, % Ajustement des marges
+    framexbottommargin=3pt, framextopmargin=3pt, % Petit espace avant/après
+    aboveskip=5pt, belowskip=5pt % Espacement supplémentaire avant et après le cadre
+}
+
+
+\lstset{style=mystyle}
+
+% Supprimer l'encadré dans la table des matières
+\hypersetup{
+    linkbordercolor={1 1 1} % Couleur blanche pour les bordures des liens
+}
+
+% Configuration de l'espacement des titres
+\titlespacing*{\chapter}{0pt}{-50pt}{10pt}
+\titlespacing*{\section}{0pt}{20pt}{10pt}
+
+% Redéfinition des titres de chapitres et sections
+\titleformat{\chapter}[block]{\normalfont\huge\bfseries}{\thechapter}{1em}{}
+\titleformat{\section}[block]{\normalfont\LARGE\bfseries}{\thesection}{1em}{}
+
+\fancypagestyle{mainstyle}{
+  \fancyhf{}
+
+  % Logos centrés verticalement dans l'en-tête
+  \fancyhead[L]{\raisebox{-1\height}{\includegraphics[height=1cm]{1-Page de garde/pic/Logo_Télécom_Physique_Strasbourg_court.png}}}
+  \fancyhead[C]{\raisebox{-1\height}{\includegraphics[height=1cm]{1-Page de garde/pic/csm_logo_icube_f34d851d78.png}}}
+  \fancyhead[R]{\raisebox{-1\height}{\includegraphics[height=1cm]{1-Page de garde/pic/Insas_logo.png}}}
+
+  \fancyfoot[L]{2025}
+  \fancyfoot[R]{\thepage}
+
+  \renewcommand{\headrulewidth}{0.4pt}
+  \renewcommand{\footrulewidth}{0.4pt}
+}
+
+\fancypagestyle{autre}{
+  \fancyhf{}
+  \fancyhead[L]{\includegraphics[height=1.2cm]{1-Page de garde/pic/csm_logo_icube_f34d851d78.png}}
+  \fancyhead[R]{\includegraphics[height=1.2cm]{1-Page de garde/pic/Insas_logo.png}}
+  \fancyfoot[L]{2025}
+  \renewcommand{\headrulewidth}{0.4pt}
+  \renewcommand{\footrulewidth}{0.4pt}
+}
+
+
+
+% Ajoutez de l'espace sous l'en-tête sans affecter le pied de page
+\setlength{\headsep}{1.5cm} % Espace entre l'en-tête et le texte
+\setlength{\footskip}{1.5cm} % Espace entre le texte et le pied de page
+
+% Force le style fancy pour les pages de chapitre
+\makeatletter
+\patchcmd{\chapter}{\thispagestyle{plain}}{\thispagestyle{mainstyle}}{}{}
+\makeatother
+
+
+\newcommand{\abs}[1]{\left|#1\right|}
+
+% Commandes pour mise en page
+\setlength{\parindent}{0.5cm} % Définit la longueur de l'alinéa
+\setlength{\parskip}{1ex plus 0.5ex minus 0.2ex}
+\newcommand{\hsp}{\hspace{20pt}}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\newcommand{\noindentline}[1]{{\setlength{\parindent}{0cm}#1}}
+
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries\color{gray}}
+  {\thesubsubsection}{1em}{}
+
+\setcounter{secnumdepth}{3}
+
+\usepackage{titlesec}
+\titleformat{\subsubsection}{\normalfont\bfseries}{\thesubsubsection}{1em}{}
+
+\begin{document}
+
+% -------------------------------------------------------------------------------
+%                               Page de garde
+% -------------------------------------------------------------------------------
+
+\pagenumbering{gobble}
+
+\clearpage
+\thispagestyle{autre}
+\input{1-Page de garde/page_de_garde} 
+
+% -------------------------------------------------------------------------------
+%                               Résumé
+% -------------------------------------------------------------------------------
+
+\clearpage
+\thispagestyle{autre}
+\input{2-Résumé/resume}
+
+% -------------------------------------------------------------------------------
+%                               Remerciements
+% -------------------------------------------------------------------------------
+\thispagestyle{autre}
+\input{3-Remerciements/remerciements}
+
+% -------------------------------------------------------------------------------
+%                               Table des matières
+% -------------------------------------------------------------------------------
+\newpage
+\thispagestyle{autre}
+\tableofcontents
+
+
+% -------------------------------------------------------------------------------
+%                               Index
+% -------------------------------------------------------------------------------
+\input{acronymes}
+\printglossary[type=\acronymtype, title={Liste des acronymes}]
+
+
+
+% -------------------------------------------------------------------------------
+%                               Table des figures
+% -------------------------------------------------------------------------------
+\clearpage
+\thispagestyle{autre}
+\listoffigures
+
+
+
+% -------------------------------------------------------------------------------
+%                               Introduction
+% -------------------------------------------------------------------------------
+
+\clearpage
+\pagenumbering{arabic} % Reprend la numérotation normale
+\setcounter{page}{1}   % Commence à 1
+\pagestyle{mainstyle}  % Style avec numéro + logos
+\input{5-Introduction/introduction}
+
+% -------------------------------------------------------------------------------
+%                               But_du_travail
+% -------------------------------------------------------------------------------
+
+\input{6-But_du_travail/but_du_travail}
+
+% -------------------------------------------------------------------------------
+%                               Contexte
+% -------------------------------------------------------------------------------
+
+\input{7-Contexte/contexte}
+
+% -------------------------------------------------------------------------------
+%                               Etat_de_art
+% -------------------------------------------------------------------------------
+
+\input{8-Etat_de_art/etat_de_art}
+
+% -------------------------------------------------------------------------------
+%                               Descriptions_méthodes
+% -------------------------------------------------------------------------------
+
+\input{9-Descriptions_méthodes/description_methodes}
+
+% -------------------------------------------------------------------------------
+%                               Descriptions_réalisations
+% -------------------------------------------------------------------------------
+
+\input{10-Descriptions_réalisations/description_realisation}
+
+% -------------------------------------------------------------------------------
+%                               Résultats
+% -------------------------------------------------------------------------------
+
+\input{11-Résultats/resultat}
+
+% -------------------------------------------------------------------------------
+%                               Conclusions
+% -------------------------------------------------------------------------------
+
+\input{12-Conclusion/conclusion}
+
+% -------------------------------------------------------------------------------
+%                               Bibliographie
+% -------------------------------------------------------------------------------
+
+\newpage
+\thispagestyle{autre}
+\printbibliography
+\thispagestyle{autre}
+
+% -------------------------------------------------------------------------------
+%                               Annexes
+% -------------------------------------------------------------------------------
+
+\newpage
+\appendix
+
+\input{Annexes/Annexes} % Inclusion du fichier d'annexe A
+
+\end{document}
+
+
