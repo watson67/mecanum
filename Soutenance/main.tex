@@ -1,0 +1,59 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{metropolis}
+\usepackage{graphicx}
+\usepackage{multimedia}
+\usepackage[french]{babel}
+
+\usepackage{fontspec}
+\IfFontExistsTF{Fira Sans}{
+  \setsansfont{Fira Sans}[
+    Extension = .otf,
+    UprightFont = *-Regular,
+    BoldFont = *-Bold,
+    ItalicFont = *-Italic,
+    BoldItalicFont = *-BoldItalic
+  ]
+}{
+  \setsansfont{DejaVu Sans}
+}
+% Configuration de la numérotation des slides
+\setbeamertemplate{footline}{%
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=\paperwidth,ht=2.25ex,dp=1ex,right]{date in head/foot}%
+      \usebeamerfont{date in head/foot}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+    \end{beamercolorbox}%
+  }%
+  \vskip0pt%
+}
+
+\title{eSWARM}
+\author{Thibaut Waechter}
+\date{\today}
+
+\begin{document}
+
+\setbeamercolor{background canvas}{bg=white}
+
+% Page de garde personnalisée
+\input{1-Page de garde/pagedegarde.tex}
+
+% Table des matières
+\begin{frame}
+    \frametitle{Plan de la présentation}
+    \tableofcontents
+\end{frame}
+
+% Chapitres
+\input{2-Introduction/introduction.tex}
+\input{3-etat-de-lart/etat-de-lart.tex}
+\input{4-Descriptions-methodes/descriptions-methodes.tex}
+\input{5-Descriptions-realisations/descriptions-realisations.tex}
+\input{6-Resultats/resultats.tex}
+\input{7-Conclusion/conclusion.tex}
+
+% Annexes
+\appendix
+\input{Annexes/annexes.tex}
+
+\end{document}

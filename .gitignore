@@ -35,8 +35,16 @@ __pycache__/
 *.glsdefs
 *.ist 
 *.run.xml
-
+*.snm
+*.nav
+*.dvi
+*.ps
+*.mp4
+*.avi
+*.mkv
+*.webm
 # VSCode ou autres éditeurs
 .vscode/
+Rapport_de_Stage/build/
 
 slprj/

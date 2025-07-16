@@ -5,7 +5,7 @@ Dans le cadre du projet eSWARM, ces robots servent de substituts aux drones afin
 
 Chaque robot est composé de quatre moteurs Dynamixel, d'une carte OpenCR assurant le pilotage bas niveau, et d'une Raspberry Pi 4 servant d’unité de calcul principale.
 Ils ont été conçus et programmés initialement sous ROS1 dans le cadre d’un projet de 5ème année à l’INSA Strasbourg. Trois robots sont disponibles, portant les noms des trois mousquetaires : Athos, Porthos et Aramis \cite{vrignaud_swarm_2025}.
-Avant de mettre en place un algorithme de contrôle, il a fallu migrer les robots vers ROS2 (annexe \ref{annexe:migration_ros2}). 
+Avant de mettre en place un algorithme de contrôle, il a fallu migrer les robots vers ROS2. 
 
 La cinématique de ce type de robot est donné dans \cite{tan_research_2021}.
 Soit un robot mobile équipé de quatre roues Mecanum. Chaque roue est numérotée de 1 à 4, et sa vitesse angulaire est notée $\omega_i$ (pour $i = 1, 2, 3, 4$). La vitesse du centre de la roue est $V_i$.

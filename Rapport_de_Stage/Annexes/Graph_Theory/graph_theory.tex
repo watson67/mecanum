@@ -1,6 +1,6 @@
 \chapter{Théorie des graphes}
 \label{partie:graph}
-Cette partie s'inspire des documents \cite{koung_cooperative_2022,ren_distributed_2008,noauthor_graph_2025}.
+\noindent Cette partie s'inspire des documents \cite{koung_cooperative_2022,ren_distributed_2008,noauthor_graph_2025}.
 
 \section{Introduction }
 \label{graphes:intro}
@@ -59,16 +59,17 @@ La matrice obtenue est symétrique, car le graphe est non orienté (voir Partie 
 \label{graphe:complément}
 
 \subsubsection{Graphes orientés}
-
-Les arêtes peuvent avoir une orientation; le graphe est alors dit \textbf{orienté}. Un exemple est donné ci-contre.
 \begin{wrapfigure}{r}{0.4\textwidth}
-\vspace{-0.4cm}
+    \vspace{-0.4cm}
+    
+      \centering
+      \includegraphics[width=0.38\textwidth]{Annexes/Graph_Theory/pic/oriented_graph.png}
+      \caption{Graphe orienté}
+      \label{fig:oriented_graphe}
+    \end{wrapfigure}
+    
+Les arêtes peuvent avoir une orientation; le graphe est alors dit \textbf{orienté}. Dans ce type de graphe, chaque arête possède une direction spécifique qui détermine le sens de la relation entre les nœuds. Un exemple de graphe orienté est donné ci-contre.
 
-  \centering
-  \includegraphics[width=0.38\textwidth]{Annexes/Graph_Theory/pic/oriented_graph.png}
-  \caption{Graphe orienté}
-  \label{fig:oriented_graphe}
-\end{wrapfigure}
 Dans ce cas, la matrice d'adjacence est la suivante :
 \[
 \mathcal{A}(\mathcal{G}) =
@@ -83,27 +84,30 @@ Si le graphe est orienté, la matrice d'adjacence n'est plus symétrique, sauf s
 
 \subsubsection{Connexité}
 
-Un graphe est dit \textbf{connexe} s'il existe un chemin, pour n'importe quel couple de nœud $(i,j)$ du graphe $\mathcal{G}$ une chaîne/ un chemin reliant $i$ et $j$.
+Un graphe est dit \textbf{connexe} s'il existe un chemin entre n'importe quel couple de nœuds $(i,j)$ du graphe $\mathcal{G}$. Autrement dit, pour toute paire de sommets, il doit exister une chaîne ou un chemin permettant de relier ces deux nœuds en passant par les arêtes du graphe.
 
-Par exemple, les graphes ci-dessous ne sont pas connexes.
-\begin{figure}[h]
+Pour illustrer cette notion, les graphes présentés ci-dessous constituent des exemples de graphes non connexes.
+
+\begin{figure}[htbp]
     \centering
-    \begin{minipage}[b]{0.45\textwidth}
+    \begin{subfigure}[b]{0.45\textwidth}
         \centering
         \includegraphics[width=\textwidth]{Annexes/Graph_Theory/pic/Undirectedgraphe.png}
-        \caption{Exemple 1 de graphe non connexe }
+        \caption{Exemple 1 de graphe non connexe}
         \label{fig:non connexe 1}
-    \end{minipage}
-    \hspace{0.05\textwidth} % Espace entre les deux images
-    \begin{minipage}[b]{0.45\textwidth}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
         \centering
         \includegraphics[width=\textwidth]{Annexes/Graph_Theory/pic/undirectedgraphe2.png}
         \caption{Exemple 2 de graphe non connexe}
         \label{fig:non connexe 2}
-    \end{minipage}
+    \end{subfigure}
+    \caption{Deux exemples de graphes non connexes}
 \end{figure}
-Sur la Figure \ref{fig:non connexe 1}, le noeud 0 n'est pas relié à d'autres nœuds, il n'existe pas de chemin reliant le nœud 0 et le nœud 1 par exemple.
-Sur la Figure \ref{fig:non connexe 2}, il n'existe par exemple pas de chemin reliant le nœud 4 et le nœud 1.
+
+Sur la Figure \ref{fig:non connexe 1}, le nœud 0 n'est pas relié à d'autres nœuds du graphe, il n'existe donc pas de chemin permettant de relier le nœud 0 et le nœud 1 par exemple.
+Sur la Figure \ref{fig:non connexe 2}, il n'existe par exemple pas de chemin reliant le nœud 4 et le nœud 1, car ces nœuds appartiennent à des composantes connexes distinctes.
 Lorsqu’un graphe est orienté, plusieurs niveaux de connexité peuvent être distingués :
 \begin{itemize}
 \item \textbf{Connexité faible} : le graphe est connexe lorsque l’orientation des arêtes est ignorée.
