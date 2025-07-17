@@ -1,0 +1,90 @@
+\noindent Cette partie reprend les travaux \cite{koung_cooperative_2022}.
+
+\noindent Soit un ensemble de $n$ robots noté $\mathcal{V}$. 
+\noindent On définit un graphe orienté $\mathcal{G} = (\mathcal{V}, \mathcal{E})$, où $\mathcal{E}$ est l'ensemble des arêtes reliant les robots. Chaque arête $(i,j)$ indique que le robot $i$ peut communiquer avec le robot $j$ (voir Annexes \ref{partie:graph}).
+\begin{equation}
+    \mathcal{N}_i=\{j \in \mathcal{V} : (i,j) \in \mathcal{E}\} = \{j \in \mathcal{V} : \|\mathbf{p}_i - \mathbf{p}_j\| < c\} \
+\end{equation}
+où $c > 0$ est la portée d'interaction entre robots, et $\|.\|$ dénote la norme euclidienne. 
+$\mathbf{p}_i$ et $\mathbf{p}_j$ sont les coordonnées cartésiennes des robots $i$ et $j$ respectivement. 
+Ainsi, deux robots sont considérés comme voisins s'ils peuvent communiquer directement ou s'ils se trouvent à une distance inférieure au seuil $c$.
+
+\noindent Aussi, pour conserver la formation, le robot $i$ doit maintenir une distance désirée $d_{ij}$ avec chacun de ses voisins $j$. Mathématiquement, cela s'écrit :
+\begin{equation}
+    \|\mathbf{p}_i - \mathbf{p}_j\| < d_{ij} \quad \forall j\in\mathbf{N_i} 
+\end{equation}
+
+\section{Définition du consensus}
+
+\noindent Cette partie s'inspire de \cite{ren_distributed_2008}.
+
+La cinématique à intégrateur simple est le modèle dynamique le plus basique, dans lequel la dérivée de la position (vitesse) est directement égale à l'entrée de commande, sans inertie ni frottement.
+Soit le système de $n$ robots, dont la dynamique est :
+\begin{equation}
+    \dot{\xi}_i = u_i, \quad i = 1,\ldots,n
+\end{equation}
+où $\xi_i \in \mathbb{R}^m$ représente l'état (position) de l'agent $i$ et $u_i \in \mathbb{R}^m$ est l'entrée de commande (vitesse) appliquée à cet agent.
+Le \textbf{consensus} désigne l'accord progressif des différents agents du système sur une certaine variable d'intérêt, par exemple la vitesse dans un essaim de robots mobiles.
+
+Pour atteindre le consensus, chaque agent utilise une loi de commande basée sur les écarts avec ses voisins. L'algorithme de consensus distribué s'écrit :
+\begin{equation}
+    u_i = -\sum_{j \in \mathcal{N}_i(t)} (\xi_i - \xi_j)
+\end{equation}
+Cette commande fait que chaque agent $i$ se déplace vers la position moyenne de ses voisins, en appliquant une force proportionnelle à l'écart de position. L'ensemble $\mathcal{N}_i(t)$ dénote les voisins variant dans le temps du robot $i$.
+
+Le consensus est atteint si, pour toutes conditions initiales $\xi_i(0)$, les états de tous les agents convergent vers une valeur commune :
+$$\xi_i(t) \to \xi_j(t) \quad \text{quand } t \to \infty, \quad \forall i,j$$
+Pour que le consensus ait lieu, il faut que le graphe du système ait un \textbf{arbre couvrant} (voir partie \ref{graphe:spanningtree}).
+
+\section{Application à un essaim}
+
+\noindent Cette partie s'inspire largement de \cite{koung_cooperative_2022,olfati-saber_flocking_2006,saif_distributed_2019}.
+
+\noindent Soit la matrice d'adjacence spatiale $\mathcal{A}(p)$, tel que : 
+\begin{equation}
+    a_{i,j} =
+    \begin{cases}
+    0 & \text{ si } i=j  
+     \\
+    \frac{\rho_h(\|\mathbf{p}_i - \mathbf{p}_j\|_\sigma)}{\|c\|_\sigma} & \text{sinon}
+    \end{cases}
+\end{equation}
+où $\rho_h$ est appelée fonction de transition et $\|\cdot\|_\sigma$ est appelée norme sigma. La fonction de transition est une fonction scalaire variant entre 0 et 1 : $\mathbb{R}^+ \to [0, 1]$. Avec $h \in (0, 1)$, cette fonction est définie comme suit :
+
+\begin{equation}
+\rho_h(z) = \begin{cases}
+1, & z \in [0, h) \\
+\frac{1}{2}\left[1 + \cos\left(\pi \frac{(z - h)}{(1 - h)}\right)\right], & z \in [h, 1] \\
+0, & \text{sinon}
+\end{cases} \tag{2.14}
+\end{equation}
+
+La norme sigma est une application d'un vecteur vers une valeur positive : $\mathbb{R}^n \to \mathbb{R}^+$, $n \in \mathbb{Z}^+$. Cette norme est définie comme suit :
+
+\begin{equation}
+\|z\|_\sigma = \frac{1}{\epsilon}\left[\sqrt{1 + \epsilon\|z\|^2} - 1\right] \tag{2.15}
+\end{equation}
+avec $\epsilon > 0$, et son gradient peut être exprimé comme :
+
+\begin{equation}
+\sigma_\epsilon(z) = \nabla\|z\|_\sigma = \frac{z}{\sqrt{1 + \epsilon\|z\|^2}} = \frac{z}{1 + \epsilon\|z\|_\sigma} \tag{2.16}
+\end{equation}
+$\|z\|_\sigma$ est différentiable partout, contrairement à la norme euclidienne classique. Cela signifie qu'elle reste continue et dérivable en tout point, et permet ainsi d'utiliser des outils d'analyse et de commande fondés sur les gradients ou jacobiens sans singularité. Globalement, cette norme permet d'éviter un comportement instable lorsque les robots sont très proches les uns des autres.
+
+\noindent Une fonction de potentiel d'attraction/répulsion lisse par morceaux est définie comme :
+
+\begin{equation}
+  \Psi_{\alpha}(z) = \int_{\|d\|_{\sigma}}^{z} \Phi_{\alpha}(\delta) d\delta 
+\end{equation}
+Cette fonction permet d'intégrer d'une fonction \(\Phi_{\alpha}\) qui a un minimum à \(z = \|d\|_{\sigma}\) et une coupure finie lorsque \(z \geq \|c\|_{\sigma}\) (l'intégrale devient nulle au delà du seuil $\|c\|_{\sigma})$ . 
+
+
+\begin{equation}
+\Phi_{\alpha}(z) = \rho_h\left(\frac{z}{\|c\|_{\alpha}}\right) \Phi(z - \|d\|_{\alpha})    
+\end{equation}
+
+\begin{equation}
+\Phi(z) = \frac{1}{2} \left[ (a + b) \sigma_1(z + e) + (a - b) \right]
+\end{equation}
+où \(\sigma_1(z) = \frac{z}{\sqrt{1 + z^2}}\).
+Avec \(0 < a \leq b\) et \(e = \frac{|a - b|}{\sqrt{4ab}}\), la fonction sigmoïdale asymétrique \(\Phi(z)\) est nulle lorsque \(z = 0\).
