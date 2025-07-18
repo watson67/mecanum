@@ -25,6 +25,9 @@ Lamia Belouaer )
 # Variables globales
 #--------------------------------------------------------------------
 # Liste des noms des robots
+# Choix du mode de distance inter-robots
+CHOICE = False  # True: distances mesurées au lancement, False: distance fixe commune
+FIXED_DISTANCE = 0.5  # Distance fixe en mètres utilisée si CHOICE est False
 GLOBAL_FRAME = "mocap" # nom du repère global, celui ci est défini dans tf2_manager
 
 
@@ -288,7 +291,7 @@ class SwarmController(Node):
     def initialize_formation(self):
         """
         Initialise la formation désirée basée sur les positions actuelles des robots
-        et capture les distances initiales entre robots
+        et capture les distances initiales entre robots selon le mode choisi
         """
         if self.formation_initialized:
             self.get_logger().warn("Formation already initialized! Skipping re-initialization.")
@@ -300,15 +303,12 @@ class SwarmController(Node):
         # Calculer et stocker les vecteurs relatifs initiaux
         self.initial_relative_vectors = []
         for i, pos in enumerate(self.robot_positions):
-            # Vecteur du barycentre vers le robot
             relative_vector = np.array([
                 pos['x'] - initial_barycenter[0],
                 pos['y'] - initial_barycenter[1]
             ])
             self.initial_relative_vectors.append(relative_vector)
-            
-        self.get_logger().info(f"Vecteurs relatifs initiaux calculés: {self.initial_relative_vectors}")
-            
+        
         # Calculer les positions relatives par rapport au centre
         self.desired_formation = []
         for pos in self.robot_positions:
@@ -316,27 +316,28 @@ class SwarmController(Node):
             rel_y = pos['y']
             self.desired_formation.append((rel_x, rel_y))
         
-        # Calculer et stocker les distances initiales entre chaque paire de robots
+        # Calculer et stocker les distances selon le mode choisi (CHOICE)
         for i in range(len(ALL_ROBOT_NAMES)):
-            for j in range(i+1, len(ALL_ROBOT_NAMES)):  # Stocker chaque paire une seule fois
-                pos_i = self.robot_positions[i]
-                pos_j = self.robot_positions[j]
+            for j in range(i+1, len(ALL_ROBOT_NAMES)):
+                if CHOICE:
+                    # Utiliser les distances mesurées
+                    pos_i = self.robot_positions[i]
+                    pos_j = self.robot_positions[j]
+                    dist = math.sqrt((pos_i['x'] - pos_j['x'])**2 + (pos_i['y'] - pos_j['y'])**2)
+                else:
+                    # Utiliser la distance fixe commune
+                    dist = FIXED_DISTANCE
                 
-                # Calculer la distance entre les robots i et j
-                dist = math.sqrt((pos_i['x'] - pos_j['x'])**2 + (pos_i['y'] - pos_j['y'])**2)
-                
+                # Stocker la distance dans les deux sens
                 self.desired_distances[(i, j)] = dist
-                self.desired_distances[(j, i)] = dist  # Stocker les deux directions
+                self.desired_distances[(j, i)] = dist
         
-        self.formation_initialized = True  # Verrouille l'initialisation ici
-        self.get_logger().info(f"Desired formation set to initial positions: {self.desired_formation}")
-        self.get_logger().info(f"Initial inter-robot distances captured: {self.desired_distances}")
+        self.formation_initialized = True
         
-        # Afficher la position du barycentre à l'initialisation
-        barycentre = self.compute_swarm_center()
-        self.get_logger().info(
-            f"Barycentre (init): X:{barycentre[0]:.3f} ; Y:{barycentre[1]:.3f}"
-        )
+        # Log des distances selon le mode choisi
+        mode_str = "mesurées" if CHOICE else f"fixes ({FIXED_DISTANCE}m)"
+        self.get_logger().info(f"Formation initialisée avec des distances {mode_str}")
+        self.get_logger().info(f"Distances inter-robots: {self.desired_distances}")
 
     def compute_swarm_center(self):
         """

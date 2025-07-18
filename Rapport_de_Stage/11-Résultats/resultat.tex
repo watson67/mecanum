@@ -1,37 +1,40 @@
 \chapter{Présentations des résultats}
-
-\section{Essaim}
-
-\begin{figure}[h]
+\label{chap:resultats}
+\begin{wrapfigure}{r}{0.4\textwidth}
+    \vspace{-0.2cm}
     \centering
-    \includegraphics[width=0.8\textwidth]{11-Résultats/pic/trajectoires_marquage.pdf}
-    \caption{Essai trajectoire de l'essaim.}
-    \label{fig:essaim_trajectory}
-\end{figure}
+    \begin{tikzpicture}[scale=1.2]
+        \tikzset{robot/.style={circle,draw,minimum size=1.8cm,inner sep=0pt,fill=white,thick,font=\normalsize}}
+        \node[robot] (A) at (0,0) {\strut Aramis};
+        \node[robot] (B) at (2.5,0) {\strut Athos};
+        \node[robot] (C) at (2.5,2.5) {\strut Porthos};
+        \node[robot] (D) at (0,2.5) {\strut Dartagnan};
+        \draw[thick] (A) -- (B) node[midway,below] {50\,cm};
+        \draw[thick] (B) -- (C) node[midway,right] {50\,cm};
+        \draw[thick] (C) -- (D) node[midway,above] {50\,cm};
+        \draw[thick] (D) -- (A) node[midway,left] {50\,cm};
+    \end{tikzpicture}
+    \caption{Graphe de la formation}
+    \label{fig:formation}
+    \vspace{-0.5cm}
+\end{wrapfigure}
 
-\begin{itemize}
-    \item afficher plot des inter distances et dire que c'est constant 
-    \item montrer la trajectoire de chaque robot
-    \item montrer avec une perturbation ?
-\end{itemize}
+Dans cette partie, les résultats des différentes expérimentations sont présentés. Ils sont organisés en plusieurs sections : la première concerne l'application simple de l'algorithme de \cite{koung_consensus-based_2020} aux robots Mecanum, la seconde porte sur le contrôle événementiel, et la troisième sur une commande prédictive.
 
-\section{Essaim}
+La méthode de test est identique dans chaque section, c'est-à-dire que la formation et la trajectoire à parcourir sont les mêmes dans chaque cas.
+La formation adoptée est une formation carrée, illustrée par le graphe ci-contre (Figure \ref{fig:formation}).
+Deux robots sont considérés comme voisins s'ils partagent un côté du carré (les robots situés en diagonale ne sont donc pas voisins). 
+Bien que six robots soient disponibles, seuls quatre sont utilisés pour les tests, afin de simplifier la visualisation des résultats. Des essais avec six robots sont donnés en annexe.
 
-\begin{itemize}
-    \item afficher plot des inter distances et dire que c'est constant 
-    \item montrer la trajectoire de chaque robot
-    \item montrer avec une perturbation ?
-\end{itemize}
+\input{11-Résultats/essaim.tex}
+
+
 
 \section{Commande événementielle}
 
-\subsection{Commande événementielle classique}
+\input{11-Résultats/ev.tex}
 
-Montrer la même choque qu'avant? 
-Conclusion : on diminue moins les commandes mais est ce qu'on diminue vraiment la consommation
+\input{11-Résultats/pred.tex}
 
-\subsection{Commande événementielle prédictive}
-Montrer la même choque qu'avant? 
-Montrer la diminution des échanges
 
 \section{Comparaisons des différentes méthodes}
