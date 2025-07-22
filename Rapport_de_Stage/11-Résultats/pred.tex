@@ -1,3 +1,52 @@
 \subsection{Commande événementielle prédictive}
-Montrer la même choque qu'avant? 
-Montrer la diminution des échanges
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{11-Résultats/pic/pred/trajectoires.pdf}
+        \caption{Trajectoire du barycentre de l'essaim}
+        \label{fig:pred_essaim_trajectory}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{11-Résultats/pic/pred/true_trajectoires_marquage.pdf}
+        \caption{Trajectoire de chaque robot de l'essaim}
+        \label{fig:pred_essaim_trajectory2}
+    \end{minipage}
+\end{figure}
+La Figure \ref{fig:pred_essaim_trajectory2} illustre les trajectoires de chaque robot de l'essaim, ainsi que les positions publiées. 
+
+
+
+\begin{figure}[H]
+    \vspace{-0.5cm}
+    \centering
+    \includegraphics[width=0.8\textwidth]{11-Résultats/pic/pred/distance.pdf}
+    \vspace{-1cm}
+    \caption{Evolution des inter-distances entre les robots}
+    \label{fig:pred_inter_distances}
+    
+\end{figure}
+
+Les résultats obtenus sont très satisfaisants, la formation et les interdistances sont maintenus tout au long du parcours.
+
+La robustesse de l'algorithme est ensuite à nouveau testée, en créant manuellement une perturbation en retenant Athos.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{11-Résultats/pic/ev/perturbation/trajectoires_marquage.pdf}
+        \caption{Trajectoire des robots avec une perturbation}
+        \label{fig:essaim_trajectory2_perturbation}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{11-Résultats/pic/ev/perturbation/distance.pdf}
+        \caption{Evolution des inter-distances entre les robots avec perturbation}
+        \label{fig:ev_inter_distances_perturbation}
+    \end{minipage}
+\end{figure}
+Lors de la perturbation, la condition de déclenchement sur les écarts de distance est atteinte, ce qui entraîne le recalcul des commandes pour certains robots. 
+Comme les commandes ne sont recalculées que lorsque l'écart dépasse $\pm 5$~cm, il n'y a pas assez de corrections/calculs de commande pour permettre une convergence précise vers la valeur souhaitée. 

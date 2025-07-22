@@ -1,1 +1,41 @@
 \subsection{Commande événementielle classique}
+
+La commande événementielle mise en place consiste à calculer et envoyer une nouvelle commande aux moteurs uniquement lorsque certaines conditions sont réunies, afin de réduire la fréquence des mises à jour et donc la charge de calcul. Contrairement à une commande classique où chaque robot reçoit une consigne à chaque cycle, ici la mise à jour n'est déclenchée que si un événement est détecté. Comme dans le papier de \cite{koung_consensus-based_2020}, il existe deux commandes : $u_i^\alpha$ pour maintenir la formation et $u_i^\gamma$ pour l'attraction vers le point cible, il faut au moins une condition par commande.
+Les conditions sont les suivantes :
+\begin{itemize}
+    \item \textbf{Écart de distance avec les voisins :} Pour chaque voisin $j$ de $i$, si l'écart entre la distance actuelle $d_{ij}$ et la distance désirée $d_{ij}^*$ dépasse un seuil $\delta_d$, alors une commande est calculée :
+    \begin{align*}
+        |d_{ij} - d_{ij}^*| > \delta_d
+    \end{align*}
+    \item \textbf{Changement du point cible global :} Si la position du point cible change, tous les robots mettent à jour leur commande :
+    \begin{align*}
+        \mathbf{g}^{\,\text{new}} \neq \mathbf{g}^{\,\text{old}}
+    \end{align*}
+    \item \textbf{Proximité ou éloignement significatif de la cible :} Si la distance entre le robot $i$ et sa cible devient inférieure à $\delta_c$, ou si cette distance varie de plus de $\delta_t$ par rapport à la précédente, une commande est envoyée :
+    \begin{align*}
+        \|\mathbf{p}_i - \mathbf{p}_i^*\| < \delta_c \\
+        \text{ou} \quad |\|\mathbf{p}_i - \mathbf{p}_i^*\| - \|\mathbf{p}_i^{\,\text{old}} - \mathbf{p}_i^{*,\,\text{old}}\|| > \delta_t
+    \end{align*}
+\end{itemize}
+
+Les seuils utilisés sont notés :
+\begin{itemize}
+    \item $\delta_d$ : seuil d'écart de distance avec les voisins
+    \item $\delta_t$ : seuil de changement de position cible individuelle
+    \item $\delta_c$ : seuil de distance à la cible individuelle
+\end{itemize}
+
+\vspace{0.5em}
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Symbole} & \textbf{Description} & \textbf{Valeur numérique} \\
+        \hline
+        $\delta_d$ & Écart de distance avec voisins & $0{,}05$ m \\
+        $\delta_t$ & Changement de cible individuelle & $0{,}02$ m \\
+        $\delta_c$ & Proximité à la cible individuelle & $0{,}1$ m \\
+        \hline
+    \end{tabular}
+    \caption{Seuils utilisés pour la commande événementielle}
+\end{table}

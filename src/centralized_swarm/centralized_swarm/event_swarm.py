@@ -23,7 +23,8 @@ un contrôle événementiel pour réduire la fréquence des mises à jour de com
 #--------------------------------------------------------------------
 # Variables globales
 #--------------------------------------------------------------------
-# Liste des noms des robots
+CHOICE = False  # True: distances mesurées au lancement, False: distance fixe commune
+FIXED_DISTANCE = 0.5  # Distance fixe en mètres utilisée si CHOICE est False
 GLOBAL_FRAME = "mocap" # nom du repère global, celui ci est défini dans tf2_manager
 
 #--------------------------------------------------------------------
@@ -504,17 +505,22 @@ class EventBasedSwarmController(Node):
         # Calculer et stocker les distances initiales entre chaque paire de robots
         for i in range(len(ALL_ROBOT_NAMES)):
             for j in range(i+1, len(ALL_ROBOT_NAMES)):
-                pos_i = self.robot_positions[i]
-                pos_j = self.robot_positions[j]
-                
-                dist = math.sqrt((pos_i['x'] - pos_j['x'])**2 + (pos_i['y'] - pos_j['y'])**2)
+                if CHOICE:
+                    # Utiliser les distances mesurées
+                    pos_i = self.robot_positions[i]
+                    pos_j = self.robot_positions[j]
+                    dist = math.sqrt((pos_i['x'] - pos_j['x'])**2 + (pos_i['y'] - pos_j['y'])**2)
+                else:
+                    # Utiliser la distance fixe commune
+                    dist = FIXED_DISTANCE
                 
                 self.desired_distances[(i, j)] = dist
                 self.desired_distances[(j, i)] = dist
         
         self.formation_initialized = True
+        mode_str = "mesurées" if CHOICE else f"fixes ({FIXED_DISTANCE}m)"
         self.get_logger().info(f"Desired formation set to initial positions: {self.desired_formation}")
-        self.get_logger().info(f"Initial inter-robot distances captured: {self.desired_distances}")
+        self.get_logger().info(f"Distances inter-robots ({mode_str}): {self.desired_distances}")
         
         # Afficher la position du barycentre à l'initialisation
         barycentre = self.compute_swarm_center()

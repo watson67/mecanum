@@ -49,57 +49,84 @@ La Figure \ref{fig:relative_vector_target} ci-dessus illustre la méthode. Le ve
 
 \subsection{Adaptation du coefficient $c_{1}^{\gamma}$}
 
-Le coefficient $c_{1}^{\gamma}$ détermine la force avec laquelle chaque robot est attiré vers son point cible. Formellement, il intervient dans le terme de contrôle suivant :
-\begin{equation}
-\mathbf{u}_\gamma = -c_{1}^{\gamma} (\mathbf{p}_i - \mathbf{p}_r)
-\end{equation}
-où $\mathbf{p}_i$ est la position du robot $i$ et $\mathbf{p}_r$ la position de référence.
-
-Un $c_{1}^{\gamma}$ élevé permet à l'essaim de converger rapidement vers la cible. Cependant, en présence de perturbations (par exemple, un robot décalé ou une erreur de formation), maintenir une attraction vers le point cible peut aggraver la situation : les robots continueraient à avancer vers la cible sans corriger la formation car le terme $u_{i}^{\alpha}$, responsable du maintien de la formation, met un certain temps à converger. 
+Comme expliqué précédemment, le coefficient $c_{1}^{\gamma}$ détermine la force avec laquelle chaque robot est attiré vers son point cible. 
+Une valeur de $c_{1}^{\gamma}$ trop élevée permet à l'essaim de converger rapidement vers la cible; cela augmente la vitesse de déplacement des robots vers leurs points. Cependant, en présence de perturbations (par exemple, un robot décalé ou une erreur de formation), maintenir une attraction vers le point cible peut aggraver la situation : les robots continueraient à avancer vers la cible sans corriger la formation car le terme $u_{i}^{\alpha}$, responsable du maintien de la formation, met un certain temps à converger pour supprimer l'erreur. 
 Pour éviter cela, l'idée est d'adapter dynamiquement $c_{1}^{\gamma}$ : lorsqu'une perturbation est détectée (écart de distance par exemple), $c_{1}^{\gamma}$ est réduit afin de ralentir, voire stopper, le déplacement global de l'essaim. Cela laisse le temps au système de corriger la formation avant de poursuivre la progression vers la cible.
 
+Pour cela, les ratios de distance et des erreurs d'angle entre robots sont continuellement calculés et comparés à des seuils. Si les tolérances sont respectés, $c_{1}^{\gamma}$ garde sa valeur normale, et l'essaim se déplace normalement. Sinon, il est réduit selon la gravité de la perturbation.
+Le coefficient $c_1^\gamma$ est adapté selon trois niveaux de fonctionnement :
 
-Cette adaptation repose sur la surveillance des ratios de distance et des erreurs d'angle entre robots. Si tous les robots respectent les tolérances, $c_{1}^{\gamma}$ garde sa valeur normale, et l'essaim se déplace normalement. Sinon, il est réduit selon la gravité de la perturbation.
+\begin{enumerate}
+\item \textbf{Cas extrêmes} : arrêt quasi-total ($c_1^\gamma \approx 0$)
+\item \textbf{Formation correcte} : valeur nominale ($c_1^\gamma = 0.2$)
+\item \textbf{Formation imparfaite} : réduction progressive
+\end{enumerate}
+
+Avant tout calcul, le système vérifie si les ratios de distance (pour toutes les arêtes du graphe) sont dans des plages critiques :
+\begin{equation}
+r_{\min} = \min_j \left(\frac{d_{ij}^{\text{actuelle}}}{d_{ij}^{\text{désirée}}}\right) < 0.3 \quad \text{ou} \quad r_{\max} = \max_j \left(\frac{d_{ij}^{\text{actuelle}}}{d_{ij}^{\text{désirée}}}\right) > 2.2
+\end{equation}
+
+Dans ces cas critiques, $c_1^\gamma = 0$ pour éviter les collisions ou la perte de formation. $0.3$ et $2.2$ sont des seuils empiriques basés sur les tests effectués.
+
+La valeur nominale n'est appliquée que si \textbf{toutes} les conditions suivantes sont simultanément respectées :
+
+\textit{Condition sur les distances :}
+\begin{equation}
+(1 - \tau_d) \leq r_{\min} \quad \text{et} \quad r_{\max} \leq (1 + \tau_d)
+\end{equation}
+
+\textit{Condition sur les angles :}
+\begin{equation}
+|\theta_{\text{erreur},j}| \leq \tau_\theta \quad \forall j \in \mathcal{N}_i
+\end{equation}
+où $\tau_d$ et $\tau_\theta$ sont des tolérances sur les distances et angles respectivement. L'erreur angulaire est calculée par rapport à l'angle de formation cible.
+Si les conditions pour la valeur nominale ne sont pas respectées, le coefficient est réduit selon :
+\begin{equation}
+c_1^\gamma = c_{1,\text{base}}^\gamma \cdot \min(f_d, f_\theta)
+\end{equation}
+Les facteurs de réduction $f_d$ et $f_\theta$ sont calculés comme :
+\begin{equation}
+f_d = f_{\text{proximité}} \cdot f_{\text{séparation}} \cdot f_{d,\text{add}}
+\end{equation}
 
 \begin{equation}
-r_d = \frac{d_\text{actuelle}}{d_\text{désirée}}; \quad \epsilon_\theta = \min\left(|\theta_\text{actuel} - \theta_\text{cible}|, 2\pi - |\theta_\text{actuel} - \theta_\text{cible}|\right)
+f_\theta = f_{\text{erreur angle}} \cdot f_{\theta,\text{add}}
 \end{equation}
-Avec $r_d$ le ratio de distance et $\epsilon_\theta$ l'erreur d'angle.
-Le coefficient est alors adapté selon :
+Les sous-facteurs utilisent des réductions exponentielles :
 \begin{equation}
-c_{1}^{\gamma} = c_{1,\text{base}}^{\gamma} \cdot f_d \cdot f_\theta
+f_{\text{proximité}} = \begin{cases}
+e^{-k_{\min} \cdot \delta_{\min}} & \text{si } r_{\min} < s_{\min} \\
+1 & \text{sinon}
+\end{cases}
 \end{equation}
-où $f_d$ et $f_\theta$ sont des facteurs de réduction dépendant respectivement des écarts de distance et d'angle, calculés par exemple comme :
-\begin{equation}
-f_d = e^{-k_d \cdot \delta_d}
-\end{equation}
-\begin{equation}
-f_\theta = e^{-k_\theta \cdot \delta_\theta}
-\end{equation}
-avec $\delta_d$ et $\delta_\theta$ les déviations normalisées, et $k_d$, $k_\theta$ des constantes d'ajustement.
-Une adaptation exponentielle a été choisie, afin de réduire rapidement $c_{1}^{\gamma}$ en cas de perturbation, permettant par exemple de stopper le déplacement de l'essaim si un robot se dirige droit vers un autre, évitant ainsi la collision.
+où $\delta_{\min} = \frac{s_{\min} - r_{\min}}{s_{\min}}$ est la déviation normalisée et $s_{\min}$, $s_{\max}$ sont des seuils de tolérance.
 
-Les valeurs des paramètres $k_d$, $k_\theta$, $\delta_d$ et $\delta_\theta$ ont été déterminées expérimentalement. Le tableau ci-dessous résume les valeurs utilisées :
+\begin{equation}
+    f_{\text{séparation}} = \begin{cases}
+    e^{-k_{\max} \cdot \delta_{\max}} & \text{si } r_{\max} > s_{\max} \\
+    1 & \text{sinon}
+    \end{cases}
+\end{equation}
+Des facteurs additionnels $f_{d,\text{add}}$ et $f_{\theta,\text{add}}$ appliquent des réductions supplémentaires lorsque les seuils sont dépassés.
 
-\begin{table}[h!]
-    \centering
-    \begin{tabular}{|c|c|c|c|c|}
-        \hline
-         $k_d$ & $k_\theta$ & $\delta_d$ (seuil) & $\delta_\theta$ (seuil) \\
-        \hline
-          0.4 & 0.2 & 0.10 & 0.08 \\
-        \hline
-    \end{tabular}
-    \caption{Valeurs expérimentales des paramètres d'adaptation de $c_{1}^{\gamma}$}
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Paramètre}  & \textbf{Mode normal} \\
+\hline
+$\tau_d$ & ±15\% \\
+$\tau_\theta$  & ±15° \\
+$s_{\min}$, $s_{\max}$  & 0.90, 1.10 \\
+$k_{\min}$, $k_{\max}$ & 0.4 \\
+$k_\theta$  & 0.2 \\
+$f_{d,\text{add}}$, $f_{\theta,\text{add}}$ & 0.6 \\
+
+\hline
+\end{tabular}
+\caption{Paramètres d'implémentation selon le mode}
 \end{table}
-
-Ces seuils correspondent à des tolérances relatives sur les distances et les angles (par exemple, $\delta_d = 0.10$ signifie une tolérance de $\pm10\%$ sur la distance désirée).
-
-Pour éviter des variations trop brusques de $c_{1}^{\gamma}$ (qui pourraient entraîner des mouvements saccadés ou instables), un lissage exponentiel est appliqué à chaque itération :
-\begin{equation}
-c_{1}^{\gamma}(t) = \alpha \cdot c_{1}^{\gamma}(t-1) + (1-\alpha) \cdot c_{1}^{\gamma_{\text{calculé}}}
-\end{equation}
-où $\alpha$ est le facteur de lissage (typiquement $\alpha = 0.9$).
 
 Chaque robot calcule donc indépendamment sa propre valeur de $c_{1}^{\gamma}$ en fonction de ses mesures locales. Cela n'est pas problématique pour la cohésion de l'essaim : si un robot détecte une perturbation et réduit son $c_{1}^{\gamma}$, il ralentit son déplacement vers le point cible. Les autres robots, via les tolérances sur les distances et les angles, vont également détecter ce ralentissement (car leurs propres ratios vont sortir des seuils) et adapter leur $c_{1}^{\gamma}$ en conséquence. Ainsi, même si les valeurs de $c_{1}^{\gamma}$ diffèrent temporairement, le terme $u_i^\alpha$ (responsable du maintien de la formation) reprend naturellement le dessus et assure la cohésion et la correction de la formation avant la reprise du déplacement global.
 

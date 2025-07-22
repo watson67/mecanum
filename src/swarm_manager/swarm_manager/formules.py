@@ -140,52 +140,36 @@ def calculate_dynamic_c1_gamma(pj_array, pi, dij_list, is_rotating=False, initia
     """
     Calcule c1_gamma dynamiquement en fonction de la proximité des robots voisins
     par rapport aux distances désirées ET des angles de formation.
-    
-    Parameters:
-    - pj_array: positions des robots voisins
-    - pi: position du robot i
-    - dij_list: distances désirées aux voisins
-    - is_rotating: True si une rotation est en cours
-    - initial_angles: dictionnaire des angles initiaux {index_voisin: angle_initial}
-    - rotation_count: nombre de rotations de 90° effectuées
-    - previous_c1_gamma: valeur précédente de c1_gamma pour le lissage
-    
-    Returns:
-    - c1_gamma ajusté dynamiquement (valeur normale seulement si TOUTES les conditions sont respectées)
+    (Version sans lissage temporel)
     """
     base_c1_gamma = c1_rotation if is_rotating else c1_gamma
-    
+
     if not pj_array or not dij_list:
-        # Appliquer le lissage même pour la valeur de base
-        if previous_c1_gamma is not None:
-            return c1_gamma_smoothing_factor * previous_c1_gamma + (1 - c1_gamma_smoothing_factor) * base_c1_gamma
+        # Retourne la valeur de base sans lissage
         return base_c1_gamma
-    
+
     # VÉRIFICATION DES CAS EXTRÊMES (NOUVEAU)
     min_ratio = float('inf')
     max_ratio = 0.0
-    
+
     for idx, pj in enumerate(pj_array):
         if idx < len(dij_list):
             distance_actuelle = math.sqrt((pi[0] - pj[0])**2 + (pi[1] - pj[1])**2)
             distance_desiree = dij_list[idx]
-            
+
             if distance_desiree > 0:
                 ratio = distance_actuelle / distance_desiree
                 min_ratio = min(min_ratio, ratio)
                 max_ratio = max(max_ratio, ratio)
-    
+
     # Seuils pour les cas extrêmes (légèrement assouplis)
     extreme_close_threshold = 0.3  # Si distance < 30% de la distance désirée
     extreme_far_threshold = 2.2    # Si distance > 220% de la distance désirée
-    
-    # CAS EXTRÊMES : retourner 0 avec lissage
+
+    # CAS EXTRÊMES : retourner 0 (sans lissage)
     if min_ratio < extreme_close_threshold or max_ratio > extreme_far_threshold:
-        extreme_value = 0.0
-        if previous_c1_gamma is not None:
-            return c1_gamma_smoothing_factor * previous_c1_gamma + (1 - c1_gamma_smoothing_factor) * extreme_value
-        return extreme_value
-    
+        return 0.0
+
     # VÉRIFICATION DES CONDITIONS POUR VALEUR NORMALE (seuils assouplis)
     if is_rotating:
         distance_tolerance = 0.08  # ±8% pour les distances en rotation (était 5%)
@@ -193,48 +177,38 @@ def calculate_dynamic_c1_gamma(pj_array, pi, dij_list, is_rotating=False, initia
     else:
         distance_tolerance = 0.15  # ±15% pour les distances en mode normal (était 10%)
         angle_tolerance_deg = 15.0  # ±15° pour les angles en mode normal (était 10°)
-    
+
     # CONDITION 1: Vérifier que TOUTES les distances sont dans la tolérance
     all_distances_ok = True
     if min_ratio < (1.0 - distance_tolerance) or max_ratio > (1.0 + distance_tolerance):
         all_distances_ok = False
-    
+
     # CONDITION 2: Vérifier que TOUS les angles sont dans la tolérance
     all_angles_ok = True
     if initial_angles and pj_array:
         angle_tolerance_rad = angle_tolerance_deg * math.pi / 180.0
-        
+
         for idx, pj in enumerate(pj_array):
             if idx in initial_angles:
                 current_vector = pj - pi
                 if np.linalg.norm(current_vector) > 0.01:
-                    # Angle actuel
                     current_angle = calculate_angle_to_x_axis(current_vector)
-                    
-                    # Angle cible (ajusté selon les rotations)
                     target_angle = initial_angles[idx] + (rotation_count * math.pi / 2)
                     target_angle = math.atan2(math.sin(target_angle), math.cos(target_angle))
-                    
-                    # Calculer l'erreur angulaire
                     angle_error = abs(current_angle - target_angle)
                     angle_error = min(angle_error, 2 * math.pi - angle_error)
-                    
-                    # Si au moins un angle dépasse la tolérance, toutes les conditions ne sont pas respectées
                     if angle_error > angle_tolerance_rad:
                         all_angles_ok = False
                         break
-    
-    # SI TOUTES LES CONDITIONS SONT RESPECTÉES: valeur normale avec lissage
+
+    # SI TOUTES LES CONDITIONS SONT RESPECTÉES: valeur normale (sans lissage)
     if all_distances_ok and all_angles_ok:
-        target_value = base_c1_gamma
-        if previous_c1_gamma is not None:
-            return c1_gamma_smoothing_factor * previous_c1_gamma + (1 - c1_gamma_smoothing_factor) * target_value
-        return target_value
-    
+        return base_c1_gamma
+
     # SINON: Appliquer une réduction basée sur les déviations (plus douce)
     distance_reduction_factor = 1.0
     angle_reduction_factor = 1.0
-    
+
     # Réduction basée sur les distances (paramètres plus doux)
     if is_rotating:
         min_ratio_threshold = 0.92  # était 0.95
@@ -248,24 +222,24 @@ def calculate_dynamic_c1_gamma(pj_array, pi, dij_list, is_rotating=False, initia
         k_min = 0.4  # était 0.9 (plus doux)
         k_max = 0.4  # était 0.8 (plus doux)
         additional_reduction = 0.6  # était 0.4 (moins drastique)
-    
+
     if min_ratio < min_ratio_threshold:
         deviation = (min_ratio_threshold - min_ratio) / min_ratio_threshold
         proximity_reduction = math.exp(-k_min * deviation)
         distance_reduction_factor *= proximity_reduction
-    
+
     if max_ratio > max_ratio_threshold:
         deviation = min((max_ratio - max_ratio_threshold) / max_ratio_threshold, 1.0)
         separation_reduction = math.exp(-k_max * deviation)
         distance_reduction_factor *= separation_reduction
-    
+
     if min_ratio < min_ratio_threshold or max_ratio > max_ratio_threshold:
         distance_reduction_factor *= additional_reduction
-    
+
     # Réduction basée sur les angles (paramètres plus doux)
     if initial_angles and pj_array:
         angle_ratios = []
-        
+
         for idx, pj in enumerate(pj_array):
             if idx in initial_angles:
                 current_vector = pj - pi
@@ -277,10 +251,10 @@ def calculate_dynamic_c1_gamma(pj_array, pi, dij_list, is_rotating=False, initia
                     angle_error = min(angle_error, 2 * math.pi - angle_error)
                     angle_ratio = angle_error / math.pi
                     angle_ratios.append(angle_ratio)
-        
+
         if angle_ratios:
             max_angle_ratio = max(angle_ratios)
-            
+
             if is_rotating:
                 max_angle_threshold = 8.0 * math.pi / 180.0 / math.pi  # était 5°
                 k_angle_max = 0.5  # était 1 (plus doux)
@@ -289,25 +263,22 @@ def calculate_dynamic_c1_gamma(pj_array, pi, dij_list, is_rotating=False, initia
                 max_angle_threshold = 15.0 * math.pi / 180.0 / math.pi  # était 10°
                 k_angle_max = 0.2  # était 0.4 (plus doux)
                 angle_additional_reduction = 0.6  # était 0.4 (moins drastique)
-            
+
             if max_angle_ratio > max_angle_threshold:
                 deviation = min((max_angle_ratio - max_angle_threshold) / (1.0 - max_angle_threshold), 1.0)
                 angle_error_reduction = math.exp(-k_angle_max * deviation)
                 angle_reduction_factor *= angle_error_reduction
                 angle_reduction_factor *= angle_additional_reduction
-    
+
     # Combiner les deux réductions (prendre le minimum = plus restrictif)
     combined_reduction_factor = min(distance_reduction_factor, angle_reduction_factor)
-    
+
     # S'assurer que le facteur de réduction n'est jamais trop bas pour éviter les arrêts brusques
     combined_reduction_factor = max(combined_reduction_factor, 0.1)  # Minimum 10% de la valeur de base
-    
+
     adjusted_c1_gamma = base_c1_gamma * combined_reduction_factor
-    
-    # Appliquer le lissage temporel
-    if previous_c1_gamma is not None:
-        adjusted_c1_gamma = c1_gamma_smoothing_factor * previous_c1_gamma + (1 - c1_gamma_smoothing_factor) * adjusted_c1_gamma
-    
+
+    # Retourner la valeur ajustée SANS lissage
     return adjusted_c1_gamma
 
 def smooth_gamma_transition(current_gamma, previous_gamma, smoothing_factor=gamma_smoothing_factor):

@@ -1,1 +1,31 @@
 \subsection{Commande événementielle prédictive}
+
+La commande événementielle prédictive a pour objectif de limiter les échanges d'informations entre les robots. Ici, chaque robot a besoin de la position de ses voisins pour calculer sa commande. Ainsi, la logique de la commande événementielle prédictive est la suivante : chaque robot prédit la position de ses voisins à partir de leur dernière position publiée et de leur vitesse. Une nouvelle position n'est publiée que si l'erreur de prédiction dépasse un certain seuil.
+
+Chaque robot utilise la même méthode de prédiction pour ses voisins : il estime leur position actuelle en ajoutant à leur dernière position publiée le produit de leur vitesse et du temps écoulé. De plus, chaque robot connaît sa propre position réelle (mesurée) et sa position prédite (calculée comme pour ses voisins). Il peut donc comparer ces deux valeurs et déterminer précisément quand la prédiction devient trop imprécise, ce qui déclenche la publication de sa vraie position. 
+
+\underline{Note :} Chaque robot publie désormais à la fois sa position et sa vitesse. Chacun doit disposer des mêmes informations pour effectuer les mêmes calculs de prédiction. Ce choix implique que, lors de chaque publication, la quantité d'information échangée est doublée (position et vitesse), mais l'objectif est de réduire fortement la fréquence de ces publications, ce qui permet théoriquement de diminuer la charge globale de communication.
+La formule de la prédiction de position pour le robot $i$ est :
+\begin{align*}
+    \hat{\mathbf{p}}_i = \mathbf{p}_i^{\,\text{pub}} + \mathbf{v}_i \cdot (t_{\text{actuel}} - t_{\text{pub}})
+\end{align*}
+où $\mathbf{p}_i^{\,\text{pub}}$ est la dernière position publiée, $\mathbf{v}_i$ est la dernière vitesse publiée par le robot (et non une vitesse estimée), et $t_{\text{actuel}} - t_{\text{pub}}$ le temps écoulé depuis la dernière publication.
+
+La condition de publication d'une nouvelle position pour le robot $i$ est la suivante : si l'écart entre la position réelle $\mathbf{p}_i$ et la position estimée $\hat{\mathbf{p}}_i$ (calculée à partir de la dernière position publiée et de la vitesse) dépasse un seuil $\delta_p$, alors le robot publie sa nouvelle position :
+    \begin{align*}
+        \|\mathbf{p}_i - \hat{\mathbf{p}}_i\| > \delta_p
+    \end{align*}
+Avec $\delta_p$ le seuil d'erreur de prédiction de position
+
+\vspace{0.5em}
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        \textbf{Symbole} & \textbf{Description} & \textbf{Valeur numérique} \\
+        \hline
+        $\delta_p$ & Erreur de prédiction de position & $0{,}05$ m \\
+        \hline
+    \end{tabular}
+    \caption{Seuil utilisé pour la commande prédictive}
+\end{table}

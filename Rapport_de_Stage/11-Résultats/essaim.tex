@@ -1,6 +1,6 @@
 \section{Algorithme classique}
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
     \begin{minipage}{0.48\textwidth}
         \centering
@@ -17,7 +17,7 @@
 \end{figure}
 \underline{Note :} Dans l'aglorithme, il est considéré que l'essaim ait atteint sa destination si il est à 5cm du point-cible, expliquant ainsi les légères différences avec la trajectoire réelle tracée en bleue sur la Figure \ref{fig:essaim_trajectory}.
 
-\begin{figure}[h]
+\begin{figure}[H]
     \vspace{-1cm}
     \centering
     \includegraphics[width=0.8\textwidth]{11-Résultats/pic/classic/distance.pdf}
@@ -26,13 +26,11 @@
     \label{fig:inter_distances_classic}
     
 \end{figure}
-Les lignes verticales en pointillés représentent l'arrivée de l'essaim à un point cible.
-
 Les résultats obtenus sont très satisfaisants, la formation et les interdistances sont maintenus tout au long du parcours.
 
 Il est possible de tester la robustesse de l'algorithme en créant manuellement une perturbation. Pour cela, un robot (ici Athos) est déplacé à la main durant l'expérience de sorte à créer une erreur dans les inter-distances à maintenir.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
     \centering
     \begin{minipage}{0.48\textwidth}
         \centering
@@ -48,4 +46,4 @@ Il est possible de tester la robustesse de l'algorithme en créant manuellement 
     \end{minipage}
 \end{figure}
 
-L'algorithme met environ 25 secondes pour corriger la perturbation, ce qui est relativement long. Cependant, il est important de noter que l'algorithme parvient à rétablir la formation et les inter-distances initiales, ce qui est un point positif.
+L'algorithme met environ 30 secondes pour corriger la perturbation, ce qui est relativement long. Cependant, il est important de noter que l'algorithme parvient à rétablir la formation et les inter-distances initiales, ce qui est un point positif.

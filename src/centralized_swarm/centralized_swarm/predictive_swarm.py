@@ -21,6 +21,8 @@ Stratégie: Chaque robot prédit la position de ses voisins basée sur leur vite
 et ne met à jour sa position publiée que lorsque l'erreur de prédiction dépasse un seuil.
 '''
 
+CHOICE = False  # True: distances mesurées au lancement, False: distance fixe commune
+FIXED_DISTANCE = 0.5  # Distance fixe en mètres utilisée si CHOICE est False
 GLOBAL_FRAME = "mocap"
 
 class PredictiveSwarmController(Node):
@@ -555,16 +557,20 @@ class PredictiveSwarmController(Node):
         # Calculer les distances initiales entre robots
         for i in range(len(ALL_ROBOT_NAMES)):
             for j in range(i+1, len(ALL_ROBOT_NAMES)):
-                pos_i = positions_for_formation[i]
-                pos_j = positions_for_formation[j]
-                
-                dist = math.sqrt((pos_i['x'] - pos_j['x'])**2 + (pos_i['y'] - pos_j['y'])**2)
+                if CHOICE:
+                    pos_i = positions_for_formation[i]
+                    pos_j = positions_for_formation[j]
+                    dist = math.sqrt((pos_i['x'] - pos_j['x'])**2 + (pos_i['y'] - pos_j['y'])**2)
+                else:
+                    dist = FIXED_DISTANCE
                 
                 self.desired_distances[(i, j)] = dist
                 self.desired_distances[(j, i)] = dist
         
         self.formation_initialized = True
+        mode_str = "mesurées" if CHOICE else f"fixes ({FIXED_DISTANCE}m)"
         self.get_logger().info(f"Desired formation set using predictive positions: {self.desired_formation}")
+        self.get_logger().info(f"Distances inter-robots ({mode_str}): {self.desired_distances}")
 
     def compute_swarm_center(self):
         """Calcule le centre de masse de l'essaim en utilisant les positions prédites"""
