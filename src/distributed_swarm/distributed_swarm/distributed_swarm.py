@@ -48,8 +48,8 @@ class DistributedSwarm2Controller(Node):
         #   Initialisation TF2        #
         #-----------------------------#
         tf_qos = QoSProfile(
-            reliability=ReliabilityPolicy.RELIABLE,
-            depth=10
+            reliability=ReliabilityPolicy.BEST_EFFORT,  
+            depth=1  # Reduced queue size to minimum
         )
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self, qos=tf_qos)
