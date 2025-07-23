@@ -50,7 +50,7 @@ class DistributedSwarm2Controller(Node):
         
         # Déterminer le nom du robot à partir du hostname
         hostname = socket.gethostname().lower()
-        hostname='aramis-desktop'  # Forcing the robot name for testing purposes
+        #hostname='aramis-desktop'  # Forcing the robot name for testing purposes
         if hostname.endswith('-desktop'):
             hostname = hostname[:-8]
         self.robot_name = hostname[:1].upper() + hostname[1:]
