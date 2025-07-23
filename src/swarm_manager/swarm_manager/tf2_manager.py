@@ -60,7 +60,7 @@ class TF2Manager(Node):
 
         self.get_logger().info("TF2 Manager prêt. Souscrit aux topics VRPN et publie les transformations TF2.")
 
-        self.create_timer(0.05, self.publish_barycenter_tf)  # 20 Hz
+        self.create_timer(0.05, self.publish_all_tf)  # 20 Hz
 
     def set_formation_initializer(self, formation_initializer):
         """Définir la référence à l'initialisateur de formation pour l'intégration"""
@@ -77,44 +77,43 @@ class TF2Manager(Node):
     def pose_callback(self, msg, robot_name):
         self.pose_data[robot_name] = msg
 
-        transform = TransformStamped()
-        # Use the current time for the transform header
-        transform.header.stamp = self.get_clock().now().to_msg()
-        transform.header.frame_id = GLOBAL_FRAME
-        transform.child_frame_id = f"{robot_name}/base_link"
-        transform.transform.translation.x = msg.pose.position.x
-        transform.transform.translation.y = msg.pose.position.y
-        transform.transform.translation.z = msg.pose.position.z
-        transform.transform.rotation.x = msg.pose.orientation.x
-        transform.transform.rotation.y = msg.pose.orientation.y
-        transform.transform.rotation.z = msg.pose.orientation.z
-        transform.transform.rotation.w = msg.pose.orientation.w
-
-        self.tf_broadcaster.sendTransform(transform)
-        self.get_logger().debug(f"Published TF2: {GLOBAL_FRAME} -> {robot_name}/base_link at ({msg.pose.position.x:.3f}, {msg.pose.position.y:.3f})")
-
-    def publish_barycenter_tf(self):
-        if not all(self.pose_data[name] is not None for name in ALL_ROBOT_NAMES):
-            return
-
-        x = sum(self.pose_data[name].pose.position.x for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
-        y = sum(self.pose_data[name].pose.position.y for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
-        z = sum(self.pose_data[name].pose.position.z for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
-
-        transform = TransformStamped()
-        # Use the current time for the transform header
-        transform.header.stamp = self.get_clock().now().to_msg()
-        transform.header.frame_id = GLOBAL_FRAME
-        transform.child_frame_id = "barycenter"
-        transform.transform.translation.x = x
-        transform.transform.translation.y = y
-        transform.transform.translation.z = z
-        transform.transform.rotation.x = self.barycenter_orientation[0]
-        transform.transform.rotation.y = self.barycenter_orientation[1]
-        transform.transform.rotation.z = self.barycenter_orientation[2]
-        transform.transform.rotation.w = self.barycenter_orientation[3]
-
-        self.tf_broadcaster.sendTransform(transform)
+    def publish_all_tf(self):
+        # Regroupe tous les TF2 pour chaque robot à 20 Hz dans un seul message
+        transforms = []
+        for name, pose_msg in self.pose_data.items():
+            if pose_msg is not None:
+                transform = TransformStamped()
+                transform.header.stamp = self.get_clock().now().to_msg()
+                transform.header.frame_id = GLOBAL_FRAME
+                transform.child_frame_id = f"{name}/base_link"
+                transform.transform.translation.x = pose_msg.pose.position.x
+                transform.transform.translation.y = pose_msg.pose.position.y
+                transform.transform.translation.z = pose_msg.pose.position.z
+                transform.transform.rotation.x = pose_msg.pose.orientation.x
+                transform.transform.rotation.y = pose_msg.pose.orientation.y
+                transform.transform.rotation.z = pose_msg.pose.orientation.z
+                transform.transform.rotation.w = pose_msg.pose.orientation.w
+                transforms.append(transform)
+        # Ajoute aussi le barycentre si toutes les positions sont connues
+        if all(self.pose_data[name] is not None for name in ALL_ROBOT_NAMES):
+            x = sum(self.pose_data[name].pose.position.x for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
+            y = sum(self.pose_data[name].pose.position.y for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
+            z = sum(self.pose_data[name].pose.position.z for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
+            bary_transform = TransformStamped()
+            bary_transform.header.stamp = self.get_clock().now().to_msg()
+            bary_transform.header.frame_id = GLOBAL_FRAME
+            bary_transform.child_frame_id = "barycenter"
+            bary_transform.transform.translation.x = x
+            bary_transform.transform.translation.y = y
+            bary_transform.transform.translation.z = z
+            bary_transform.transform.rotation.x = self.barycenter_orientation[0]
+            bary_transform.transform.rotation.y = self.barycenter_orientation[1]
+            bary_transform.transform.rotation.z = self.barycenter_orientation[2]
+            bary_transform.transform.rotation.w = self.barycenter_orientation[3]
+            transforms.append(bary_transform)
+        # Publie tous les TF2 d'un coup
+        if transforms:
+            self.tf_broadcaster.sendTransform(transforms)
 
     def set_barycenter_orientation(self, x, y, z, w):
         self.barycenter_orientation = [x, y, z, w]

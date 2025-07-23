@@ -13,6 +13,7 @@ import socket
 import numpy as np
 from swarm_manager.formules import *
 from swarm_manager.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
+from rclpy.qos import QoSProfile, ReliabilityPolicy  # Ajouté
 
 #-----------------------------#
 #   Paramètres globaux        #
@@ -46,8 +47,12 @@ class DistributedSwarm2Controller(Node):
         #-----------------------------#
         #   Initialisation TF2        #
         #-----------------------------#
+        tf_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            depth=10
+        )
         self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self, qos=tf_qos)
 
         #-----------------------------#
         #   Publishers ROS2           #
