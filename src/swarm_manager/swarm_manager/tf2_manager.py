@@ -40,6 +40,13 @@ class TF2Manager(Node):
         # Add formation initializer reference (optional integration)
         self.formation_initializer = None
 
+        # Publisher pour le barycentre au format VRPN (triche pour les robots)
+        self.barycenter_vrpn_publisher = self.create_publisher(
+            PoseStamped,
+            "/vrpn_mocap/Barycenter/pose",
+            qos_profile
+        )
+
         for name in ALL_ROBOT_NAMES:
             topic = f"/vrpn_mocap/{name}/pose"
             self.create_subscription(
@@ -58,7 +65,7 @@ class TF2Manager(Node):
             qos_profile
         )
 
-        self.get_logger().info("TF2 Manager prêt. Souscrit aux topics VRPN et publie les transformations TF2.")
+        self.get_logger().info("TF2 Manager prêt. Souscrit aux topics VRPN et publie les transformations TF2 + barycentre VRPN.")
 
         self.create_timer(0.05, self.publish_all_tf)  # 20 Hz
 
@@ -94,11 +101,13 @@ class TF2Manager(Node):
                 transform.transform.rotation.z = pose_msg.pose.orientation.z
                 transform.transform.rotation.w = pose_msg.pose.orientation.w
                 transforms.append(transform)
-        # Ajoute aussi le barycentre si toutes les positions sont connues
+        # Calcul et publication du barycentre
         if all(self.pose_data[name] is not None for name in ALL_ROBOT_NAMES):
             x = sum(self.pose_data[name].pose.position.x for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
             y = sum(self.pose_data[name].pose.position.y for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
             z = sum(self.pose_data[name].pose.position.z for name in ALL_ROBOT_NAMES) / len(ALL_ROBOT_NAMES)
+            
+            # Publication TF2 du barycentre (pour visualisation)
             bary_transform = TransformStamped()
             bary_transform.header.stamp = self.get_clock().now().to_msg()
             bary_transform.header.frame_id = GLOBAL_FRAME
@@ -111,6 +120,22 @@ class TF2Manager(Node):
             bary_transform.transform.rotation.z = self.barycenter_orientation[2]
             bary_transform.transform.rotation.w = self.barycenter_orientation[3]
             transforms.append(bary_transform)
+            
+            # Publication VRPN du barycentre (triche pour les robots)
+            barycenter_pose_msg = PoseStamped()
+            barycenter_pose_msg.header.stamp = self.get_clock().now().to_msg()
+            barycenter_pose_msg.header.frame_id = GLOBAL_FRAME
+            barycenter_pose_msg.pose.position.x = x
+            barycenter_pose_msg.pose.position.y = y
+            barycenter_pose_msg.pose.position.z = z
+            barycenter_pose_msg.pose.orientation.x = self.barycenter_orientation[0]
+            barycenter_pose_msg.pose.orientation.y = self.barycenter_orientation[1]
+            barycenter_pose_msg.pose.orientation.z = self.barycenter_orientation[2]
+            barycenter_pose_msg.pose.orientation.w = self.barycenter_orientation[3]
+            
+            self.barycenter_vrpn_publisher.publish(barycenter_pose_msg)
+            self.get_logger().debug(f"Published barycenter VRPN: X:{x:.3f}, Y:{y:.3f}")
+        
         # Publie tous les TF2 d'un coup
         if transforms:
             self.tf_broadcaster.sendTransform(transforms)

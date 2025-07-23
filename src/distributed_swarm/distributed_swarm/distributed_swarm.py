@@ -2,18 +2,14 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point
+from geometry_msgs.msg import Twist, Point, PoseStamped
 from std_msgs.msg import Int32, Float64MultiArray
 import math
-import tf2_ros
-from geometry_msgs.msg import TransformStamped, Vector3Stamped
-import tf2_geometry_msgs
-from tf2_ros import TransformException
 import socket
 import numpy as np
 from swarm_manager.formules import *
 from swarm_manager.config import ALL_ROBOT_NAMES, ROBOT_NEIGHBORS
-from rclpy.qos import QoSProfile, ReliabilityPolicy  # Ajouté
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 
 #-----------------------------#
 #   Paramètres globaux        #
@@ -21,6 +17,29 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy  # Ajouté
 GLOBAL_FRAME = "mocap"
 FIXED_DISTANCE = 0.5
 CHOICE = False  # True: distances mesurées, False: distance fixe
+
+# QoS optimisé pour VRPN
+vrpn_qos = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    depth=1
+)
+
+def quaternion_to_yaw(x, y, z, w):
+    """Extrait l'angle yaw d'un quaternion"""
+    siny_cosp = 2.0 * (w * z + x * y)
+    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+    return math.atan2(siny_cosp, cosy_cosp)
+
+def transform_velocity_manual(global_vx, global_vy, robot_yaw):
+    """Transforme une vitesse du repère global vers le repère robot"""
+    cos_yaw = math.cos(robot_yaw)
+    sin_yaw = math.sin(robot_yaw)
+    
+    # Matrice de rotation inverse (global -> robot)
+    robot_vx = cos_yaw * global_vx + sin_yaw * global_vy
+    robot_vy = -sin_yaw * global_vx + cos_yaw * global_vy
+    
+    return robot_vx, robot_vy
 
 class DistributedSwarm2Controller(Node):
     """
@@ -31,7 +50,7 @@ class DistributedSwarm2Controller(Node):
         
         # Déterminer le nom du robot à partir du hostname
         hostname = socket.gethostname().lower()
-        #hostname='aramis-desktop'  # Forcing the robot name for testing purposes
+        hostname='aramis-desktop'  # Forcing the robot name for testing purposes
         if hostname.endswith('-desktop'):
             hostname = hostname[:-8]
         self.robot_name = hostname[:1].upper() + hostname[1:]
@@ -44,15 +63,47 @@ class DistributedSwarm2Controller(Node):
         )
         self.get_logger().info(f"Starting distributed swarm2 controller for robot: {self.robot_name}")
 
+        # Configuration statique des voisins
+        self.neighbors_names = ROBOT_NEIGHBORS.get(self.robot_name, [])
+        if not self.neighbors_names:
+            # Fallback: tous les autres robots si pas de voisins définis
+            self.neighbors_names = [r for r in ALL_ROBOT_NAMES if r != self.robot_name]
+        
+        self.get_logger().info(f"Robot {self.robot_name} neighbors (static): {self.neighbors_names}")
+        
         #-----------------------------#
-        #   Initialisation TF2        #
+        #    VRPN Subscriptions       #
         #-----------------------------#
-        tf_qos = QoSProfile(
-            reliability=ReliabilityPolicy.BEST_EFFORT,  
-            depth=1  # Reduced queue size to minimum
+        
+        # Subscribe to own robot's VRPN pose
+        self.create_subscription(
+            PoseStamped,
+            f"/vrpn_mocap/{self.robot_name}/pose",
+            self.my_pose_callback,
+            vrpn_qos
         )
-        self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self, qos=tf_qos)
+        
+        # Subscribe to global barycenter from tf2_manager (triche!)
+        self.global_barycenter_position = None
+        self.create_subscription(
+            PoseStamped,
+            "/vrpn_mocap/Barycenter/pose",
+            self.barycenter_callback,
+            vrpn_qos
+        )
+        self.get_logger().info("Subscribed to global barycenter at /vrpn_mocap/Barycenter/pose")
+        
+        # Subscribe ONLY to neighbors' VRPN poses (static configuration)
+        self.other_robot_poses = {}
+        for name in self.neighbors_names:
+            self.create_subscription(
+                PoseStamped,
+                f"/vrpn_mocap/{name}/pose",
+                lambda msg, robot_name=name: self.other_robot_pose_callback(msg, robot_name),
+                vrpn_qos
+            )
+            self.other_robot_poses[name] = None
+            self.get_logger().info(f"Subscribed to /vrpn_mocap/{name}/pose")
 
         #-----------------------------#
         #   Publishers ROS2           #
@@ -77,23 +128,14 @@ class DistributedSwarm2Controller(Node):
         self.create_subscription(Point, "/goal_point", self.goal_point_callback, 10)
         self.create_subscription(Int32, "/formation", self.formation_callback, 10)
 
-        # Souscription aux positions des autres robots (uniquement pour debug ou fallback)
-        self.robot_positions = {}
-        for name in ALL_ROBOT_NAMES:
-            if name != self.robot_name:
-                self.create_subscription(
-                    Point, f"/{name}/robot_positions",
-                    lambda msg, robot_name=name: self.robot_position_callback(msg, robot_name),
-                    10
-                )
-                self.robot_positions[name] = None
-
         #-----------------------------#
         #   Variables d'état          #
         #-----------------------------#
-        self.active = False  # Contrôle actif ou non
-        self.my_position = {'x': 0.0, 'y': 0.0}  # Position courante du robot
-        self.other_robot_positions = {}  # Positions des autres robots
+        self.active = False
+        self.my_pose = None  # PoseStamped from VRPN
+        self.my_position = {'x': 0.0, 'y': 0.0}
+        self.my_yaw = 0.0  # Robot orientation
+        self.other_robot_positions = {}
         self.goal_point = (0.0, 0.0)  # Objectif global
         self.goal_point_set = False  # Indique si un goal a été reçu
         self.formation_initialized = False  # Formation initialisée ou non
@@ -106,33 +148,40 @@ class DistributedSwarm2Controller(Node):
         self.target_tolerance = 0.08  # Tolérance pour considérer la cible atteinte
         self.is_target_reached_state = False  # Statut d'atteinte de la cible
 
-        # Voisins du robot (chargés dynamiquement)
-        self.robot_neighbors = ROBOT_NEIGHBORS
-
         #-----------------------------#
         #   Timers ROS2               #
         #-----------------------------#
-        self.create_timer(2.0, self.reload_neighbor_config)  # Reload config voisins
         self.create_timer(self.dt, self.timer_callback)      # Boucle principale
+
+    #-----------------------------#
+    #   VRPN Pose Callbacks       #
+    #-----------------------------#
+    
+    def my_pose_callback(self, msg):
+        """Callback pour la pose de ce robot depuis VRPN"""
+        self.my_pose = msg
+        pos = msg.pose.position
+        self.my_position = {'x': pos.x, 'y': pos.y}
+        
+        # Extract yaw angle for velocity transformation
+        quat = msg.pose.orientation
+        self.my_yaw = quaternion_to_yaw(quat.x, quat.y, quat.z, quat.w)
+
+    def other_robot_pose_callback(self, msg, robot_name):
+        """Callback pour la pose d'un voisin depuis VRPN (configuration statique)"""
+        self.other_robot_poses[robot_name] = msg
+        pos = msg.pose.position
+        self.other_robot_positions[robot_name] = {'x': pos.x, 'y': pos.y}
+
+    def barycenter_callback(self, msg):
+        """Callback pour le barycentre global depuis tf2_manager"""
+        pos = msg.pose.position
+        self.global_barycenter_position = {'x': pos.x, 'y': pos.y}
+        self.get_logger().debug(f"Received global barycenter: X:{pos.x:.3f}, Y:{pos.y:.3f}")
 
     #-----------------------------#
     #   Callbacks ROS2            #
     #-----------------------------#
-    def reload_neighbor_config(self):
-        """
-        Recharge la configuration des voisins depuis le fichier YAML.
-        """
-        try:
-            import importlib
-            import swarm_manager.config
-            importlib.reload(swarm_manager.config)
-            from swarm_manager.config import ROBOT_NEIGHBORS
-            self.robot_neighbors = ROBOT_NEIGHBORS
-            self.get_logger().info(f"Configuration des voisins rechargée: {self.robot_neighbors}")
-        except Exception as e:
-            self.get_logger().warn(f"Impossible de recharger la configuration des voisins: {e}")
-            self.robot_neighbors = {robot: [r for r in ALL_ROBOT_NAMES if r != robot] for robot in ALL_ROBOT_NAMES}
-
     def master_callback(self, msg):
         """
         Active ou désactive le contrôle selon la commande reçue sur /master.
@@ -162,12 +211,6 @@ class DistributedSwarm2Controller(Node):
         self.get_logger().info("Received formation reset command, re-initializing formation.")
         self.formation_initialized = False
         self.initialize_formation()
-
-    def robot_position_callback(self, msg, robot_name):
-        """
-        Met à jour la position d'un autre robot reçue via topic.
-        """
-        self.robot_positions[robot_name] = {'x': msg.x, 'y': msg.y}
 
     #-----------------------------#
     #   Boucle principale         #
@@ -202,16 +245,12 @@ class DistributedSwarm2Controller(Node):
     #-----------------------------#
     def update_my_position(self):
         """
-        Met à jour la position du robot courant via TF2.
+        Position déjà mise à jour via callback VRPN - pas besoin de TF2
         """
-        try:
-            trans = self.tf_buffer.lookup_transform(
-                GLOBAL_FRAME, f"{self.robot_name}/base_link", rclpy.time.Time()
-            )
-            pos = trans.transform.translation
-            self.my_position = {'x': pos.x, 'y': pos.y}
-        except Exception as e:
-            self.get_logger().warn(f"Échec TF2 pour {self.robot_name}: {e}")
+        if self.my_pose is None:
+            self.get_logger().warn(f"Pas de pose VRPN reçue pour {self.robot_name}")
+            return
+        # Position already updated in callback
 
     def publish_my_position(self):
         """
@@ -225,40 +264,24 @@ class DistributedSwarm2Controller(Node):
 
     def update_other_robot_positions(self):
         """
-        Met à jour les positions des voisins via TF2 ou via les topics.
+        Positions déjà mises à jour via callbacks VRPN - configuration statique
         """
-        # Récupérer la liste des voisins depuis la config
-        neighbors_names = self.robot_neighbors.get(self.robot_name, [])
-        if not neighbors_names:
-            neighbors_names = [r for r in ALL_ROBOT_NAMES if r != self.robot_name]
-        for robot_name in neighbors_names:
-            position_updated = False
-            try:
-                trans = self.tf_buffer.lookup_transform(
-                    GLOBAL_FRAME, f"{robot_name}/base_link", rclpy.time.Time(),
-                    timeout=rclpy.duration.Duration(seconds=0.1)
-                )
-                pos = trans.transform.translation
-                self.other_robot_positions[robot_name] = {'x': pos.x, 'y': pos.y}
-                position_updated = True
-            except Exception:
-                pass
-            if not position_updated:
-                if robot_name in self.robot_positions and self.robot_positions[robot_name] is not None:
-                    self.other_robot_positions[robot_name] = self.robot_positions[robot_name]
-                else:
-                    self.other_robot_positions[robot_name] = None
+        # Positions already updated in callbacks
+        # Initialize positions dict for neighbors if not exists
+        for robot_name in self.neighbors_names:
+            if robot_name not in self.other_robot_positions:
+                self.other_robot_positions[robot_name] = None
 
     def all_positions_available(self):
         """
-        Vérifie si toutes les positions nécessaires sont connues (seulement pour les voisins).
+        Vérifie si toutes les positions des voisins sont connues (configuration statique).
         """
+        if self.my_pose is None:
+            return False
         if abs(self.my_position['x']) < 0.001 and abs(self.my_position['y']) < 0.001:
             return False
-        neighbors_names = self.robot_neighbors.get(self.robot_name, [])
-        if not neighbors_names:
-            neighbors_names = [r for r in ALL_ROBOT_NAMES if r != self.robot_name]
-        for name in neighbors_names:
+        
+        for name in self.neighbors_names:
             if name not in self.other_robot_positions or self.other_robot_positions[name] is None:
                 return False
         return True
@@ -279,10 +302,9 @@ class DistributedSwarm2Controller(Node):
             self.my_position['y'] - initial_barycenter[1]
         ])
         self.get_logger().info(f"Vecteur relatif initial calculé: {self.initial_relative_vector}")
-        neighbors_names = self.robot_neighbors.get(self.robot_name, [])
-        if not neighbors_names:
-            neighbors_names = [r for r in ALL_ROBOT_NAMES if r != self.robot_name]
-        for neighbor_name in neighbors_names:
+        
+        # Configuration statique des voisins
+        for neighbor_name in self.neighbors_names:
             if neighbor_name in self.other_robot_positions and self.other_robot_positions[neighbor_name] is not None:
                 other_pos = self.other_robot_positions[neighbor_name]
                 dist = math.sqrt(
@@ -299,26 +321,28 @@ class DistributedSwarm2Controller(Node):
 
     def compute_swarm_center(self):
         """
-        Calcule le barycentre de l'essaim (ou l'estime si TF2 barycenter indisponible).
-        Utilise uniquement la position du robot et de ses voisins.
+        Calcule le barycentre de l'essaim.
+        Utilise le barycentre global si disponible, sinon barycentre local.
         """
-        try:
-            trans = self.tf_buffer.lookup_transform(
-                GLOBAL_FRAME, f"barycenter", rclpy.time.Time()
-            )
-            pos = trans.transform.translation
-            return [pos.x, pos.y]
-        except Exception:
-            neighbors_names = self.robot_neighbors.get(self.robot_name, [])
-            if not neighbors_names:
-                neighbors_names = [r for r in ALL_ROBOT_NAMES if r != self.robot_name]
-            all_positions = [self.my_position] + [self.other_robot_positions[n] for n in neighbors_names if n in self.other_robot_positions and self.other_robot_positions[n] is not None]
-            if not all_positions:
-                return [self.my_position['x'], self.my_position['y']]
-            total_x = sum(pos['x'] for pos in all_positions)
-            total_y = sum(pos['y'] for pos in all_positions)
-            count = len(all_positions)
-            return [total_x / count, total_y / count]
+        # Priorité 1: Barycentre global depuis tf2_manager
+        if self.global_barycenter_position is not None:
+            self.get_logger().debug("Using global barycenter from tf2_manager")
+            return [self.global_barycenter_position['x'], self.global_barycenter_position['y']]
+        
+        # Fallback: Barycentre local (robot + voisins)
+        self.get_logger().debug("Using local barycenter (robot + neighbors)")
+        all_positions = [self.my_position]
+        for name in self.neighbors_names:
+            if name in self.other_robot_positions and self.other_robot_positions[name] is not None:
+                all_positions.append(self.other_robot_positions[name])
+        
+        if not all_positions:
+            return [self.my_position['x'], self.my_position['y']]
+        
+        total_x = sum(pos['x'] for pos in all_positions)
+        total_y = sum(pos['y'] for pos in all_positions)
+        count = len(all_positions)
+        return [total_x / count, total_y / count]
 
     #-----------------------------#
     #   Contrôle de consensus     #
@@ -326,27 +350,19 @@ class DistributedSwarm2Controller(Node):
     def transform_velocity(self, global_lin_x, global_lin_y):
         """
         Transforme une vitesse du repère global vers le repère du robot.
+        Utilise la transformation manuelle au lieu de TF2.
         """
         try:
             global_lin_x = float(global_lin_x)
             global_lin_y = float(global_lin_y)
-            global_vel = Vector3Stamped()
-            global_vel.header.frame_id = GLOBAL_FRAME
-            global_vel.header.stamp = self.get_clock().now().to_msg()
-            global_vel.vector.x = global_lin_x
-            global_vel.vector.y = global_lin_y
-            global_vel.vector.z = 0.0
-            try:
-                robot_frame_id = f"{self.robot_name}/base_link"
-                transform = self.tf_buffer.lookup_transform(
-                    robot_frame_id, GLOBAL_FRAME, rclpy.time.Time(),
-                    timeout=rclpy.duration.Duration(seconds=0.1)
-                )
-                robot_vel = tf2_geometry_msgs.do_transform_vector3(global_vel, transform)
-                return robot_vel.vector.x, robot_vel.vector.y
-            except TransformException as ex:
-                self.get_logger().error(f'Échec de la transformation TF2: {ex}')
-                return global_lin_x, global_lin_y
+            
+            # Use manual transformation instead of TF2
+            robot_lin_x, robot_lin_y = transform_velocity_manual(
+                global_lin_x, global_lin_y, self.my_yaw
+            )
+            
+            return robot_lin_x, robot_lin_y
+            
         except Exception as e:
             self.get_logger().error(f'Erreur de transformation: {e}')
             return global_lin_x, global_lin_y
@@ -360,13 +376,12 @@ class DistributedSwarm2Controller(Node):
         global_goal = np.array(self.goal_point)
         pr = global_goal + self.initial_relative_vector
         pi = np.array([self.my_position['x'], self.my_position['y']])
-        neighbors_names = self.robot_neighbors.get(self.robot_name, [])
-        if not neighbors_names:
-            neighbors_names = [r for r in ALL_ROBOT_NAMES if r != self.robot_name]
+        
+        # Utiliser les voisins statiques
         pj_array = []
         dij_list = []
         distance_info = []
-        for neighbor_name in neighbors_names:
+        for neighbor_name in self.neighbors_names:
             if neighbor_name in self.other_robot_positions and self.other_robot_positions[neighbor_name] is not None:
                 other_pos = self.other_robot_positions[neighbor_name]
                 pj = np.array([other_pos['x'], other_pos['y']])
@@ -377,9 +392,11 @@ class DistributedSwarm2Controller(Node):
                     dij = current_distance
                 dij_list.append(dij)
                 distance_info.append(f"{neighbor_name}: actuelle={current_distance:.3f}m, désirée={dij:.3f}m")
+        
         if distance_info:
             distances_str = ", ".join(distance_info)
             self.get_logger().info(f"Robot {self.robot_name} - Distances: {distances_str}")
+        
         if not pj_array:
             # Si aucun voisin, aller simplement vers le point cible individuel
             control_vector = -(c1_gamma * (pi - pr))
@@ -387,7 +404,7 @@ class DistributedSwarm2Controller(Node):
             self.derivative_term = None
             ui_alpha = np.array([0.0, 0.0])
             ui_gamma = control_vector
-            self.previous_gamma = ui_gamma  # Met à jour previous_gamma même dans ce cas
+            self.previous_gamma = ui_gamma
         else:
             # Contrôle avec prise en compte des voisins
             try:
@@ -452,7 +469,7 @@ class DistributedSwarm2Controller(Node):
         # Publier la commande de vitesse
         self.cmd_vel_publisher.publish(twist_msg)
         self.get_logger().info(
-            f"Robot {self.robot_name} (voisins: {len(neighbors_names)}): Global:{control_vector[0]:.3f},{control_vector[1]:.3f} -> Robot:{twist_msg.linear.x:.3f},{twist_msg.linear.y:.3f}"
+            f"Robot {self.robot_name} (voisins: {len(self.neighbors_names)}): Global:{control_vector[0]:.3f},{control_vector[1]:.3f} -> Robot:{twist_msg.linear.x:.3f},{twist_msg.linear.y:.3f}"
         )
 
     def is_robot_target_reached(self, robot_pos, target_pos):
