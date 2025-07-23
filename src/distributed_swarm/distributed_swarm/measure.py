@@ -16,7 +16,10 @@ class CpuRamUsagePublisher(Node):
         if hostname.endswith('-desktop'):
             hostname = hostname[:-8]
         self.robot_name = hostname[:1].upper() + hostname[1:]
-        super().__init__(f'{self.robot_name}/monitor')
+        super().__init__(
+            'monitor',
+            namespace=f'/{self.robot_name}'
+        )
         self.cpu_publisher = self.create_publisher(
             Float32, f"/{self.robot_name}/cpu_usage", 10
         )

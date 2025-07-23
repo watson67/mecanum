@@ -27,6 +27,7 @@ class DistributedSwarm2Controller(Node):
     Chaque robot exécute ce code et ne contrôle que son propre mouvement.
     """
     def __init__(self):
+        
         # Déterminer le nom du robot à partir du hostname
         hostname = socket.gethostname().lower()
         if hostname.endswith('-desktop'):
@@ -35,7 +36,10 @@ class DistributedSwarm2Controller(Node):
         if self.robot_name not in ALL_ROBOT_NAMES:
             print(f"Warning: Robot name '{self.robot_name}' not in known robot list {ALL_ROBOT_NAMES}")
             self.robot_name = "Unknown"
-        super().__init__(f'{self.robot_name}/distributed_swarm_controller')
+        super().__init__(
+            'distributed_swarm_controller',
+            namespace=f'/{self.robot_name}'
+        )
         self.get_logger().info(f"Starting distributed swarm2 controller for robot: {self.robot_name}")
 
         #-----------------------------#
