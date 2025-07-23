@@ -19,7 +19,6 @@ setup(
     maintainer_email='augustin.bonnel@insa-strasbourg.fr',
     description='TODO: Package description',
     license='TODO: License declaration',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'tf2_manager = mecanum_swarm.tf2_manager:main',

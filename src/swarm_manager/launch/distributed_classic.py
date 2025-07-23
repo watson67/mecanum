@@ -12,12 +12,12 @@ def generate_launch_description():
 
     return LaunchDescription([
         # Publie les repères de transformation TF2 pour chaque robot
-        Node(
-            package='swarm_manager',
-            executable='distributed_tf2_manager',
-            name=f'distributed_tf2_manager_{robot_name.lower()}',
-            output='screen'
-        ),
+        #Node(
+        #    package='swarm_manager',
+        #    executable='distributed_tf2_manager',
+        #    name=f'distributed_tf2_manager_{robot_name.lower()}',
+        #    output='screen'
+        #),
         
         # Responsable du contrôle du swarm distribué
         Node(
@@ -26,4 +26,13 @@ def generate_launch_description():
             name=f'distributed_swarm_controller_{robot_name.lower()}',
             output='screen'
         ),
+         # Mesure CPU/RAM
+        Node(
+            package='distributed_swarm',
+            executable='measure_cpu_ram',
+            name=f'measure_{robot_name.lower()}',
+            output='screen'
+        ),
+
+        
     ])

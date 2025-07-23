@@ -17,7 +17,6 @@ setup(
     maintainer_email='augustin.bonnel@insa-strasbourg.fr',
     description='TODO: Package description',
     license='TODO: License declaration',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'cmd_vel_rate_logger = logger.cmd_vel_rate_logger:main',
@@ -26,6 +25,7 @@ setup(
             'goal_point_logger = logger.goal_point_logger:main',
             'event_logger = logger.event:main',
             'predictive_logger = logger.predictive_logger:main',
+            'cpu_usage_publisher = logger.cpu_usage_publisher:main',
         ],
     },
 )

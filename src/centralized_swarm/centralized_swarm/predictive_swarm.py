@@ -325,10 +325,6 @@ class PredictiveSwarmController(Node):
         """Déterminer si un robot doit publier sa position"""
         current_time = time.time()
         
-        # Respecter l'intervalle minimum entre publications
-        if current_time - self.last_publish_time[robot_index] < self.min_publish_interval:
-            return False
-        
         # Première publication - toujours publier
         if self.last_publish_time[robot_index] == 0.0:
             return True

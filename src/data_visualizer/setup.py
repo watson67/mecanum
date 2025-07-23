@@ -20,7 +20,6 @@ setup(
     maintainer_email='augustin.bonnel@insa-strasbourg.fr',
     description='Real-time visualization of robot positions and trajectories',
     license='TODO: License declaration',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'visualizer = data_visualizer.app:main',

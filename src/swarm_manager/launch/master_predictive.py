@@ -1,6 +1,7 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
+mode = 'predictive' 
 def generate_launch_description():
     return LaunchDescription([
         Node(
@@ -24,7 +25,7 @@ def generate_launch_description():
             executable='cmd_vel_rate_logger',
             namespace='logger',
             name='cmd_vel_rate_logger',
-            arguments=['classic']
+            arguments=[mode]
         ),
         Node(
             package='logger',
@@ -32,7 +33,7 @@ def generate_launch_description():
             namespace='logger',
             name='barycenter_logger',
             parameters=[{'csv_filename': 'distributed_barycenter_logger.csv'}],
-            arguments=['classic']
+            arguments=[mode]
         ),
         Node(
             package='logger',
@@ -40,7 +41,7 @@ def generate_launch_description():
             namespace='logger',
             name='distances_logger',
             parameters=[{'csv_filename': 'distributed_distance_logger.csv'}],
-            arguments=['classic']
+            arguments=[mode]
         ),
         Node(
             package='logger',
@@ -48,16 +49,23 @@ def generate_launch_description():
             namespace='logger',
             name='goal_point_logger',
             parameters=[{'csv_filename': 'distributed_goal_point_logger.csv'}],
-            arguments=['classic']
+            arguments=[mode]
         ),
 
-        # Logger CPU/RAM (mode classic)
         Node(
             package='logger',
             executable='cpu_ram_logger',
             name='cpu_ram_logger',
             output='screen',
-            arguments=['classic']
+            arguments=[mode]
+        ),
+
+        Node(
+            package='logger',
+            executable='predictive_logger',
+            namespace='logger',
+            name='predictive_logger',
+            arguments=[mode],
         ),
 
     ])
