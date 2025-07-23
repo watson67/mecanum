@@ -274,11 +274,16 @@ class DistributedSwarm2Controller(Node):
 
     def all_positions_available(self):
         """
-        Vérifie si toutes les positions des voisins sont connues (configuration statique).
+        Vérifie si toutes les positions des voisins sont connues ET que le barycentre global est disponible.
         """
         if self.my_pose is None:
             return False
         if abs(self.my_position['x']) < 0.001 and abs(self.my_position['y']) < 0.001:
+            return False
+        
+        # OBLIGATOIRE: Le barycentre global doit être disponible
+        if self.global_barycenter_position is None:
+            self.get_logger().debug("Waiting for global barycenter...")
             return False
         
         for name in self.neighbors_names:
@@ -292,16 +297,28 @@ class DistributedSwarm2Controller(Node):
     def initialize_formation(self):
         """
         Initialise la formation : distances désirées et vecteur relatif initial.
+        UNIQUEMENT avec le barycentre global.
         """
         if self.formation_initialized:
             self.get_logger().warn("Formation already initialized! Skipping re-initialization.")
             return
+            
+        # Obtenir le barycentre global - OBLIGATOIRE
         initial_barycenter = self.compute_swarm_center()
+        if initial_barycenter is None:
+            self.get_logger().error("Cannot initialize formation: global barycenter not available!")
+            return
+            
         self.initial_relative_vector = np.array([
             self.my_position['x'] - initial_barycenter[0],
             self.my_position['y'] - initial_barycenter[1]
         ])
-        self.get_logger().info(f"Vecteur relatif initial calculé: {self.initial_relative_vector}")
+        
+        self.get_logger().warn(
+            f"FORMATION INIT (GLOBAL ONLY) - My position: [{self.my_position['x']:.4f}, {self.my_position['y']:.4f}], "
+            f"Global barycenter: [{initial_barycenter[0]:.4f}, {initial_barycenter[1]:.4f}], "
+            f"Relative vector: [{self.initial_relative_vector[0]:.4f}, {self.initial_relative_vector[1]:.4f}]"
+        )
         
         # Configuration statique des voisins
         for neighbor_name in self.neighbors_names:
@@ -314,35 +331,23 @@ class DistributedSwarm2Controller(Node):
                 self.desired_distances[neighbor_name] = dist
         self.formation_initialized = True
         self.get_logger().info(f"Initialized formation with distances: {self.desired_distances}")
-        barycentre = self.compute_swarm_center()
         self.get_logger().info(
-            f"Barycentre (init): X:{barycentre[0]:.3f} ; Y:{barycentre[1]:.3f}"
+            f"Barycentre global (init): X:{initial_barycenter[0]:.3f} ; Y:{initial_barycenter[1]:.3f}"
         )
 
     def compute_swarm_center(self):
         """
         Calcule le barycentre de l'essaim.
-        Utilise le barycentre global si disponible, sinon barycentre local.
+        UNIQUEMENT le barycentre global - pas de fallback local.
         """
-        # Priorité 1: Barycentre global depuis tf2_manager
+        # SEULE source: Barycentre global depuis tf2_manager
         if self.global_barycenter_position is not None:
             self.get_logger().debug("Using global barycenter from tf2_manager")
             return [self.global_barycenter_position['x'], self.global_barycenter_position['y']]
         
-        # Fallback: Barycentre local (robot + voisins)
-        self.get_logger().debug("Using local barycenter (robot + neighbors)")
-        all_positions = [self.my_position]
-        for name in self.neighbors_names:
-            if name in self.other_robot_positions and self.other_robot_positions[name] is not None:
-                all_positions.append(self.other_robot_positions[name])
-        
-        if not all_positions:
-            return [self.my_position['x'], self.my_position['y']]
-        
-        total_x = sum(pos['x'] for pos in all_positions)
-        total_y = sum(pos['y'] for pos in all_positions)
-        count = len(all_positions)
-        return [total_x / count, total_y / count]
+        # PAS de fallback local - retourner None si pas de barycentre global
+        self.get_logger().error("Global barycenter not available! Cannot compute swarm center.")
+        return None
 
     #-----------------------------#
     #   Contrôle de consensus     #
@@ -370,12 +375,38 @@ class DistributedSwarm2Controller(Node):
     def apply_consensus_control(self):
         """
         Applique le contrôle de consensus pour maintenir la formation et suivre l'objectif.
+        Utilise EXACTEMENT la même logique que la version centralisée.
         """
         if not self.goal_point_set:
             return
+            
+        # Vérifier que le barycentre global est disponible
+        if self.global_barycenter_position is None:
+            self.get_logger().error("Cannot apply control: global barycenter not available!")
+            self.stop_robot()
+            return
+            
         global_goal = np.array(self.goal_point)
+        # EXACTEMENT comme dans swarm2.py: pr = global_goal + initial_relative_vector
         pr = global_goal + self.initial_relative_vector
         pi = np.array([self.my_position['x'], self.my_position['y']])
+        
+        # DEBUG: Comparaison avec version centralisée
+        distance_to_individual_goal = math.sqrt((pi[0] - pr[0])**2 + (pi[1] - pr[1])**2)
+        distance_to_global_goal = math.sqrt((pi[0] - global_goal[0])**2 + (pi[1] - global_goal[1])**2)
+        
+        self.get_logger().info(
+            f"CENTRALIZED LOGIC - Global goal: [{global_goal[0]:.4f}, {global_goal[1]:.4f}], "
+            f"Individual target: [{pr[0]:.4f}, {pr[1]:.4f}], "
+            f"Robot pos: [{pi[0]:.4f}, {pi[1]:.4f}], "
+            f"Distance to individual: {distance_to_individual_goal:.4f}m, "
+            f"Distance to global: {distance_to_global_goal:.4f}m"
+        )
+        
+        self.get_logger().info(
+            f"Robot {self.robot_name} - Goal individuel : X:{pr[0]:.3f} ; Y:{pr[1]:.3f} "
+            f"(vecteur relatif: X:{self.initial_relative_vector[0]:.3f}, Y:{self.initial_relative_vector[1]:.3f})"
+        )
         
         # Utiliser les voisins statiques
         pj_array = []
@@ -405,6 +436,8 @@ class DistributedSwarm2Controller(Node):
             ui_alpha = np.array([0.0, 0.0])
             ui_gamma = control_vector
             self.previous_gamma = ui_gamma
+            
+            self.get_logger().info(f"NO NEIGHBORS - Control vector: [{control_vector[0]:.4f}, {control_vector[1]:.4f}]")
         else:
             # Contrôle avec prise en compte des voisins
             try:
@@ -439,6 +472,17 @@ class DistributedSwarm2Controller(Node):
                 self.previous_gamma = ui_gamma
             self.integral_term = updated_integral
             self.derivative_term = updated_derivative
+            
+            # DEBUG: Contrôle avec voisins
+            alpha_magnitude = math.sqrt(ui_alpha[0]**2 + ui_alpha[1]**2)
+            gamma_magnitude = math.sqrt(ui_gamma[0]**2 + ui_gamma[1]**2)
+            control_magnitude = math.sqrt(control_vector[0]**2 + control_vector[1]**2)
+            
+            self.get_logger().info(
+                f"CONTROL COMPONENTS - Alpha: {alpha_magnitude:.4f}, Gamma: {gamma_magnitude:.4f}, "
+                f"Total: {control_magnitude:.4f}"
+            )
+        
         # Publier les composantes de contrôle pour debug
         control_msg = Float64MultiArray()
         control_msg.data = [float(ui_alpha[0]), float(ui_alpha[1]), float(ui_gamma[0]), float(ui_gamma[1])]
