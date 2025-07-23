@@ -11,7 +11,7 @@ from swarm_manager.config import ALL_ROBOT_NAMES
 
 class CpuRamLogger(Node):
     def __init__(self, mode='classic'):
-        super().__init__('logger/cpu_ram_logger')
+        super().__init__('cpu_ram_logger', namespace='/logger')
         # Dossier pour les CSV (avec mode)
         self.csv_dir = os.path.expanduser(f'~/mecanum/csv/{mode}/cpu_ram')
         os.makedirs(self.csv_dir, exist_ok=True)

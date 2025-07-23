@@ -30,6 +30,7 @@ class DistributedSwarm2Controller(Node):
         
         # Déterminer le nom du robot à partir du hostname
         hostname = socket.gethostname().lower()
+        #hostname='aramis-desktop'  # Forcing the robot name for testing purposes
         if hostname.endswith('-desktop'):
             hostname = hostname[:-8]
         self.robot_name = hostname[:1].upper() + hostname[1:]
@@ -95,6 +96,7 @@ class DistributedSwarm2Controller(Node):
         self.initial_relative_vector = None  # Vecteur relatif initial au barycentre
         self.integral_term = None  # Terme intégral du contrôle
         self.derivative_term = None  # Terme dérivé du contrôle
+        self.previous_gamma = None   # Ajouté pour le lissage de ui_gamma
         self.dt = 0.1  # Pas de temps pour le contrôle
         self.target_tolerance = 0.08  # Tolérance pour considérer la cible atteinte
         self.is_target_reached_state = False  # Statut d'atteinte de la cible
@@ -380,19 +382,39 @@ class DistributedSwarm2Controller(Node):
             self.derivative_term = None
             ui_alpha = np.array([0.0, 0.0])
             ui_gamma = control_vector
+            self.previous_gamma = ui_gamma  # Met à jour previous_gamma même dans ce cas
         else:
             # Contrôle avec prise en compte des voisins
-            control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma = control_with_components(
-                pj_array=pj_array,
-                pi=pi,
-                dij_list=dij_list,
-                pr=pr,
-                dt=self.dt,
-                integral_term=self.integral_term,
-                derivative_term=self.derivative_term,
-                is_rotating=False,
-                logger=self.get_logger()
-            )
+            try:
+                # Try new version (6 values)
+                control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma, updated_gamma = control_with_components(
+                    pj_array=pj_array,
+                    pi=pi,
+                    dij_list=dij_list,
+                    pr=pr,
+                    dt=self.dt,
+                    integral_term=self.integral_term,
+                    derivative_term=self.derivative_term,
+                    is_rotating=False,
+                    logger=self.get_logger(),
+                    previous_gamma=self.previous_gamma
+                )
+                self.previous_gamma = updated_gamma
+            except TypeError:
+                # Fallback to old version (5 values)
+                control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma = control_with_components(
+                    pj_array=pj_array,
+                    pi=pi,
+                    dij_list=dij_list,
+                    pr=pr,
+                    dt=self.dt,
+                    integral_term=self.integral_term,
+                    derivative_term=self.derivative_term,
+                    is_rotating=False,
+                    logger=self.get_logger(),
+                    previous_gamma=self.previous_gamma
+                )
+                self.previous_gamma = ui_gamma
             self.integral_term = updated_integral
             self.derivative_term = updated_derivative
         # Publier les composantes de contrôle pour debug
