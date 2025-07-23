@@ -25,7 +25,7 @@ setup(
             'goal_point_logger = logger.goal_point_logger:main',
             'event_logger = logger.event:main',
             'predictive_logger = logger.predictive_logger:main',
-            'cpu_usage_publisher = logger.cpu_usage_publisher:main',
+            'cpu_ram_logger = logger.cpu_ram_logger:main',
         ],
     },
 )

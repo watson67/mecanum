@@ -31,11 +31,11 @@ class DistributedSwarm2Controller(Node):
         hostname = socket.gethostname().lower()
         if hostname.endswith('-desktop'):
             hostname = hostname[:-8]
-        self.robot_name = hostname.capitalize()
+        self.robot_name = hostname[:1].upper() + hostname[1:]
         if self.robot_name not in ALL_ROBOT_NAMES:
             print(f"Warning: Robot name '{self.robot_name}' not in known robot list {ALL_ROBOT_NAMES}")
             self.robot_name = "Unknown"
-        super().__init__(f'distributed_swarm2_controller_{self.robot_name.lower()}')
+        super().__init__(f'{self.robot_name}/distributed_swarm_controller')
         self.get_logger().info(f"Starting distributed swarm2 controller for robot: {self.robot_name}")
 
         #-----------------------------#
