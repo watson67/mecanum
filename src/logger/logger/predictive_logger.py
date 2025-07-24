@@ -10,8 +10,15 @@ import os
 import sys
 import glob
 import time
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 
 from swarm_manager.config import ALL_ROBOT_NAMES
+
+# QoS compatible avec les publishers des contrôleurs distribués
+comm_qos = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    depth=1
+)
 
 class PredictiveLogger(Node):
     def __init__(self):
@@ -46,7 +53,7 @@ class PredictiveLogger(Node):
                 Point, 
                 f"/{name}/published_pose",
                 self._make_position_callback(name),
-                10
+                comm_qos  # Use compatible QoS
             )
         
         # Subscribers pour les vitesses actuelles (prédiction)
@@ -56,7 +63,7 @@ class PredictiveLogger(Node):
                 Vector3,
                 f"/{name}/current_velocity", 
                 self._make_velocity_callback(name),
-                10
+                comm_qos  # Use compatible QoS
             )
         
         # Subscriber pour le contrôle d'activation

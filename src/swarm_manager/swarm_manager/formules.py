@@ -30,7 +30,7 @@ x_max = 2
 
 # Paramètres du contrôle
 h = 0.2
-c1_gamma = 0.2 # navigation gain (position)
+c1_gamma = 0.25 # navigation gain (position)
 c2_gamma = 0.05 # navigation gain (vitesse)
 c1_beta = 0.3
 c = 5         
@@ -40,8 +40,8 @@ b = 1
 e = abs(a-b)/math.sqrt(4*a*b)
 
 # Coefficients PID
-Kp = 0.4
-Ki = 0.1
+Kp = 0.2 #0.4
+Ki = 0.05 #0.05
 Kd = 0.0
 
 # Saturation des commandes
