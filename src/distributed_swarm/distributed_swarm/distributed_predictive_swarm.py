@@ -194,6 +194,10 @@ class DistributedPredictiveSwarmController(Node):
         self.my_estimated_position = {'x': 0.0, 'y': 0.0}  # Mon estimation de ma propre position
         self.prev_position = None  # Pour calculer la vitesse
         
+        # NOUVEAUX - Contrôle strict des publications
+        self.first_position_published = False  # Pour éviter la publication automatique de la première position
+        self.stable_position_count = 0  # Compter les positions stables avant première publication
+        
         # Statistiques
         self.position_publications = 0
         self.prediction_updates = 0
@@ -212,12 +216,16 @@ class DistributedPredictiveSwarmController(Node):
         self.my_pose = msg
         pos = msg.pose.position
         
-        # Calculer la vitesse basée sur le changement de position
+        # Calculer la vitesse basée sur le changement de position SEULEMENT si on a une position précédente
         if self.prev_position is not None:
-            dt = self.dt
+            dt = 0.1  # Utiliser un dt fixe plutôt que self.dt
             if dt > 0:
                 self.my_velocity['vx'] = (pos.x - self.prev_position['x']) / dt
                 self.my_velocity['vy'] = (pos.y - self.prev_position['y']) / dt
+        else:
+            # Première fois - vitesse nulle
+            self.my_velocity['vx'] = 0.0
+            self.my_velocity['vy'] = 0.0
         
         self.my_position = {'x': pos.x, 'y': pos.y}
         self.prev_position = self.my_position.copy()
@@ -348,11 +356,24 @@ class DistributedPredictiveSwarmController(Node):
 
     def should_publish_my_position(self):
         """Détermine si je dois publier ma position et vitesse - PUREMENT basé sur l'erreur"""
-        # Première publication - toujours publier
-        if self.last_publish_time == 0.0:
+        
+        # ATTENDRE que la position soit stable avant la première publication
+        if not self.first_position_published:
+            # Vérifier que la position n'est pas à l'origine (données VRPN valides)
+            if abs(self.my_position['x']) < 0.001 and abs(self.my_position['y']) < 0.001:
+                return False
+            
+            # Attendre quelques cycles pour que les données se stabilisent
+            self.stable_position_count += 1
+            if self.stable_position_count < 5:  # Attendre 5 cycles (0.5s)
+                return False
+            
+            # OK pour la première publication
+            self.first_position_published = True
+            self.get_logger().info(f"PREMIÈRE PUBLICATION après stabilisation: pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f})")
             return True
         
-        # Calculer l'erreur entre ma position réelle et mon estimation
+        # Après la première publication, utiliser uniquement l'erreur de prédiction
         error = math.sqrt(
             (self.my_position['x'] - self.my_estimated_position['x'])**2 + 
             (self.my_position['y'] - self.my_estimated_position['y'])**2
@@ -360,12 +381,12 @@ class DistributedPredictiveSwarmController(Node):
         
         if error > self.prediction_error_threshold:
             self.get_logger().info(
-                f"Erreur estimation propre: {error:.4f}m > {self.prediction_error_threshold}m, publication nécessaire"
+                f"ERREUR PRÉDICTION: {error:.4f}m > {self.prediction_error_threshold}m"
                 f" (réel: {self.my_position['x']:.3f}, {self.my_position['y']:.3f} vs estimé: {self.my_estimated_position['x']:.3f}, {self.my_estimated_position['y']:.3f})"
             )
             return True
         
-        # NE PAS publier si l'erreur est acceptable
+        # SINON: NE PAS publier
         return False
 
     def publish_my_position_and_velocity(self):
@@ -416,17 +437,17 @@ class DistributedPredictiveSwarmController(Node):
     #   Boucle principale         #
     #-----------------------------#
     def timer_callback(self):
-        """Boucle principale avec prédiction"""
+        """Boucle principale avec prédiction - AUCUNE publication automatique"""
         # Mettre à jour mon estimation de ma propre position
         self.update_my_estimated_position()
         
         # Prédire les positions des voisins
         self.predict_neighbor_positions()
         
-        # Publier ma position et vitesse SEULEMENT si erreur de prédiction
+        # Publier ma position et vitesse SEULEMENT si erreur de prédiction OU première fois
         self.publish_my_position_and_velocity()
         
-        # Debug périodique avec statistiques plus détaillées
+        # Debug périodique avec vérification des publications
         if hasattr(self, '_debug_counter'):
             self._debug_counter += 1
         else:
@@ -437,10 +458,18 @@ class DistributedPredictiveSwarmController(Node):
                 (self.my_position['x'] - self.my_estimated_position['x'])**2 + 
                 (self.my_position['y'] - self.my_estimated_position['y'])**2
             )
+            
+            # Temps depuis dernière publication
+            time_since_last = time.time() - self.last_publish_time if self.last_publish_time > 0 else 0
+            
             self.get_logger().info(
-                f"PREDICTION STATS - Publications: {self.position_publications}, "
-                f"Prédictions: {self.prediction_updates}, Erreur actuelle: {error:.4f}m"
+                f"STATS STRICTES - Publications: {self.position_publications}, "
+                f"Erreur: {error:.4f}m, Temps depuis dernière pub: {time_since_last:.1f}s"
             )
+            
+            # ALARME si trop de publications
+            if self.position_publications > 50:  # Plus de 50 publications en 10s = problème
+                self.get_logger().error(f"TROP DE PUBLICATIONS ! {self.position_publications} en 10s")
         
         # Initialisation de la formation
         if not self.formation_initialized and self.all_positions_available():
