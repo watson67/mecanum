@@ -117,14 +117,14 @@ class DistributedPredictiveSwarmController(Node):
             self.create_subscription(
                 Point, f"/{neighbor_name}/published_position",
                 lambda msg, name=neighbor_name: self.neighbor_position_callback(msg, name),
-                comm_qos
+                comm_qos  # Use same QoS as publisher
             )
             
-            # Subscribe to neighbor's velocity
+            # Subscribe to neighbor's velocity - FIX: Use same QoS as publisher
             self.create_subscription(
                 Vector3, f"/{neighbor_name}/current_velocity",
                 lambda msg, name=neighbor_name: self.neighbor_velocity_callback(msg, name),
-                comm_qos
+                comm_qos  # Changed from default QoS to comm_qos for compatibility
             )
             
             # Initialize data structures
