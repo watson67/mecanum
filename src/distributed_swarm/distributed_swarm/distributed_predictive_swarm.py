@@ -192,11 +192,13 @@ class DistributedPredictiveSwarmController(Node):
         self.my_published_position = {'x': 0.0, 'y': 0.0, 'timestamp': 0.0}
         self.my_published_velocity = {'vx': 0.0, 'vy': 0.0, 'timestamp': 0.0}
         self.my_estimated_position = {'x': 0.0, 'y': 0.0}  # Mon estimation de ma propre position
-        self.prev_position = None  # Pour calculer la vitesse
+        
+        # SUPPRESSION du calcul de vitesse - on utilise celle du contrôleur
+        self.my_control_velocity = {'vx': 0.0, 'vy': 0.0}  # Vitesse du contrôleur
         
         # NOUVEAUX - Contrôle strict des publications
-        self.first_position_published = False  # Pour éviter la publication automatique de la première position
-        self.stable_position_count = 0  # Compter les positions stables avant première publication
+        self.first_position_published = False
+        self.stable_position_count = 0
         
         # Statistiques
         self.position_publications = 0
@@ -212,23 +214,12 @@ class DistributedPredictiveSwarmController(Node):
     #-----------------------------#
     
     def my_pose_callback(self, msg):
-        """Callback pour la pose de ce robot depuis VRPN"""
+        """Callback pour la pose de ce robot depuis VRPN - SEULEMENT position"""
         self.my_pose = msg
         pos = msg.pose.position
         
-        # Calculer la vitesse basée sur le changement de position SEULEMENT si on a une position précédente
-        if self.prev_position is not None:
-            dt = 0.1  # Utiliser un dt fixe plutôt que self.dt
-            if dt > 0:
-                self.my_velocity['vx'] = (pos.x - self.prev_position['x']) / dt
-                self.my_velocity['vy'] = (pos.y - self.prev_position['y']) / dt
-        else:
-            # Première fois - vitesse nulle
-            self.my_velocity['vx'] = 0.0
-            self.my_velocity['vy'] = 0.0
-        
+        # SEULEMENT récupérer la position - PAS de calcul de vitesse
         self.my_position = {'x': pos.x, 'y': pos.y}
-        self.prev_position = self.my_position.copy()
         
         quat = msg.pose.orientation
         self.my_yaw = quaternion_to_yaw(quat.x, quat.y, quat.z, quat.w)
@@ -355,7 +346,7 @@ class DistributedPredictiveSwarmController(Node):
         self.prediction_updates += 1
 
     def should_publish_my_position(self):
-        """Détermine si je dois publier ma position et vitesse - PUREMENT basé sur l'erreur"""
+        """Détermine si je dois publier ma position et vitesse - ALGORITHME SIMPLE"""
         
         # ATTENDRE que la position soit stable avant la première publication
         if not self.first_position_published:
@@ -365,7 +356,7 @@ class DistributedPredictiveSwarmController(Node):
             
             # Attendre quelques cycles pour que les données se stabilisent
             self.stable_position_count += 1
-            if self.stable_position_count < 5:  # Attendre 5 cycles (0.5s)
+            if self.stable_position_count < 10:
                 return False
             
             # OK pour la première publication
@@ -373,39 +364,40 @@ class DistributedPredictiveSwarmController(Node):
             self.get_logger().info(f"PREMIÈRE PUBLICATION après stabilisation: pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f})")
             return True
         
-        # Après la première publication, utiliser uniquement l'erreur de prédiction
-        error = math.sqrt(
+        # Calculer l'erreur entre position réelle et estimation basée sur vitesse
+        position_error = math.sqrt(
             (self.my_position['x'] - self.my_estimated_position['x'])**2 + 
             (self.my_position['y'] - self.my_estimated_position['y'])**2
         )
         
-        if error > self.prediction_error_threshold:
+        # CONDITION SIMPLE: Erreur de prédiction trop importante
+        if position_error > self.prediction_error_threshold:
             self.get_logger().info(
-                f"ERREUR PRÉDICTION: {error:.4f}m > {self.prediction_error_threshold}m"
-                f" (réel: {self.my_position['x']:.3f}, {self.my_position['y']:.3f} vs estimé: {self.my_estimated_position['x']:.3f}, {self.my_estimated_position['y']:.3f})"
+                f"ERREUR PRÉDICTION: {position_error:.4f}m > {self.prediction_error_threshold}m"
+                f" | pos_réel=({self.my_position['x']:.3f}, {self.my_position['y']:.3f})"
+                f" | pos_estimé=({self.my_estimated_position['x']:.3f}, {self.my_estimated_position['y']:.3f})"
+                f" | vitesse_contrôle=({self.my_control_velocity['vx']:.3f}, {self.my_control_velocity['vy']:.3f})"
             )
             return True
         
-        # SINON: NE PAS publier
         return False
 
     def publish_my_position_and_velocity(self):
-        """Publie ma position et vitesse UNIQUEMENT si l'erreur de prédiction le justifie"""
-        # SEULEMENT publier si nécessaire
+        """Publie ma position ET la vitesse du contrôleur"""
         if self.should_publish_my_position():
             current_time = time.time()
             
-            # Publier position ET vitesse ensemble - UN SEUL ÉCHANGE
+            # Publier position réelle
             pos_msg = Point()
             pos_msg.x = self.my_position['x']
             pos_msg.y = self.my_position['y']
             pos_msg.z = 0.0
             self.published_pose_publisher.publish(pos_msg)
             
-            # Publier vitesse immédiatement après la position
+            # Publier vitesse du contrôleur (pas calculée depuis positions)
             vel_msg = Vector3()
-            vel_msg.x = self.my_velocity['vx']
-            vel_msg.y = self.my_velocity['vy']
+            vel_msg.x = self.my_control_velocity['vx']
+            vel_msg.y = self.my_control_velocity['vy']
             vel_msg.z = 0.0
             self.velocity_publisher.publish(vel_msg)
             
@@ -416,8 +408,8 @@ class DistributedPredictiveSwarmController(Node):
                 'timestamp': current_time
             }
             self.my_published_velocity = {
-                'vx': self.my_velocity['vx'],
-                'vy': self.my_velocity['vy'],
+                'vx': self.my_control_velocity['vx'],
+                'vy': self.my_control_velocity['vy'],
                 'timestamp': current_time
             }
             
@@ -428,10 +420,9 @@ class DistributedPredictiveSwarmController(Node):
             self.position_publications += 1
             
             self.get_logger().info(
-                f"PUBLICATION SELECTIVE - Position et vitesse publiées ENSEMBLE: pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f}) "
-                f"vel({self.my_velocity['vx']:.3f}, {self.my_velocity['vy']:.3f}) [#{self.position_publications}]"
+                f"PUBLICATION ALGORITHME SIMPLE - pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f}) "
+                f"vel_contrôle({self.my_control_velocity['vx']:.3f}, {self.my_control_velocity['vy']:.3f}) [#{self.position_publications}]"
             )
-        # SINON: RIEN n'est publié du tout - ni position ni vitesse
 
     #-----------------------------#
     #   Boucle principale         #
@@ -444,7 +435,7 @@ class DistributedPredictiveSwarmController(Node):
         # Prédire les positions des voisins
         self.predict_neighbor_positions()
         
-        # Publier ma position et vitesse SEULEMENT si erreur de prédiction OU première fois
+        # Publier ma position et vitesse SEULEMENT si vraiment nécessaire
         self.publish_my_position_and_velocity()
         
         # Debug périodique avec vérification des publications
@@ -462,15 +453,15 @@ class DistributedPredictiveSwarmController(Node):
             # Temps depuis dernière publication
             time_since_last = time.time() - self.last_publish_time if self.last_publish_time > 0 else 0
             
+            # Vitesse actuelle
+            current_speed = math.sqrt(self.my_control_velocity['vx']**2 + self.my_control_velocity['vy']**2)
+            
             self.get_logger().info(
-                f"STATS STRICTES - Publications: {self.position_publications}, "
-                f"Erreur: {error:.4f}m, Temps depuis dernière pub: {time_since_last:.1f}s"
+                f"STATS ANTI-BRUIT - Publications: {self.position_publications}, "
+                f"Erreur: {error:.4f}m, Vitesse: {current_speed:.3f}m/s, "
+                f"Temps depuis pub: {time_since_last:.1f}s"
             )
             
-            # ALARME si trop de publications
-            if self.position_publications > 50:  # Plus de 50 publications en 10s = problème
-                self.get_logger().error(f"TROP DE PUBLICATIONS ! {self.position_publications} en 10s")
-        
         # Initialisation de la formation
         if not self.formation_initialized and self.all_positions_available():
             self.initialize_formation()
@@ -550,10 +541,6 @@ class DistributedPredictiveSwarmController(Node):
         # Utiliser mon estimation de ma propre position pour le contrôle
         pi = np.array([self.my_estimated_position['x'], self.my_estimated_position['y']])
         
-        # Log target distance
-        target_distance = math.sqrt((pi[0] - pr[0])**2 + (pi[1] - pr[1])**2)
-        self.get_logger().info(f"Target distance: {target_distance:.4f}m, Goal: ({self.goal_point[0]:.3f}, {self.goal_point[1]:.3f}), My estimated pos: ({pi[0]:.3f}, {pi[1]:.3f}), Target pos: ({pr[0]:.3f}, {pr[1]:.3f})")
-        
         pj_array = []
         dij_list = []
         
@@ -568,8 +555,6 @@ class DistributedPredictiveSwarmController(Node):
                 if dij is None:
                     dij = math.sqrt((pi[0] - pj[0])**2 + (pi[1] - pj[1])**2)
                 dij_list.append(dij)
-        
-        self.get_logger().info(f"Number of neighbors: {len(pj_array)}, Neighbor positions: {[f'({pj[0]:.3f}, {pj[1]:.3f})' for pj in pj_array]}")
         
         if not pj_array:
             control_vector = -(c1_gamma * (pi - pr))
@@ -620,6 +605,17 @@ class DistributedPredictiveSwarmController(Node):
             control_vector[0], control_vector[1]
         )
         
+        # CAPTURER la vitesse du contrôleur pour l'algorithme prédictif
+        # Convertir en vitesse globale pour la prédiction
+        cos_yaw = math.cos(self.my_yaw)
+        sin_yaw = math.sin(self.my_yaw)
+        
+        # Transformation inverse : du repère robot vers global
+        global_vx = cos_yaw * robot_lin_x - sin_yaw * robot_lin_y
+        global_vy = sin_yaw * robot_lin_x + cos_yaw * robot_lin_y
+        
+        self.my_control_velocity = {'vx': global_vx, 'vy': global_vy}
+        
         twist_msg = Twist()
         twist_msg.linear.x = float(robot_lin_x)
         twist_msg.linear.y = float(robot_lin_y)
@@ -631,6 +627,10 @@ class DistributedPredictiveSwarmController(Node):
             scaling = max_speed / speed
             twist_msg.linear.x *= scaling
             twist_msg.linear.y *= scaling
+            
+            # Adapter aussi la vitesse de prédiction
+            self.my_control_velocity['vx'] *= scaling
+            self.my_control_velocity['vy'] *= scaling
         
         # Publier la commande
         self.cmd_vel_publisher.publish(twist_msg)
