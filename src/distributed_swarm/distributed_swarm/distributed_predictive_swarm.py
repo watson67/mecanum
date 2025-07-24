@@ -96,16 +96,32 @@ class DistributedPredictiveSwarmController(Node):
         )
         
         #-----------------------------#
-        #   Communication inter-robots #
+        #   Publishers pour compatibilité logger #
         #-----------------------------#
         
-        # Publishers pour publier sa position et vitesse aux voisins
-        self.my_position_publisher = self.create_publisher(
-            Point, f"/{self.robot_name}/published_position", comm_qos
+        # Topics compatibles avec le logger centralisé
+        self.published_pose_publisher = self.create_publisher(
+            Point, f"/{self.robot_name}/published_pose", comm_qos
         )
-        self.my_velocity_publisher = self.create_publisher(
+        self.velocity_publisher = self.create_publisher(
             Vector3, f"/{self.robot_name}/current_velocity", comm_qos
         )
+        
+        # Publishers pour estimations des voisins (compatibilité logger)
+        self.neighbor_estimation_publishers = {}
+        for neighbor_name in self.neighbors_names:
+            self.neighbor_estimation_publishers[neighbor_name] = self.create_publisher(
+                Point, f"/{self.robot_name}/{neighbor_name}_estimated_position", comm_qos
+            )
+        
+        # Publisher pour composantes de contrôle (compatibilité logger)
+        self.control_component_publisher = self.create_publisher(
+            Float64MultiArray, f"/{self.robot_name}/control_components", 10
+        )
+        
+        #-----------------------------#
+        #   Communication inter-robots #
+        #-----------------------------#
         
         # Subscribers pour recevoir les positions et vitesses des voisins
         self.neighbor_positions = {}  # Dernières positions publiées par les voisins
@@ -115,16 +131,16 @@ class DistributedPredictiveSwarmController(Node):
         for neighbor_name in self.neighbors_names:
             # Subscribe to neighbor's published position
             self.create_subscription(
-                Point, f"/{neighbor_name}/published_position",
+                Point, f"/{neighbor_name}/published_pose",
                 lambda msg, name=neighbor_name: self.neighbor_position_callback(msg, name),
-                comm_qos  # Use same QoS as publisher
+                comm_qos
             )
             
-            # Subscribe to neighbor's velocity - FIX: Use same QoS as publisher
+            # Subscribe to neighbor's velocity
             self.create_subscription(
                 Vector3, f"/{neighbor_name}/current_velocity",
                 lambda msg, name=neighbor_name: self.neighbor_velocity_callback(msg, name),
-                comm_qos  # Changed from default QoS to comm_qos for compatibility
+                comm_qos
             )
             
             # Initialize data structures
@@ -180,6 +196,7 @@ class DistributedPredictiveSwarmController(Node):
         self.last_publish_time = 0.0
         self.my_published_position = {'x': 0.0, 'y': 0.0, 'timestamp': 0.0}
         self.my_published_velocity = {'vx': 0.0, 'vy': 0.0, 'timestamp': 0.0}
+        self.my_estimated_position = {'x': 0.0, 'y': 0.0}  # Mon estimation de ma propre position
         self.prev_position = None  # Pour calculer la vitesse
         
         # Statistiques
@@ -230,6 +247,11 @@ class DistributedPredictiveSwarmController(Node):
             'y': msg.y,
             'timestamp': current_time
         }
+        # Mettre à jour immédiatement l'estimation de ce voisin
+        self.predicted_neighbor_positions[neighbor_name] = {
+            'x': msg.x,
+            'y': msg.y
+        }
         self.get_logger().debug(f"Position reçue de {neighbor_name}: ({msg.x:.3f}, {msg.y:.3f})")
 
     def neighbor_velocity_callback(self, msg, neighbor_name):
@@ -269,9 +291,32 @@ class DistributedPredictiveSwarmController(Node):
         self.initialize_formation()
 
     #-----------------------------#
-    #   Prédiction des voisins    #
+    #   Prédiction des positions  #
     #-----------------------------#
     
+    def update_my_estimated_position(self):
+        """Met à jour mon estimation de ma propre position"""
+        current_time = time.time()
+        
+        if self.my_published_position['timestamp'] > 0 and self.my_published_velocity['timestamp'] > 0:
+            # Temps écoulé depuis ma dernière publication
+            dt_prediction = current_time - self.my_published_position['timestamp']
+            
+            if dt_prediction > 0:
+                # Estimer ma position actuelle basée sur ma dernière position et vitesse publiées
+                estimated_x = self.my_published_position['x'] + self.my_published_velocity['vx'] * dt_prediction
+                estimated_y = self.my_published_position['y'] + self.my_published_velocity['vy'] * dt_prediction
+                
+                self.my_estimated_position = {
+                    'x': estimated_x,
+                    'y': estimated_y
+                }
+            else:
+                self.my_estimated_position = self.my_published_position.copy()
+        else:
+            # Si pas de données précédentes, utiliser la position réelle
+            self.my_estimated_position = self.my_position.copy()
+
     def predict_neighbor_positions(self):
         """Prédit les positions actuelles des voisins basées sur leur vitesse"""
         current_time = time.time()
@@ -314,25 +359,17 @@ class DistributedPredictiveSwarmController(Node):
         if self.last_publish_time == 0.0:
             return True
         
-        # Calculer l'erreur de prédiction
-        if self.my_published_position['timestamp'] > 0 and self.my_published_velocity['timestamp'] > 0:
-            dt_since_publish = current_time - self.my_published_position['timestamp']
-            
-            # Position estimée = dernière position publiée + vitesse * temps écoulé
-            estimated_x = self.my_published_position['x'] + self.my_published_velocity['vx'] * dt_since_publish
-            estimated_y = self.my_published_position['y'] + self.my_published_velocity['vy'] * dt_since_publish
-            
-            # Erreur entre position réelle et estimation
-            error = math.sqrt(
-                (self.my_position['x'] - estimated_x)**2 + 
-                (self.my_position['y'] - estimated_y)**2
+        # Calculer l'erreur entre ma position réelle et mon estimation
+        error = math.sqrt(
+            (self.my_position['x'] - self.my_estimated_position['x'])**2 + 
+            (self.my_position['y'] - self.my_estimated_position['y'])**2
+        )
+        
+        if error > self.prediction_error_threshold:
+            self.get_logger().info(
+                f"Erreur estimation propre: {error:.4f}m > {self.prediction_error_threshold}m, publication nécessaire"
             )
-            
-            if error > self.prediction_error_threshold:
-                self.get_logger().info(
-                    f"Erreur prédiction: {error:.4f}m > {self.prediction_error_threshold}m, publication nécessaire"
-                )
-                return True
+            return True
         
         return False
 
@@ -346,14 +383,14 @@ class DistributedPredictiveSwarmController(Node):
             pos_msg.x = self.my_position['x']
             pos_msg.y = self.my_position['y']
             pos_msg.z = 0.0
-            self.my_position_publisher.publish(pos_msg)
+            self.published_pose_publisher.publish(pos_msg)
             
             # Publier vitesse
             vel_msg = Vector3()
             vel_msg.x = self.my_velocity['vx']
             vel_msg.y = self.my_velocity['vy']
             vel_msg.z = 0.0
-            self.my_velocity_publisher.publish(vel_msg)
+            self.velocity_publisher.publish(vel_msg)
             
             # Mettre à jour les états
             self.my_published_position = {
@@ -367,6 +404,9 @@ class DistributedPredictiveSwarmController(Node):
                 'timestamp': current_time
             }
             
+            # Mettre à jour mon estimation avec la vraie position
+            self.my_estimated_position = self.my_position.copy()
+            
             self.last_publish_time = current_time
             self.position_publications += 1
             
@@ -375,13 +415,30 @@ class DistributedPredictiveSwarmController(Node):
                 f"vel({self.my_velocity['vx']:.3f}, {self.my_velocity['vy']:.3f}) [#{self.position_publications}]"
             )
 
+    def publish_neighbor_estimations(self):
+        """Publier les estimations de position des voisins pour la compatibilité logger"""
+        for neighbor_name in self.neighbors_names:
+            if neighbor_name in self.predicted_neighbor_positions:
+                estimated_pos_msg = Point()
+                estimated_pos_msg.x = self.predicted_neighbor_positions[neighbor_name]['x']
+                estimated_pos_msg.y = self.predicted_neighbor_positions[neighbor_name]['y']
+                estimated_pos_msg.z = 0.0
+                
+                self.neighbor_estimation_publishers[neighbor_name].publish(estimated_pos_msg)
+
     #-----------------------------#
     #   Boucle principale         #
     #-----------------------------#
     def timer_callback(self):
         """Boucle principale avec prédiction"""
+        # Mettre à jour mon estimation de ma propre position
+        self.update_my_estimated_position()
+        
         # Prédire les positions des voisins
         self.predict_neighbor_positions()
+        
+        # Publier les estimations des voisins (pour logger)
+        self.publish_neighbor_estimations()
         
         # Publier ma position et vitesse de manière sélective
         self.publish_my_position_and_velocity()
@@ -473,11 +530,13 @@ class DistributedPredictiveSwarmController(Node):
             
         global_goal = np.array(self.goal_point)
         pr = global_goal + self.initial_relative_vector
-        pi = np.array([self.my_position['x'], self.my_position['y']])
+        
+        # Utiliser mon estimation de ma propre position pour le contrôle
+        pi = np.array([self.my_estimated_position['x'], self.my_estimated_position['y']])
         
         # Log target distance
         target_distance = math.sqrt((pi[0] - pr[0])**2 + (pi[1] - pr[1])**2)
-        self.get_logger().info(f"Target distance: {target_distance:.4f}m, Goal: ({self.goal_point[0]:.3f}, {self.goal_point[1]:.3f}), My pos: ({pi[0]:.3f}, {pi[1]:.3f}), Target pos: ({pr[0]:.3f}, {pr[1]:.3f})")
+        self.get_logger().info(f"Target distance: {target_distance:.4f}m, Goal: ({self.goal_point[0]:.3f}, {self.goal_point[1]:.3f}), My estimated pos: ({pi[0]:.3f}, {pi[1]:.3f}), Target pos: ({pr[0]:.3f}, {pr[1]:.3f})")
         
         pj_array = []
         dij_list = []
@@ -511,7 +570,7 @@ class DistributedPredictiveSwarmController(Node):
                     integral_term=self.integral_term,
                     derivative_term=self.derivative_term,
                     is_rotating=False,
-                    logger=None,  # Remove verbose logging from here
+                    logger=None,
                     previous_gamma=self.previous_gamma
                 )
                 self.previous_gamma = updated_gamma
@@ -527,19 +586,23 @@ class DistributedPredictiveSwarmController(Node):
                     integral_term=self.integral_term,
                     derivative_term=self.derivative_term,
                     is_rotating=False,
-                    logger=None,  # Remove verbose logging from here
+                    logger=None,
                     previous_gamma=self.previous_gamma
                 )
                 self.previous_gamma = ui_gamma
                 self.integral_term = updated_integral
                 self.derivative_term = updated_derivative
         
+        # Publier les composantes de contrôle pour la compatibilité logger
+        control_msg = Float64MultiArray()
+        control_msg.data = [float(ui_alpha[0]), float(ui_alpha[1]), 
+                           float(ui_gamma[0]), float(ui_gamma[1])]
+        self.control_component_publisher.publish(control_msg)
         
         # Transformer et publier la commande
         robot_lin_x, robot_lin_y = self.transform_velocity(
             control_vector[0], control_vector[1]
         )
-        
         
         twist_msg = Twist()
         twist_msg.linear.x = float(robot_lin_x)
@@ -552,7 +615,6 @@ class DistributedPredictiveSwarmController(Node):
             scaling = max_speed / speed
             twist_msg.linear.x *= scaling
             twist_msg.linear.y *= scaling
-        
         
         # Publier la commande
         self.cmd_vel_publisher.publish(twist_msg)
