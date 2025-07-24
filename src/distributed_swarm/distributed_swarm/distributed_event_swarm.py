@@ -180,7 +180,6 @@ class DistributedEventSwarmController(Node):
         self.prev_target_distance = float('inf')
         self.prev_velocity_direction = None
         self.last_control_time = 0.0
-        self.min_control_interval = 0.05  # Intervalle minimum entre contrôles (20Hz max)
         
         # Statistiques
         self.control_updates_count = 0
@@ -254,10 +253,6 @@ class DistributedEventSwarmController(Node):
         """Détermine si un événement nécessite une mise à jour du contrôle"""
         import time
         current_time = time.time()
-        
-        # Respect de l'intervalle minimum
-        if (current_time - self.last_control_time) < self.min_control_interval:
-            return False, "min_interval"
         
         event_triggered = False
         trigger_reason = []

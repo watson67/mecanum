@@ -174,8 +174,7 @@ class DistributedPredictiveSwarmController(Node):
         #-----------------------------#
         
         # Seuils pour la publication sélective
-        self.prediction_error_threshold = 0.05  # Seuil d'erreur pour publier position (m)
-        self.min_publish_interval = 0.1  # Intervalle minimum entre publications (s)
+        self.prediction_error_threshold = 0.04  # Seuil d'erreur pour publier position (m)
         
         # États pour la prédiction
         self.last_publish_time = 0.0
@@ -314,10 +313,6 @@ class DistributedPredictiveSwarmController(Node):
         # Première publication
         if self.last_publish_time == 0.0:
             return True
-        
-        # Respecter l'intervalle minimum
-        if (current_time - self.last_publish_time) < self.min_publish_interval:
-            return False
         
         # Calculer l'erreur de prédiction
         if self.my_published_position['timestamp'] > 0 and self.my_published_velocity['timestamp'] > 0:
