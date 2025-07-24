@@ -46,6 +46,21 @@ def transform_velocity_manual(global_vx, global_vy, robot_yaw):
     
     return robot_vx, robot_vy
 
+def calculate_angle_between_vectors(v1, v2):
+    """Calcule l'angle entre deux vecteurs en radians"""
+    if np.linalg.norm(v1) < 0.001 or np.linalg.norm(v2) < 0.001:
+        return 0.0
+    
+    # Normaliser les vecteurs
+    v1_norm = v1 / np.linalg.norm(v1)
+    v2_norm = v2 / np.linalg.norm(v2)
+    
+    # Calculer l'angle
+    dot_product = np.clip(np.dot(v1_norm, v2_norm), -1.0, 1.0)
+    angle = math.acos(dot_product)
+    
+    return angle
+
 class DistributedEventSwarmController(Node):
     """
     Contrôleur distribué événementiel pour un robot de l'essaim.
@@ -156,12 +171,14 @@ class DistributedEventSwarmController(Node):
         self.distance_threshold = 0.05  # Seuil d'écart de distance avec voisins (m)
         self.target_threshold = 0.02   # Seuil de changement de position cible (m)
         self.target_distance_threshold = 0.1  # Seuil de distance à la cible (m)
+        self.angle_threshold = 10.0 * math.pi / 180.0  # Seuil d'angle (~10°) entre vitesse et cible
         
         # États précédents pour détection d'événements
         self.prev_neighbor_errors = {}
         self.prev_individual_target = None
         self.prev_goal_point = None
         self.prev_target_distance = float('inf')
+        self.prev_velocity_direction = None
         self.last_control_time = 0.0
         self.min_control_interval = 0.05  # Intervalle minimum entre contrôles (20Hz max)
         
@@ -171,7 +188,8 @@ class DistributedEventSwarmController(Node):
             'distance': 0,
             'target_change': 0,
             'goal_change': 0,
-            'target_proximity': 0
+            'target_proximity': 0,
+            'angle_deviation': 0
         }
 
         #-----------------------------#
@@ -300,6 +318,27 @@ class DistributedEventSwarmController(Node):
                 self.event_triggers['target_proximity'] += 1
             
             self.prev_target_distance = current_target_distance
+            
+            # 5. NOUVEAU: Vérifier l'angle entre direction de vitesse et direction vers cible
+            if hasattr(self, 'my_velocity') and self.formation_initialized:
+                velocity_vector = np.array([self.my_velocity.get('vx', 0.0), self.my_velocity.get('vy', 0.0)])
+                target_direction = individual_target - pi
+                
+                # Calculer seulement si la vitesse n'est pas nulle et qu'on n'est pas très proche de la cible
+                if (np.linalg.norm(velocity_vector) > 0.01 and 
+                    np.linalg.norm(target_direction) > 0.05):
+                    
+                    angle_deviation = calculate_angle_between_vectors(velocity_vector, target_direction)
+                    
+                    if angle_deviation > self.angle_threshold:
+                        event_triggered = True
+                        trigger_reason.append(f"angle_deviation({angle_deviation*180/math.pi:.1f}°)")
+                        self.event_triggers['angle_deviation'] += 1
+                        
+                    self.get_logger().debug(
+                        f"Angle deviation: {angle_deviation*180/math.pi:.1f}° "
+                        f"(threshold: {self.angle_threshold*180/math.pi:.1f}°)"
+                    )
         
         return event_triggered, trigger_reason
 
@@ -324,7 +363,8 @@ class DistributedEventSwarmController(Node):
                 f"Distance: {self.event_triggers['distance']}, "
                 f"Target: {self.event_triggers['target_change']}, "
                 f"Goal: {self.event_triggers['goal_change']}, "
-                f"Proximity: {self.event_triggers['target_proximity']}"
+                f"Proximity: {self.event_triggers['target_proximity']}, "
+                f"Angle: {self.event_triggers['angle_deviation']}"
             )
         
         # Initialisation de la formation
@@ -350,12 +390,24 @@ class DistributedEventSwarmController(Node):
                 # Pas d'événement - ne pas envoyer de nouvelle commande
                 self.get_logger().debug("No event detected - maintaining last command")
 
-    # ...existing code for position management...
     def update_my_position(self):
         """Position déjà mise à jour via callback VRPN"""
         if self.my_pose is None:
             self.get_logger().warn(f"Pas de pose VRPN reçue pour {self.robot_name}")
             return
+        
+        # Calculer la vitesse si on a une position précédente
+        if hasattr(self, 'prev_my_position') and self.prev_my_position is not None:
+            dt = self.dt
+            if dt > 0:
+                self.my_velocity = {
+                    'vx': (self.my_position['x'] - self.prev_my_position['x']) / dt,
+                    'vy': (self.my_position['y'] - self.prev_my_position['y']) / dt
+                }
+        else:
+            self.my_velocity = {'vx': 0.0, 'vy': 0.0}
+        
+        self.prev_my_position = self.my_position.copy()
 
     def publish_my_position(self):
         """Publie la position du robot courant"""

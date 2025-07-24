@@ -412,7 +412,6 @@ class DistributedPredictiveSwarmController(Node):
         if self.active and self.formation_initialized and self.goal_point_set:
             self.apply_consensus_control()
 
-    # ...existing code for position management...
     def all_positions_available(self):
         """Vérifie si toutes les positions nécessaires sont disponibles"""
         if self.my_pose is None:
@@ -481,6 +480,10 @@ class DistributedPredictiveSwarmController(Node):
         pr = global_goal + self.initial_relative_vector
         pi = np.array([self.my_position['x'], self.my_position['y']])
         
+        # Log target distance
+        target_distance = math.sqrt((pi[0] - pr[0])**2 + (pi[1] - pr[1])**2)
+        self.get_logger().info(f"Target distance: {target_distance:.4f}m, Goal: ({self.goal_point[0]:.3f}, {self.goal_point[1]:.3f}), My pos: ({pi[0]:.3f}, {pi[1]:.3f}), Target pos: ({pr[0]:.3f}, {pr[1]:.3f})")
+        
         pj_array = []
         dij_list = []
         
@@ -495,6 +498,8 @@ class DistributedPredictiveSwarmController(Node):
                 if dij is None:
                     dij = math.sqrt((pi[0] - pj[0])**2 + (pi[1] - pj[1])**2)
                 dij_list.append(dij)
+        
+        self.get_logger().info(f"Number of neighbors: {len(pj_array)}, Neighbor positions: {[f'({pj[0]:.3f}, {pj[1]:.3f})' for pj in pj_array]}")
         
         if not pj_array:
             control_vector = -(c1_gamma * (pi - pr))
@@ -511,7 +516,7 @@ class DistributedPredictiveSwarmController(Node):
                     integral_term=self.integral_term,
                     derivative_term=self.derivative_term,
                     is_rotating=False,
-                    logger=self.get_logger(),
+                    logger=None,  # Remove verbose logging from here
                     previous_gamma=self.previous_gamma
                 )
                 self.previous_gamma = updated_gamma
@@ -527,17 +532,19 @@ class DistributedPredictiveSwarmController(Node):
                     integral_term=self.integral_term,
                     derivative_term=self.derivative_term,
                     is_rotating=False,
-                    logger=self.get_logger(),
+                    logger=None,  # Remove verbose logging from here
                     previous_gamma=self.previous_gamma
                 )
                 self.previous_gamma = ui_gamma
                 self.integral_term = updated_integral
                 self.derivative_term = updated_derivative
         
+        
         # Transformer et publier la commande
         robot_lin_x, robot_lin_y = self.transform_velocity(
             control_vector[0], control_vector[1]
         )
+        
         
         twist_msg = Twist()
         twist_msg.linear.x = float(robot_lin_x)
@@ -550,6 +557,7 @@ class DistributedPredictiveSwarmController(Node):
             scaling = max_speed / speed
             twist_msg.linear.x *= scaling
             twist_msg.linear.y *= scaling
+        
         
         # Publier la commande
         self.cmd_vel_publisher.publish(twist_msg)
