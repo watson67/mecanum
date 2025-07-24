@@ -107,12 +107,7 @@ class DistributedPredictiveSwarmController(Node):
             Vector3, f"/{self.robot_name}/current_velocity", comm_qos
         )
         
-        # Publishers pour estimations des voisins (compatibilité logger)
-        self.neighbor_estimation_publishers = {}
-        for neighbor_name in self.neighbors_names:
-            self.neighbor_estimation_publishers[neighbor_name] = self.create_publisher(
-                Point, f"/{self.robot_name}/{neighbor_name}_estimated_position", comm_qos
-            )
+        # SUPPRESSION des publishers d'estimation de voisins - pas nécessaires en mode distribué
         
         # Publisher pour composantes de contrôle (compatibilité logger)
         self.control_component_publisher = self.create_publisher(
@@ -379,14 +374,14 @@ class DistributedPredictiveSwarmController(Node):
         if self.should_publish_my_position():
             current_time = time.time()
             
-            # Publier position
+            # Publier position ET vitesse ensemble - UN SEUL ÉCHANGE
             pos_msg = Point()
             pos_msg.x = self.my_position['x']
             pos_msg.y = self.my_position['y']
             pos_msg.z = 0.0
             self.published_pose_publisher.publish(pos_msg)
             
-            # Publier vitesse
+            # Publier vitesse immédiatement après la position
             vel_msg = Vector3()
             vel_msg.x = self.my_velocity['vx']
             vel_msg.y = self.my_velocity['vy']
@@ -412,21 +407,10 @@ class DistributedPredictiveSwarmController(Node):
             self.position_publications += 1
             
             self.get_logger().info(
-                f"PUBLICATION SELECTIVE - Position et vitesse publiées: pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f}) "
+                f"PUBLICATION SELECTIVE - Position et vitesse publiées ENSEMBLE: pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f}) "
                 f"vel({self.my_velocity['vx']:.3f}, {self.my_velocity['vy']:.3f}) [#{self.position_publications}]"
             )
-        # SINON: rien n'est publié, l'estimation continue avec les anciennes données
-
-    def publish_neighbor_estimations(self):
-        """Publier les estimations de position des voisins pour la compatibilité logger"""
-        for neighbor_name in self.neighbors_names:
-            if neighbor_name in self.predicted_neighbor_positions:
-                estimated_pos_msg = Point()
-                estimated_pos_msg.x = self.predicted_neighbor_positions[neighbor_name]['x']
-                estimated_pos_msg.y = self.predicted_neighbor_positions[neighbor_name]['y']
-                estimated_pos_msg.z = 0.0
-                
-                self.neighbor_estimation_publishers[neighbor_name].publish(estimated_pos_msg)
+        # SINON: RIEN n'est publié du tout - ni position ni vitesse
 
     #-----------------------------#
     #   Boucle principale         #
@@ -438,9 +422,6 @@ class DistributedPredictiveSwarmController(Node):
         
         # Prédire les positions des voisins
         self.predict_neighbor_positions()
-        
-        # Publier les estimations des voisins (pour logger) - TOUJOURS pour compatibilité
-        self.publish_neighbor_estimations()
         
         # Publier ma position et vitesse SEULEMENT si erreur de prédiction
         self.publish_my_position_and_velocity()
