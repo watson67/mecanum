@@ -624,6 +624,81 @@ class DistributedPredictiveSwarmController(Node):
         self.cmd_vel_publisher.publish(stop_cmd)
         self.get_logger().info(f"Robot {self.robot_name} stopped")
 
+    #-----------------------------#
+    #   Prédiction des positions  #
+    #-----------------------------#
+    
+    def update_my_estimated_position(self):
+        """Met à jour mon estimation de ma propre position"""
+        current_time = time.time()
+        
+        if self.my_published_position['timestamp'] > 0 and self.my_published_velocity['timestamp'] > 0:
+            # Temps écoulé depuis ma dernière publication
+            dt_prediction = current_time - self.my_published_position['timestamp']
+            
+            if dt_prediction > 0:
+                # Estimer ma position actuelle basée sur ma dernière position et vitesse publiées
+                estimated_x = self.my_published_position['x'] + self.my_published_velocity['vx'] * dt_prediction
+                estimated_y = self.my_published_position['y'] + self.my_published_velocity['vy'] * dt_prediction
+                
+                self.my_estimated_position = {
+                    'x': estimated_x,
+                    'y': estimated_y
+                }
+            else:
+                self.my_estimated_position = self.my_published_position.copy()
+        else:
+            # Si pas de données précédentes, utiliser la position réelle
+            self.my_estimated_position = self.my_position.copy()
+
+    def predict_neighbor_positions(self):
+        """Prédit les positions actuelles des voisins basées sur leur vitesse"""
+        current_time = time.time()
+        
+        for neighbor_name in self.neighbors_names:
+            neighbor_pos = self.neighbor_positions[neighbor_name]
+            neighbor_vel = self.neighbor_velocities[neighbor_name]
+            
+            # Calculer le temps écoulé depuis la dernière position publiée
+            dt_prediction = current_time - neighbor_pos['timestamp']
+            
+            if dt_prediction > 0 and neighbor_vel['timestamp'] > 0:
+                # Prédire la position actuelle basée sur la vitesse
+                predicted_x = neighbor_pos['x'] + neighbor_vel['vx'] * dt_prediction
+                predicted_y = neighbor_pos['y'] + neighbor_vel['vy'] * dt_prediction
+                
+                self.predicted_neighbor_positions[neighbor_name] = {
+                    'x': predicted_x,
+                    'y': predicted_y
+                }
+                
+                self.get_logger().debug(
+                    f"Prédiction {neighbor_name}: ({predicted_x:.3f}, {predicted_y:.3f}) "
+                    f"dt={dt_prediction:.3f}s"
+                )
+            else:
+                # Utiliser la dernière position connue
+                self.predicted_neighbor_positions[neighbor_name] = {
+                    'x': neighbor_pos['x'],
+                    'y': neighbor_pos['y']
+                }
+        
+        self.prediction_updates += 1
+
+    def goal_point_callback(self, msg):
+        """Met à jour le goal point global"""
+        self.goal_point = (msg.x, msg.y)
+        self.goal_point_set = True
+        self.is_target_reached_state = False
+        self.publish_target_status(0)
+        self.get_logger().info(f"New goal point set: x={msg.x:.4f}, y={msg.y:.4f}")
+
+    def formation_callback(self, msg):
+        """Réinitialise la formation sur demande"""
+        self.get_logger().info("Received formation reset command, re-initializing formation.")
+        self.formation_initialized = False
+        self.initialize_formation()
+
 def main(args=None):
     rclpy.init(args=args)
     node = DistributedPredictiveSwarmController()
