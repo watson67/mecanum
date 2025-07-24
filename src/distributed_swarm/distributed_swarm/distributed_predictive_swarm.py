@@ -266,102 +266,68 @@ class DistributedPredictiveSwarmController(Node):
         self.active = (msg.data == 1)
         if self.active:
             self.get_logger().info("Contrôle prédictif actif")
+            # PUBLICATION INITIALE pour lancer l'algorithme proprement
+            self.force_initial_publication()
         else:
             self.get_logger().info("Contrôle prédictif désactivé")
             self.stop_robot()
 
-    def goal_point_callback(self, msg):
-        """Met à jour le goal point global"""
-        self.goal_point = (msg.x, msg.y)
-        self.goal_point_set = True
-        self.is_target_reached_state = False
-        self.publish_target_status(0)
-        self.get_logger().info(f"New goal point set: x={msg.x:.4f}, y={msg.y:.4f}")
-
-    def formation_callback(self, msg):
-        """Réinitialise la formation sur demande"""
-        self.get_logger().info("Received formation reset command, re-initializing formation.")
-        self.formation_initialized = False
-        self.initialize_formation()
-
-    #-----------------------------#
-    #   Prédiction des positions  #
-    #-----------------------------#
-    
-    def update_my_estimated_position(self):
-        """Met à jour mon estimation de ma propre position"""
-        current_time = time.time()
-        
-        if self.my_published_position['timestamp'] > 0 and self.my_published_velocity['timestamp'] > 0:
-            # Temps écoulé depuis ma dernière publication
-            dt_prediction = current_time - self.my_published_position['timestamp']
+    def force_initial_publication(self):
+        """Force la publication initiale pour lancer l'algorithme prédictif"""
+        if abs(self.my_position['x']) > 0.001 or abs(self.my_position['y']) > 0.001:
+            current_time = time.time()
             
-            if dt_prediction > 0:
-                # Estimer ma position actuelle basée sur ma dernière position et vitesse publiées
-                estimated_x = self.my_published_position['x'] + self.my_published_velocity['vx'] * dt_prediction
-                estimated_y = self.my_published_position['y'] + self.my_published_velocity['vy'] * dt_prediction
-                
-                self.my_estimated_position = {
-                    'x': estimated_x,
-                    'y': estimated_y
-                }
-            else:
-                self.my_estimated_position = self.my_published_position.copy()
-        else:
-            # Si pas de données précédentes, utiliser la position réelle
+            # Publier position immédiatement
+            pos_msg = Point()
+            pos_msg.x = self.my_position['x']
+            pos_msg.y = self.my_position['y']
+            pos_msg.z = 0.0
+            self.published_pose_publisher.publish(pos_msg)
+            
+            # Publier vitesse initiale (probablement nulle)
+            vel_msg = Vector3()
+            vel_msg.x = self.my_control_velocity['vx']
+            vel_msg.y = self.my_control_velocity['vy']
+            vel_msg.z = 0.0
+            self.velocity_publisher.publish(vel_msg)
+            
+            # Mettre à jour les états
+            self.my_published_position = {
+                'x': self.my_position['x'],
+                'y': self.my_position['y'],
+                'timestamp': current_time
+            }
+            self.my_published_velocity = {
+                'vx': self.my_control_velocity['vx'],
+                'vy': self.my_control_velocity['vy'],
+                'timestamp': current_time
+            }
+            
+            # Marquer comme publié et réinitialiser les compteurs
             self.my_estimated_position = self.my_position.copy()
-
-    def predict_neighbor_positions(self):
-        """Prédit les positions actuelles des voisins basées sur leur vitesse"""
-        current_time = time.time()
-        
-        for neighbor_name in self.neighbors_names:
-            neighbor_pos = self.neighbor_positions[neighbor_name]
-            neighbor_vel = self.neighbor_velocities[neighbor_name]
+            self.first_position_published = True
+            self.last_publish_time = current_time
+            self.position_publications += 1
             
-            # Calculer le temps écoulé depuis la dernière position publiée
-            dt_prediction = current_time - neighbor_pos['timestamp']
-            
-            if dt_prediction > 0 and neighbor_vel['timestamp'] > 0:
-                # Prédire la position actuelle basée sur la vitesse
-                predicted_x = neighbor_pos['x'] + neighbor_vel['vx'] * dt_prediction
-                predicted_y = neighbor_pos['y'] + neighbor_vel['vy'] * dt_prediction
-                
-                self.predicted_neighbor_positions[neighbor_name] = {
-                    'x': predicted_x,
-                    'y': predicted_y
-                }
-                
-                self.get_logger().debug(
-                    f"Prédiction {neighbor_name}: ({predicted_x:.3f}, {predicted_y:.3f}) "
-                    f"dt={dt_prediction:.3f}s"
-                )
-            else:
-                # Utiliser la dernière position connue
-                self.predicted_neighbor_positions[neighbor_name] = {
-                    'x': neighbor_pos['x'],
-                    'y': neighbor_pos['y']
-                }
-        
-        self.prediction_updates += 1
+            self.get_logger().info(
+                f"PUBLICATION INITIALE FORCÉE - pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f}) "
+                f"vel({self.my_control_velocity['vx']:.3f}, {self.my_control_velocity['vy']:.3f})"
+            )
+        else:
+            self.get_logger().warn("Position non valide, publication initiale reportée")
 
     def should_publish_my_position(self):
         """Détermine si je dois publier ma position et vitesse - ALGORITHME SIMPLE"""
         
-        # ATTENDRE que la position soit stable avant la première publication
+        # PLUS BESOIN d'attendre la stabilisation - la publication initiale est forcée
         if not self.first_position_published:
             # Vérifier que la position n'est pas à l'origine (données VRPN valides)
             if abs(self.my_position['x']) < 0.001 and abs(self.my_position['y']) < 0.001:
                 return False
             
-            # Attendre quelques cycles pour que les données se stabilisent
-            self.stable_position_count += 1
-            if self.stable_position_count < 10:
-                return False
-            
-            # OK pour la première publication
+            # Pas d'attente - publication immédiate si pas encore fait
             self.first_position_published = True
-            self.get_logger().info(f"PREMIÈRE PUBLICATION après stabilisation: pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f})")
+            self.get_logger().info(f"PREMIÈRE PUBLICATION: pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f})")
             return True
         
         # Calculer l'erreur entre position réelle et estimation basée sur vitesse
