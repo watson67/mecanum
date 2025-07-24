@@ -352,10 +352,8 @@ class DistributedPredictiveSwarmController(Node):
         self.prediction_updates += 1
 
     def should_publish_my_position(self):
-        """Détermine si je dois publier ma position et vitesse"""
-        current_time = time.time()
-        
-        # Première publication
+        """Détermine si je dois publier ma position et vitesse - PUREMENT basé sur l'erreur"""
+        # Première publication - toujours publier
         if self.last_publish_time == 0.0:
             return True
         
@@ -368,13 +366,16 @@ class DistributedPredictiveSwarmController(Node):
         if error > self.prediction_error_threshold:
             self.get_logger().info(
                 f"Erreur estimation propre: {error:.4f}m > {self.prediction_error_threshold}m, publication nécessaire"
+                f" (réel: {self.my_position['x']:.3f}, {self.my_position['y']:.3f} vs estimé: {self.my_estimated_position['x']:.3f}, {self.my_estimated_position['y']:.3f})"
             )
             return True
         
+        # NE PAS publier si l'erreur est acceptable
         return False
 
     def publish_my_position_and_velocity(self):
-        """Publie ma position et vitesse de manière sélective"""
+        """Publie ma position et vitesse UNIQUEMENT si l'erreur de prédiction le justifie"""
+        # SEULEMENT publier si nécessaire
         if self.should_publish_my_position():
             current_time = time.time()
             
@@ -392,7 +393,7 @@ class DistributedPredictiveSwarmController(Node):
             vel_msg.z = 0.0
             self.velocity_publisher.publish(vel_msg)
             
-            # Mettre à jour les états
+            # Mettre à jour les états SEULEMENT après publication
             self.my_published_position = {
                 'x': self.my_position['x'],
                 'y': self.my_position['y'],
@@ -411,9 +412,10 @@ class DistributedPredictiveSwarmController(Node):
             self.position_publications += 1
             
             self.get_logger().info(
-                f"Position et vitesse publiées: pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f}) "
+                f"PUBLICATION SELECTIVE - Position et vitesse publiées: pos({self.my_position['x']:.3f}, {self.my_position['y']:.3f}) "
                 f"vel({self.my_velocity['vx']:.3f}, {self.my_velocity['vy']:.3f}) [#{self.position_publications}]"
             )
+        # SINON: rien n'est publié, l'estimation continue avec les anciennes données
 
     def publish_neighbor_estimations(self):
         """Publier les estimations de position des voisins pour la compatibilité logger"""
@@ -437,22 +439,26 @@ class DistributedPredictiveSwarmController(Node):
         # Prédire les positions des voisins
         self.predict_neighbor_positions()
         
-        # Publier les estimations des voisins (pour logger)
+        # Publier les estimations des voisins (pour logger) - TOUJOURS pour compatibilité
         self.publish_neighbor_estimations()
         
-        # Publier ma position et vitesse de manière sélective
+        # Publier ma position et vitesse SEULEMENT si erreur de prédiction
         self.publish_my_position_and_velocity()
         
-        # Debug périodique
+        # Debug périodique avec statistiques plus détaillées
         if hasattr(self, '_debug_counter'):
             self._debug_counter += 1
         else:
             self._debug_counter = 0
             
         if self._debug_counter % 100 == 0:  # Toutes les 10 secondes
+            error = math.sqrt(
+                (self.my_position['x'] - self.my_estimated_position['x'])**2 + 
+                (self.my_position['y'] - self.my_estimated_position['y'])**2
+            )
             self.get_logger().info(
                 f"PREDICTION STATS - Publications: {self.position_publications}, "
-                f"Prédictions: {self.prediction_updates}"
+                f"Prédictions: {self.prediction_updates}, Erreur actuelle: {error:.4f}m"
             )
         
         # Initialisation de la formation
