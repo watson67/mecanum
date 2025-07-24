@@ -190,7 +190,7 @@ class DistributedPredictiveSwarmController(Node):
         #-----------------------------#
         
         # Seuils pour la publication sélective
-        self.prediction_error_threshold = 0.04  # Seuil d'erreur pour publier position (m)
+        self.prediction_error_threshold = 0.05  # Seuil d'erreur pour publier position (m)
         
         # États pour la prédiction
         self.last_publish_time = 0.0
