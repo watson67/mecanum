@@ -144,6 +144,10 @@ class DistributedSwarm2Controller(Node):
         self.integral_term = None  # Terme intégral du contrôle
         self.derivative_term = None  # Terme dérivé du contrôle
         self.previous_gamma = None   # Ajouté pour le lissage de ui_gamma
+        self.initial_neighbor_angles = {}  # Angles initiaux avec les voisins
+        self.rotation_count = 0  # Compteur de rotations (pas utilisé en distribué pour le moment)
+        self.is_rotating = False  # État de rotation (pas utilisé en distribué pour le moment)
+        self.previous_c1_gamma = None  # Pour le lissage de c1_gamma
         self.dt = 0.1  # Pas de temps pour le contrôle
         self.target_tolerance = 0.08  # Tolérance pour considérer la cible atteinte
         self.is_target_reached_state = False  # Statut d'atteinte de la cible
@@ -314,6 +318,7 @@ class DistributedSwarm2Controller(Node):
     def initialize_formation(self):
         """
         Initialise la formation UNIQUEMENT avec le barycentre global.
+        Maintenant inclut le calcul des angles initiaux pour l'atténuation de c1_gamma.
         """
         if self.formation_initialized:
             self.get_logger().warn("Formation already initialized! Skipping re-initialization.")
@@ -337,7 +342,8 @@ class DistributedSwarm2Controller(Node):
             f"Relative vector: [{self.initial_relative_vector[0]:.4f}, {self.initial_relative_vector[1]:.4f}]"
         )
         
-        # Configuration statique des voisins
+        # Configuration statique des voisins ET calcul des angles initiaux
+        neighbor_idx = 0
         for neighbor_name in self.neighbors_names:
             if neighbor_name in self.other_robot_positions and self.other_robot_positions[neighbor_name] is not None:
                 other_pos = self.other_robot_positions[neighbor_name]
@@ -346,9 +352,23 @@ class DistributedSwarm2Controller(Node):
                     (self.my_position['y'] - other_pos['y'])**2
                 ) if CHOICE else FIXED_DISTANCE
                 self.desired_distances[neighbor_name] = dist
+                
+                # Calcul de l'angle initial vers ce voisin (comme dans swarm2.py)
+                vector_to_neighbor = np.array([
+                    other_pos['x'] - self.my_position['x'],
+                    other_pos['y'] - self.my_position['y']
+                ])
+                
+                if np.linalg.norm(vector_to_neighbor) > 0.01:
+                    angle = math.atan2(vector_to_neighbor[1], vector_to_neighbor[0])
+                    self.initial_neighbor_angles[neighbor_idx] = angle
+                    self.get_logger().info(f"Angle initial vers {neighbor_name}: {angle:.3f} rad ({math.degrees(angle):.1f}°)")
+                
+                neighbor_idx += 1
         
         self.formation_initialized = True
         self.get_logger().info(f"Formation initialisée avec le barycentre global uniquement")
+        self.get_logger().info(f"Angles initiaux calculés: {self.initial_neighbor_angles}")
         self.get_logger().info(
             f"Barycentre global (init): X:{initial_barycenter[0]:.3f} ; Y:{initial_barycenter[1]:.3f}"
         )
@@ -391,6 +411,7 @@ class DistributedSwarm2Controller(Node):
     def apply_consensus_control(self):
         """
         Applique le contrôle de consensus UNIQUEMENT avec le barycentre global.
+        Maintenant avec atténuation dynamique de c1_gamma comme dans swarm2.py.
         """
         if not self.goal_point_set:
             return
@@ -450,7 +471,7 @@ class DistributedSwarm2Controller(Node):
             ui_gamma = control_vector
             self.previous_gamma = ui_gamma
         else:
-            # Contrôle avec voisins
+            # Contrôle avec voisins ET atténuation dynamique de c1_gamma
             try:
                 control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma, updated_gamma = control_with_components(
                     pj_array=pj_array,
@@ -460,12 +481,16 @@ class DistributedSwarm2Controller(Node):
                     dt=self.dt,
                     integral_term=self.integral_term,
                     derivative_term=self.derivative_term,
-                    is_rotating=False,
+                    is_rotating=self.is_rotating,
                     logger=self.get_logger(),
-                    previous_gamma=self.previous_gamma
+                    previous_gamma=self.previous_gamma,
+                    initial_angles=self.initial_neighbor_angles,
+                    rotation_count=self.rotation_count,
+                    previous_c1_gamma=self.previous_c1_gamma
                 )
                 self.previous_gamma = updated_gamma
             except TypeError:
+                # Fallback pour ancienne version sans atténuation de c1_gamma
                 control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma = control_with_components(
                     pj_array=pj_array,
                     pi=pi,
@@ -474,7 +499,7 @@ class DistributedSwarm2Controller(Node):
                     dt=self.dt,
                     integral_term=self.integral_term,
                     derivative_term=self.derivative_term,
-                    is_rotating=False,
+                    is_rotating=self.is_rotating,
                     logger=self.get_logger(),
                     previous_gamma=self.previous_gamma
                 )

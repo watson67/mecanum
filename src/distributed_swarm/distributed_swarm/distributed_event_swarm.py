@@ -159,6 +159,10 @@ class DistributedEventSwarmController(Node):
         self.integral_term = None
         self.derivative_term = None
         self.previous_gamma = None
+        self.initial_neighbor_angles = {}  # Angles initiaux avec les voisins
+        self.rotation_count = 0  # Compteur de rotations
+        self.is_rotating = False  # État de rotation
+        self.previous_c1_gamma = None  # Pour le lissage de c1_gamma
         self.dt = 0.1
         self.target_tolerance = 0.08
         self.is_target_reached_state = False
@@ -433,7 +437,7 @@ class DistributedEventSwarmController(Node):
         return True
 
     def initialize_formation(self):
-        """Initialise la formation avec le barycentre global"""
+        """Initialise la formation avec le barycentre global ET calcul des angles initiaux"""
         if self.formation_initialized:
             return
             
@@ -446,7 +450,8 @@ class DistributedEventSwarmController(Node):
             self.my_position['y'] - initial_barycenter[1]
         ])
         
-        # Configuration des distances désirées avec les voisins
+        # Configuration des distances désirées avec les voisins ET calcul des angles initiaux
+        neighbor_idx = 0
         for neighbor_name in self.neighbors_names:
             if neighbor_name in self.other_robot_positions and self.other_robot_positions[neighbor_name] is not None:
                 other_pos = self.other_robot_positions[neighbor_name]
@@ -455,9 +460,23 @@ class DistributedEventSwarmController(Node):
                     (self.my_position['y'] - other_pos['y'])**2
                 ) if CHOICE else FIXED_DISTANCE
                 self.desired_distances[neighbor_name] = dist
+                
+                # Calcul de l'angle initial vers ce voisin (comme dans swarm2.py)
+                vector_to_neighbor = np.array([
+                    other_pos['x'] - self.my_position['x'],
+                    other_pos['y'] - self.my_position['y']
+                ])
+                
+                if np.linalg.norm(vector_to_neighbor) > 0.01:
+                    angle = math.atan2(vector_to_neighbor[1], vector_to_neighbor[0])
+                    self.initial_neighbor_angles[neighbor_idx] = angle
+                    self.get_logger().info(f"Angle initial vers {neighbor_name}: {angle:.3f} rad ({math.degrees(angle):.1f}°)")
+                
+                neighbor_idx += 1
         
         self.formation_initialized = True
-        self.get_logger().info(f"Formation initialized with event-based control")
+        self.get_logger().info(f"Formation initialized with event-based control and c1_gamma attenuation")
+        self.get_logger().info(f"Angles initiaux calculés: {self.initial_neighbor_angles}")
 
     def compute_swarm_center(self):
         """Retourne le barycentre global"""
@@ -476,7 +495,7 @@ class DistributedEventSwarmController(Node):
             return global_lin_x, global_lin_y
 
     def apply_consensus_control(self):
-        """Applique le contrôle de consensus (identique à la version standard)"""
+        """Applique le contrôle de consensus avec atténuation dynamique de c1_gamma"""
         if not self.goal_point_set or self.global_barycenter_position is None:
             return
             
@@ -512,14 +531,18 @@ class DistributedEventSwarmController(Node):
                     dt=self.dt,
                     integral_term=self.integral_term,
                     derivative_term=self.derivative_term,
-                    is_rotating=False,
+                    is_rotating=self.is_rotating,
                     logger=self.get_logger(),
-                    previous_gamma=self.previous_gamma
+                    previous_gamma=self.previous_gamma,
+                    initial_angles=self.initial_neighbor_angles,
+                    rotation_count=self.rotation_count,
+                    previous_c1_gamma=self.previous_c1_gamma
                 )
                 self.previous_gamma = updated_gamma
                 self.integral_term = updated_integral
                 self.derivative_term = updated_derivative
             except TypeError:
+                # Fallback pour ancienne version sans atténuation de c1_gamma
                 control_vector, updated_integral, updated_derivative, ui_alpha, ui_gamma = control_with_components(
                     pj_array=pj_array,
                     pi=pi,
@@ -528,7 +551,7 @@ class DistributedEventSwarmController(Node):
                     dt=self.dt,
                     integral_term=self.integral_term,
                     derivative_term=self.derivative_term,
-                    is_rotating=False,
+                    is_rotating=self.is_rotating,
                     logger=self.get_logger(),
                     previous_gamma=self.previous_gamma
                 )
