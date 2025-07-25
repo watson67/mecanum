@@ -4,9 +4,17 @@
 
 \input{10-Descriptions_réalisations/outils.tex}
 
-
 \section{Essaim de robots}
 
 \section{Organisation du système avec \glsentrylong{ros} (\glsentryshort{ros})}
 
+Le système mis en place est illustré par le graphe ROS présenté en Figure \ref{fig:ros2_system}. Il s'agit d'une version simplifiée du système ROS2 utilisé pour l’algorithme, mettant en avant les principaux topics et noeuds, ainsi que deux robots pour l’exemple.
 
+\input{10-Descriptions_réalisations/fig.tex}
+
+La logique de fonctionnement est la suivante :
+\begin{itemize}
+    \item Le noeud \textit{master\_control\_node} permet, via la pression de la touche espace du clavier, de publier un message sur le topic \textit{/master}. Ce message indique à l’ensemble des noeuds de démarrer ou d’arrêter leur activité.
+    \item Plusieurs \textit{logger}s sont utilisés pour enregistrer les données des robots et les messages du topic \textit{/master}. Ils sont abonnés aux différents topics et sauvegardent les valeurs dans des fichiers CSV. L’enregistrement des données n’a lieu que lorsqu’un message est reçu sur le topic \textit{/master} et prennent fin après recepetion d'un nouveau message, ce qui permet de ne conserver que les informations pertinentes. Ces fichiers sont ensuite utilisés pour tracer les graphiques (via Matlab) présentés en partie \ref{chap:resultats}.
+    \item Le noeud \textit{swarm\_controller\_node} constitue le coeur de l’algorithme de contrôle. Chaque robot dispose de son propre noeud \textit{swarm\_controller}, assurant ainsi une logique distribuée.  
+\end{itemize}

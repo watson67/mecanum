@@ -10,12 +10,12 @@
     \vspace{-0.5cm} 
 \end{wrapfigure}
 
-Comme mentionné précédemment, avant d’implémenter le programme de contrôle événementiel sur des drones, celui-ci sera dans un premier temps développé et testé sur des robots mobiles de type Turtlebot, équipés de roues Mecanum (Figure \ref{fig:mecanum}).
+Comme mentionné précédemment, avant d'implémenter le programme de contrôle événementiel sur des drones, celui-ci sera dans un premier temps développé et testé sur des robots mobiles de type Turtlebot, équipés de roues Mecanum (Figure \ref{fig:mecanum}).
 Les roues Mecanum sont des roues particulières, composées de plusieurs galets montés en biais autour de leur circonférence, ce qui permet au robot de réaliser des mouvements dans toutes les directions du plan en combinant les vitesses de rotation de chaque roue. Ce type de robot est dit \textit{holonome}.
-Dans le cadre du projet eSWARM, ces robots servent de substituts aux drones afin de simplifier les expérimentations. Ce choix permet de passer d’un système en trois dimensions à un système bidimensionnel, tout en évitant les risques de collisions ou de chutes inhérents à l’utilisation de drones. 
+Dans le cadre du projet eSWARM, ces robots servent de substituts aux drones afin de simplifier les expérimentations. Ce choix permet de passer d'un système en trois dimensions à un système bidimensionnel, tout en évitant les risques de collisions ou de chutes inhérents à l'utilisation de drones. 
 
-Chaque robot est composé de quatre moteurs Dynamixel, d'une carte OpenCR assurant le pilotage bas niveau, et d'une Raspberry Pi 4 servant d’unité de calcul principale.
-Ils ont été conçus et programmés initialement sous ROS1 dans le cadre d’un projet de 5ème année à l’INSA Strasbourg. Trois robots étaient disponibles au début du stage, portant les noms des trois mousquetaires : Athos, Porthos et Aramis \cite{vrignaud_swarm_2025}. Trois robots supplémentaires ont été construits et programmés durant le stage : Dartagnan, Edmon et Mercedes.
-Les six robots ont été programmé en ROS2 (annexe \ref{annexe:migration_ros2}). 
+Chaque robot est composé de quatre moteurs Dynamixel, d'une carte OpenCR assurant le pilotage bas niveau, et d'une Raspberry Pi 4 servant d'unité de calcul principale.
+Ils ont été conçus et programmés initialement sous \gls{ros1} dans le cadre d'un projet de 5ème année à l'INSA Strasbourg. Trois robots étaient disponibles au début du stage, portant les noms des trois mousquetaires : Athos, Porthos et Aramis \cite{vrignaud_swarm_2025}. Trois robots supplémentaires ont été construits et programmés durant le stage : Dartagnan, Edmon et Mercedes.
+Les six robots ont été programmés en \gls{ros2} (annexe \ref{annexe:migration_ros2}). 
 
-La cinématique de ce type de robot est donné dans \cite{tan_research_2021}.
+La cinématique de ce type de robot est donnée dans \cite{tan_research_2021}.
