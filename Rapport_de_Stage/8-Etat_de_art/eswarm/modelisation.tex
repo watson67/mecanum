@@ -1,0 +1,32 @@
+\subsection{Modélisation d'un système de drone modulaire}
+\label{part:control}
+
+%\noindent{Le modèle d'un unique quadcoptère est donné en annexe} \ref{modelisation_quadcopter}, sur la base de \cite{bonnel_modeling_2024} et \cite{gangloff_mooc_2023}, et sert de base pour la modélisation du système eSWARM et des autres projets qui s'en rapprochent.
+
+\subsubsection*{Modélisation}
+
+\noindent La modélisation décrite ici est basée sur \cite{bonnel_modeling_2024, saldana_modquad_2018}.
+
+\noindent Les hypothèses sont les suivantes :
+
+\begin{itemize}
+    \item Le modèle du système varie selon la configuration de la structure, une occurrence du modèle est calculée chaque fois que la structure change. 
+    \item Tous les modules partagent la même orientation, l'angle de lacet de tous les modules et de la structure entière est considéré comme nul.
+    \item Tous les modules connaissent leur position et orientation dans le repère monde.
+    \item Tous les modules sont symétriques, par conséquent la matrice d'inertie d'un module est diagonale.
+\end{itemize}
+
+%D'après le modèle d'un quadcoptère (annexe \ref{modelisation_quadcopter}, la force et les moments exercés par une hélice sur celle-ci sont proportionnels au carré de la vitesse angulaire de cette hélice. Or, comme le centre de masse dépend du nombre de modules et de leur configuration, le torseur de la structure dépend des mêmes paramètres. Le torseur de la structure est :
+
+\[
+\begin{bmatrix}F\\ M_{x}\\ M_{y}\\ M_{z}\end{bmatrix}=\sum_{i}\begin{bmatrix}1&1&1&1\\ y_{i1}&y_{i2}&y_{i3}&y_{i3}\\ -x_{i1}&-x_{i2}&-x_{i3}&-x_{i4}\\ \frac{k_{M}}{k_{F}}&\frac{k_{M}}{k_{F}}&\frac{k_{M}}{k_{F}}&\frac{k_{M}}{k_{F}} \\ \end{bmatrix}\begin{bmatrix}f_{i1}\\ f_{i2}\\ f_{i3}\\ f_{i4}\end{bmatrix}
+\]
+où \(\begin{bmatrix}F&M_{x}&M_{y}&M_{z}\end{bmatrix}^{T}\) représentent respectivement la poussée, les moments de tangage, de roulis et de lacet de la structure, \(f_{ij}\) est la force générée par une hélice, \((x_{ij},y_{ij})\) la distance de la \(j^{\text{ème}}\) hélice du \(i^{\text{ème}}\) module par rapport au centre de masse de la structure, \(k_{M}\) et \(k_{F}\) sont des constantes du moteur.
+
+\noindent La matrice d'inertie de la structure est calculée à l'aide du théorème des axes parallèles :
+
+\[
+\mathbf{I}_{S}=n\mathbf{I}+m\begin{bmatrix}\sum_{i}y_{i}^{2}&0&0\\ 0&\sum_{i}x_{i}^{2}&0\\ 0&0&\sum_{i}x_{i}^{2}+y_{i}^{2}\end{bmatrix}
+\]
+où \(\mathbf{I}_{S}\) est la matrice d'inertie de la structure, \(\mathbf{I}\) est l'inertie d'un module, \(n\) est le nombre de modules de la structure, et \(m\) la masse d'un module. 
+
