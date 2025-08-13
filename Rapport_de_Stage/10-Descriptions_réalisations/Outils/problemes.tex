@@ -1,0 +1,5 @@
+\subsection{Problèmes rencontrés lors de la mise en place du système}
+
+Le principal obstacle rencontré lors de la mise en place des outils est l’architecture réseau. Le système de Motion Vapture Motive fonctionne sur un réseau privé généré par un routeur et diffuse, via VRPN, des données accessibles uniquement aux machines de ce réseau. Conformément à la politique de sécurité de l’INSA Strasbourg, ce routeur ne pouvait pas être connecté à Internet. Le développement s’en trouvait compliqué : il était difficile d’accéder à la documentation en ligne tout en restant connecté aux robots. Le poste de développement a donc été relié simultanément au routeur (Ethernet) et au Wi‑Fi de l’INSA.
+
+Cette configuration restait toutefois limitée, les robots n’ayant pas d’accès Internet : mises à jour, reprogrammation et accès à GitHub étaient impossibles. Un serveur Git local a donc du être déployé sur le poste de développement, donnant aux robots accès au dépôt. Ce dernier se synchronise automatiquement dès que le dépôt distant est actualisé.

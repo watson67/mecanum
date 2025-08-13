@@ -4,18 +4,42 @@
 
 \section{Utilisations de robots holonomes terrestres}
 
-Lister avantages et inconvénients par rapport aux drones
+Le passage à des robots holonomes terrestres permet de passer à une cinématique strictement 2D (dans le plan), ce qui simplifie grandement l'ensemble du système et des programmes, ainsi que la planification (pas de gestion d’altitude) ; il y aura aussi moins de crashs et donc moins de casse notamment grâce à l’absence d’hélices exposées. Les essais seront aussi facilités grâce à une autonomie généralement plus grande et la possibilité de tests en alimentation filaire pour des sessions longues.
 
 \section{Consensus pour le pilotage de l'essaim}
 
 % \input{9-Descriptions_méthodes/consensus.tex}
 
-L'algorithme retenu pour ce stage est celui de \cite{koung_consensus-based_2020}, qui est un algorithme de consensus distribué. Il s'inspire grandement de \textbf{ARTICLEARETROUVER}, qui est utilisé pour piloter un essaim dr drones, ce qui permet de rester dans la continuité du projet eSWARM. De plus, l'algorithme est relativement simple à mettre en place, et est basé sur des PIDs, ce qui est un avantage pour la compréhension et la mise en œuvre.
-\begin{itemize}
-    \item Simplicité
-    \item Adaptable aux drones
-    \item Utilisations de PIDs 
-\end{itemize}
+L'algorithme retenu pour ce stage est celui de \cite{koung_consensus-based_2020}, qui est un algorithme de consensus distribué. Il s'inspire grandement de \cite{saif_distributed_2019}, qui est utilisé pour piloter un essaim de drones, ce qui permet de rester dans la continuité du projet eSWARM. De plus, l'algorithme est relativement simple à mettre en place, et est basé sur des PIDs, ce qui est un avantage pour la compréhension et la mise en œuvre. 
+
+\cite{koung_consensus-based_2020} s'utilise sur un système de type \textbf{int\'egrateur pur}. Cela signifie que la sortie est l'int\'egrale directe de l'entrée. En dimension 2, cela s'écrit :
+
+\begin{equation}
+\dot{\mathbf{p}} = \mathbf{u},
+\end{equation}
+où $\mathbf{p} \in \mathbb{R}^2$ est par exemple la position, et $\mathbf{u} \in \mathbb{R}^2$ est la vitesse d'entrée. 
+
+Un robot non-holonome, comme un robot de type unicycle (ceux utilisé dans \cite{koung_consensus-based_2020}), est contraint dans ses déplacements. Son modèle cinématique est :
+
+\begin{equation}
+\dot{\mathbf{p}}_i = v_i \begin{pmatrix}\cos\theta_i \\ \sin\theta_i\end{pmatrix}, \qquad \dot{\theta}_i = \omega_i,
+\end{equation}
+où $v_i$ est la vitesse linéaire, $\omega_i$ la vitesse angulaire, $\theta_i$ l'orientation, et $\mathbf{p}_i = (x_i, y_i)^T$ la position du robot.
+
+Ce système ne peut pas être commandé directement comme un int\'egrateur pur, car les directions de mouvement sont restreintes, c'est pourquoi le modèle est linéarisé.
+Pour un robot holonome, le modèle est :
+
+\begin{equation}
+\begin{pmatrix} \dot{x}_i \\ \dot{y}_i \end{pmatrix} = \begin{pmatrix} V_X \\ V_Y \end{pmatrix}, \qquad \dot{\theta}_i = \omega.
+\end{equation}
+
+Les vitesses dans le plan $V_X$, $V_Y$ sont directement commandables. Ce système est déjà un int\'egrateur pur :
+
+\begin{equation}
+\dot{\mathbf{p}}_i = \mathbf{u}_i.
+\end{equation}
+
+Il n’est donc pas nécessaire de linéariser ce modèle ou d’introduire un point offset, ce qui simplifie la commande.
 
 \section{Commande événementielle}
 
@@ -23,6 +47,6 @@ L'algorithme retenu pour ce stage est celui de \cite{koung_consensus-based_2020}
 
 \input{9-Descriptions_méthodes/commande_ev_pred.tex}
 
-\newpage
+%\input{9-Descriptions_méthodes/consensus.tex}
 
 \input{9-Descriptions_méthodes/autre.tex}

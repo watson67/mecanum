@@ -83,4 +83,6 @@ Pour y remédier, plusieurs stratégies sont proposées :
 
 Une autre difficulté de la commande événementielle est "l’explosion" de la partie intégrale pendant les périodes prolongées sans événement. En effet, lorsque le système reste stable, l'intervalle de temps entre deux événements (noté $h_{\text{act}}$) peut devenir très grand. Cela entraîne une accumulation excessive de l’erreur dans la partie intégrale du contrôleur, qui, lors d’un changement soudain de consigne, provoque des dépassements importants et détériore la performance du système. Pour pallier ce problème, plusieurs solutions ont été proposées \cite{durand_further_2009}. La première consiste à saturer le produit $h \cdot e$, afin de limiter l’impact des longues périodes stables sur l’intégration. La seconde utilise un facteur d’oubli exponentiel, qui atténue progressivement l’influence des anciennes erreurs. 
 
+\input{8-Etat_de_art/cmd_ev/cmd_pred.tex}
+
  
