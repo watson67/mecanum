@@ -6,13 +6,97 @@
 
 \section{Organisation du système avec \glsentrylong{ros} (\glsentryshort{ros})}
 
+\subsection{Logique globale du système}
 Le système mis en place est illustré par le graphe ROS présenté en Figure \ref{fig:ros2_system}. Il s'agit d'une version simplifiée du système ROS2 utilisé pour l’algorithme, mettant en avant les principaux topics et noeuds, ainsi que deux robots pour l’exemple.
 
 \input{10-Descriptions_réalisations/fig.tex}
 
 La logique de fonctionnement est la suivante :
 \begin{itemize}
-    \item Le noeud \textit{master\_control\_node} permet, via la pression de la touche espace du clavier, de publier un message sur le topic \textit{/master}. Ce message indique à l’ensemble des noeuds de démarrer ou d’arrêter leur activité.
-    \item Plusieurs \textit{logger}s sont utilisés pour enregistrer les données des robots et les messages du topic \textit{/master}. Ils sont abonnés aux différents topics et sauvegardent les valeurs dans des fichiers CSV. L’enregistrement des données n’a lieu que lorsqu’un message est reçu sur le topic \textit{/master} et prennent fin après recepetion d'un nouveau message, ce qui permet de ne conserver que les informations pertinentes. Ces fichiers sont ensuite utilisés pour tracer les graphiques (via Matlab) présentés en partie \ref{chap:resultats}.
+    \item Le noeud \textit{master\_control\_node} permet, via la pression de la touche espace du clavier, de publier un message sur le topic \textit{/master}. Ce message indique à l’ensemble des noeuds de démarrer ou d’arrêter leur activité. Lorsque le parcours de l'essaim est terminé, un nouveau message est publié pour arrêter les robots.
+    \item Plusieurs \textit{logger}s sont utilisés pour enregistrer les données des robots et les messages du topic \textit{/master}. Ils sont abonnés aux différents topics et sauvegardent les valeurs dans des fichiers CSV. L’enregistrement des données n’a lieu que lorsqu’un message est reçu sur le topic \textit{/master}, et prend fin après réception d’un nouveau message; on ne conserve ainsi que les informations correspondant au parcours de l’essaim. Ces fichiers sont ensuite utilisés pour tracer les graphiques (via MATLAB) présentés en partie \ref{chap:resultats}. Bien qu’il existe une bibliothèque nommée \textit{ROS2\_bag} pour enregistrer les données, il a été choisi de ne pas l’utiliser par souci de simplicité : les fichiers CSV sont plus simples à utiliser et permettent d’enregistrer exactement les données voulues, surtout au moment souhaité, grâce au pilotage via le topic \textit{/master}.
     \item Le noeud \textit{swarm\_controller\_node} constitue le coeur de l’algorithme de contrôle. Chaque robot dispose de son propre noeud \textit{swarm\_controller}, assurant ainsi une logique distribuée.  
 \end{itemize}
+
+\subsection{Modularité, adaptabilité et réutilisabilité du code}
+
+Le système a été conçu pour être modulaire et facilement reconfigurable : la formation n’est pas figée et la définition des voisinages peut évoluer sans modifier le code. La topologie de l’essaim est décrite dans un fichier de configuration au format \textit{.yaml}, qui définit:
+\begin{itemize}
+    \item liste complète des robots de l’essaim (les identifiants doivent correspondre aux \textit{rigid bodies} du système de motion capture) ;
+    \item pour chaque robot, la liste de ses voisins (graphe d’adjacence).
+\end{itemize}
+Au démarrage, chaque unité exécute le même algorithme distribué et s’autoconfigure selon les étapes suivantes :
+\begin{itemize}
+    \item récupération du nom du robot via le \textit{hostname} Ubuntu ;
+    \item lecture du fichier \textit{.yaml} ;
+    \item vérification d’appartenance à l’essaim (le nom du robot doit être dans la liste) ;
+    \item extraction de la liste des voisins et initialisation des abonnements/publications correspondants à partir des chaînes de caractères des noms de robots.
+\end{itemize}
+Les interdistances à maintenir entre les robots peuvent être définits de deux manières :
+\begin{itemize}
+    \item soit en définissant une distance fixe pour tous les voisins ;
+    \item soit en maintenant la distance initiale avec le voisin au lancement du programme.
+\end{itemize}
+Ainsi, le même code est executé sur chaque robot (pas besoin d'adapter le code pour chaque robot), ce qui simplifie grandement la gestion du programme.
+
+\subsection{Logique de développement}
+
+La première étape du développement a évidemment été la programmation des robots, puis leur test en envoyant des commandes de vitesse simples à l'aide du clavier (noeud \textit{teleop\_key}). Ensuite, une bibliothèque Python ROS2 nommée \textit{vrpn\_mocap} a été utilisée pour récupérer les données de position des robots depuis le système de motion capture Motive. Cette bibliothèque permet de lire les données VRPN et de les publier sur un topic ROS2.
+
+L'étape suivante a été de développer un algorithme exploitant à la fois les données de position et les commandes de vitesse. Les consignes de vitesse sont calculées dans le repère global (monde) du système de motion capture, alors que le robot exécute ses commandes dans son propre repère local (repère \textit{body}) attaché au châssis. Il est donc nécessaire d'effectuer un changement de repère: convertir la vitesse exprimée en coordonnées monde vers des coordonnées exprimées dans le repère du robot.
+
+Comme illustré en Figure \ref{fig:repere_45}, le repère \textit{body} $(x',y')$ est tourné d'un angle $\theta$ par rapport au repère global $(x,y)$ et centré sur le robot. Convertir une consigne de vitesse revient à appliquer une rotation inverse autour de l'origine du robot afin d'obtenir la même direction et la même norme dans le repère \textit{body}. Pour cela, la bibliothèque \textit{tf2} de ROS2 a été utilisée. 
+Concrètement, \textit{tf2} maintient un graphe temporel (un arbre) de repères (dans le cas présent un repère par robot). Les nœuds publient ensuite des transformations sur \textit{/tf}. Les autres nœuds interrogent un \textit{Buffer} via un \textit{TransformListener} pour obtenir, à un instant donné, la transformation entre deux repères.
+
+Cependant, avec l’augmentation du nombre de robots dans l’essaim, la fréquence de publication et de calcul des transformations \textit{tf2} a fortement diminué. Chaque robot publiant ses propres repères, la charge de messages était très élevée, ce qui a introduit de la latence et rendu les positions rdisponibles sur \textit{tf} rapidement obsolètes. L'utilisation de \textit{tf2} a donc été abandonnée, et les transformations sont désormais gérées manuellement; par une simple matrice de rotation.
+
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}[scale=1]
+        % Repère global
+        \draw[->] (-0.2,0) -- (4.2,0) node[below right] {$x$};
+        \draw[->] (0,-0.2) -- (0,4.2) node[above left] {$y$};
+        \fill (0,0) circle (1pt) node[below left] {$O$};
+
+        % Paramètres
+        \def\ang{45}
+        \def\ox{2}
+        \def\oy{1}
+        \def\L{1.5}
+        \def\r{0.5}
+
+        % Repère local tourné, origine (2,1)
+        \draw[blue, thick, ->] (\ox,\oy) -- ({\ox+\L*cos(\ang)},{\oy+\L*sin(\ang)}) node[above right] {$x'$};
+        \draw[blue, thick, ->] (\ox,\oy) -- ({\ox-\L*sin(\ang)},{\oy+\L*cos(\ang)}) node[above left] {$y'$};
+
+        % Robot (cercle) à l'origine du repère body - plus grand
+        \draw[blue, thick] (\ox,\oy) circle (0.50);
+
+        % Indication de l'angle (centrée en (2,1))
+        \draw[red, semithick] ({\ox+\r},\oy) arc[start angle=0, end angle=\ang, radius=\r];
+        \node[red] at ({\ox+1.3*\r*cos(\ang/2)},{\oy+1.3*\r*sin(\ang/2)}) {$\theta$};
+    \end{tikzpicture}
+    \caption{Repères 2D: global $(x,y)$ et repère body $(x',y')$ tourné de l'angle $\theta$. Le cercle représente le robot.}
+    \label{fig:repere_45}
+\end{figure}
+La formule de passage d'un repère à l'autre est donné par : :
+    \begin{equation}
+        \begin{pmatrix}
+        u_{x_i}^{\text{body}} \\
+        u_{y_i}^{\text{body}}
+        \end{pmatrix}
+        =
+        R(-\theta_i)
+        \begin{pmatrix}
+        u_{x_i} \\
+        u_{y_i}
+        \end{pmatrix}
+        \qquad
+        \text{avec } R(-\theta_i) =
+        \begin{pmatrix}
+        \cos\theta_i & \sin\theta_i \\
+        -\sin\theta_i & \cos\theta_i
+        \end{pmatrix}
+    \end{equation}
+
+Une fois l’ensemble en place et opérationnel, il a été décidé de commencer par une implémentation centralisée afin de faciliter les essais : il était fastidieux de récupérer et d’exécuter le code sur chaque robot. Cette nouvelle approche repose sur une simple boucle \textit{for} itérant sur chaque robot. Une fois l’algorithme validé, la version distribuée a été mise en œuvre. Cette méthode a été appliquée pour l'ensemble des algorithmes développés.
