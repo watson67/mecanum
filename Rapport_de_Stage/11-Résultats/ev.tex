@@ -1,5 +1,7 @@
 \subsection{Commande événementielle classique}
 
+Cette section présente les résultats obtenus avec la commande événementielle classique, c'est-à-dire le déclenchement des commandes lorsque certaines conditions sont remplies.
+
 \begin{figure}[H]
     \centering
     \begin{minipage}{0.48\textwidth}
@@ -15,9 +17,7 @@
         \label{fig:ev_essaim_trajectory2}
     \end{minipage}
 \end{figure}
-La Figure \ref{fig:ev_essaim_trajectory2} illustre les trajectoires de chaque robot de l'essaim, ainsi que les points où les commandes sont calculées et appliquées, correspondant aux instants de déclenchement des événements. Il faut noter que les évènement sont surtout déclenchés lorsque l'on se rapproche du point-cible (chaque coin de carré), ce qui s'explique simplement par le fait qu'à ces moments, les robots doivent ralentir pour ne pas dépasser le point cible.
-
-
+La Figure \ref{fig:ev_essaim_trajectory2} illustre les trajectoires de chaque robot de l'essaim comme auparavant, ainsi que les positions où les commandes sont calculées et appliquées, correspondant aux instants de déclenchement des événements. 
 
 \begin{figure}[H]
     \vspace{-0.5cm}
@@ -29,10 +29,28 @@ La Figure \ref{fig:ev_essaim_trajectory2} illustre les trajectoires de chaque ro
     
 \end{figure}
 
-Les résultats obtenus sont très satisfaisants, la formation et les interdistances sont maintenus tout au long du parcours.
-Cependant, une information non-visible sur les figures ci-dessus est la vitesse de convergence. Les robots accélèrent et freinent très brusquement, sans transition pour adoucir leur mouvement avant ou après un événement. Cela peut entraîner des comportements peu naturels ou des à-coups dans la dynamique de l'essaim. Pour visualiser cela, il suffit de tracer les vitesses des robots au cours du temps, comme illustré dans la Figure.
+La formation et les interdistances sont également maintenus tout au long du parcours. De plus, il est possible de constater grâce à la Figure \ref{fig:ev_essaim_trajectory2} que les commandes ne sont pas calculées lors des lignes droites ; la formation est conservée. Cela s'explique simplement par le fait que les trajectoires individuelles théoriques de chaque robot sont parallèles, ce qui implique une conservation des inter-distances.
+Il faut noter que les évènement sont surtout déclenchés lorsque l'on se rapproche du point-cible (chaque coin de carré). A ces moments, les robots doivent ralentir pour ne pas dépasser le point cible.
+Cependant, une information non-visible sur les figures ci-dessus est la vitesse de convergence. Les robots accélèrent et freinent très brusquement, sans transition pour adoucir leur mouvement avant ou après un événement. Cela peut entraîner des comportements peu naturels ou des à-coups dans la dynamique de l'essaim. Pour visualiser cela, il suffit de tracer les vitesses des robots au cours du temps, comme illustré dans la Figure \ref{fig:ev_essaim_speed}.
 
-\textbf{RAJOUTER UNE COURBE POUR MONTRER LES VITESSES}
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[t]{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{11-Résultats/pic/ev/Vitesses - Aramis_cmd_vel_rate_rogne.pdf}
+        \caption{Évolution de la vitesse \\(commande événementielle)}
+        \label{fig:ev_essaim_speed}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.5\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{11-Résultats/pic/classic/Vitesses - Aramis_cmd_vel_rate_rogne.pdf}
+        \caption{Évolution de la vitesse \\(commande classique)}
+        \label{fig:cl_essaim_speed}
+    \end{minipage}
+\end{figure}
+
+Dans le cas événementielle,  les variations de vitesses sont brusques; il n'y a pas de ralentissement progressif des moteurs. Ainsi, lors des lignes droites, la vitesse maximale est maintenue plus longtemps que dans la méthode classique, ce qui rend l'essaim plus rapide. Cependant, les variations de vitesse sont très importantes, ce qui peut entraîner des comportements peu naturels.
+
 La robustesse de l'algorithme est ensuite à nouveau testée, en créant manuellement une perturbation en retenant Athos.
 
 \begin{figure}[H]
@@ -50,5 +68,5 @@ La robustesse de l'algorithme est ensuite à nouveau testée, en créant manuell
         \label{fig:ev_inter_distances_perturbation}
     \end{minipage}
 \end{figure}
-Lors de la perturbation, la condition de déclenchement sur les écarts de distance est atteinte, ce qui entraîne le recalcul des commandes pour certains robots. 
+Lors de la perturbation, la condition de déclenchement sur les écarts de distance est atteinte, ce qui entraîne le recalcul des commandes pour certains robots, ce qui est visible sur la Figure \ref{fig:ev_inter_distances_perturbation}. 
 Comme les commandes ne sont recalculées que lorsque l'écart dépasse $\pm 5$~cm, il n'y a pas assez de corrections/calculs de commande pour permettre une convergence précise vers la valeur souhaitée. 

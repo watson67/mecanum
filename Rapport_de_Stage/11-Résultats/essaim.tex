@@ -15,7 +15,9 @@
         \label{fig:essaim_trajectory2}
     \end{minipage}
 \end{figure}
-\underline{Note :} Dans l'aglorithme, il est considéré que l'essaim ait atteint sa destination si il est à 5cm du point-cible, expliquant ainsi les légères différences avec la trajectoire réelle tracée en bleue sur la Figure \ref{fig:essaim_trajectory}.
+\underline{Note :} Dans l’algorithme, l’essaim est considéré comme ayant atteint sa destination dès qu’il se trouve à moins de 5 cm du point-cible, ce qui explique les légères différences avec la trajectoire réelle tracée en bleu sur la Figure \ref{fig:essaim_trajectory}. Cette tolérance est conservée pour l’ensemble des méthodes évaluées. Exiger un arrêt exactement au point-cible conduirait souvent à des commandes trop faibles, absorbées par la zone morte des moteurs, immobilisant le robot et l’empêchant d’atteindre le point et bloquant l'essaim au complet. De plus, plus la précision exigée est grande, plus la vitesse de convergence est faible, ce qui allonge le temps nécessaire pour atteindre le point-cible.
+
+Sur la Figure \ref{fig:inter_distances_classic}, les lignes en pointillés verticales représentent les moments où de nouveaux points-cible sont envoyés, et donc au moment où un point est atteint par l'essaim.
 
 \begin{figure}[H]
     \vspace{-1cm}
@@ -23,10 +25,12 @@
     \includegraphics[width=0.8\textwidth]{11-Résultats/pic/classic/distance.pdf}
     \vspace{-0.5cm}
     \caption{Evolution des inter-distances entre les robots}
+    \vspace{-0.3cm}
+
     \label{fig:inter_distances_classic}
     
 \end{figure}
-Les résultats obtenus sont très satisfaisants, la formation et les interdistances sont maintenus tout au long du parcours.
+\noindent La formation et les interdistances sont maintenus tout au long du parcours.
 
 Il est possible de tester la robustesse de l'algorithme en créant manuellement une perturbation. Pour cela, un robot (ici Athos) est déplacé à la main durant l'expérience de sorte à créer une erreur dans les inter-distances à maintenir.
 
@@ -45,5 +49,7 @@ Il est possible de tester la robustesse de l'algorithme en créant manuellement 
         \label{fig:inter_distances_classic_perturbation}
     \end{minipage}
 \end{figure}
+\vspace{-0.2cm}
 
-L'algorithme met environ 30 secondes pour corriger la perturbation, ce qui est relativement long. Cependant, il est important de noter que l'algorithme parvient à rétablir la formation et les inter-distances initiales, ce qui est un point positif.
+Il est possible d'observer sur la Figure \ref{fig:essaim_trajectory2_perturbation} que la perturbation sur le robot Athos provoque également une perturbation sur la trajectoire  d'Aramis (et aussi sur Porthos, mais moins visible, car pour corriger l'erreur, il doit se diriger selon $-x$, alors que sa trajectoire initiale est selon $+x$). Cela est logique, car ces robots sont voisins, et leurs trajectoires sont liées par les inter-distances à maintenir.
+L'algorithme met environ 15 secondes pour corriger la perturbation (Figure \ref{fig:inter_distances_classic_perturbation}). Malgré la perturbation, l'essaim parvient à atteindre sa destination, et les inter-distances sont rétablies puis maintenues.
