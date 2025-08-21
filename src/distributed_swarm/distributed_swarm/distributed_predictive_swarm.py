@@ -181,7 +181,7 @@ class DistributedPredictiveSwarmController(Node):
         self.is_rotating = False  # État de rotation
         self.previous_c1_gamma = None  # Pour le lissage de c1_gamma
         self.dt = 0.1
-        self.target_tolerance = 0.08
+        self.target_tolerance = 0.05
         self.is_target_reached_state = False
 
         #-----------------------------#
@@ -189,7 +189,7 @@ class DistributedPredictiveSwarmController(Node):
         #-----------------------------#
         
         # Seuils pour la publication sélective
-        self.prediction_error_threshold = 0.05  # Seuil d'erreur pour publier position (m)
+        self.prediction_error_threshold = 0.03  # Seuil d'erreur pour publier position (m)
         
         # États pour la prédiction
         self.last_publish_time = 0.0
