@@ -2,6 +2,9 @@ Dans la section suivantes, les résultats des différentes méthodes de commande
 
 \subsection{Rapidité et robustesse des algorithmes}
 
+\subsection{Calcul de commande et nombre de messages échangés}
+
+
 \subsection{Performances CPU et consommation de mémoire}
 
 \underline{Rappel :} Le système d'exploitation du robot d'Artagnan est Ubuntu 22.04 version Server, tandis que les autres robots utilisent Ubuntu 22.04 version Desktop, ce qui explique les fortes différences de consommation, car la version Server est plus légère et consomme moins de ressources. Les configurations des robots ont été données précédemment (Tableau \ref{tab:config-robots}).
@@ -67,3 +70,26 @@ Dans la section suivantes, les résultats des différentes méthodes de commande
 
 Ces courbes permettent de visualiser que la quantité de RAM utilisés par les robots pour les trois méthodes est similaire. Pour ce qui est de l'utilisation CPU, elle est d'environ 20\% pour la méthode classique et événementielle, et légèrement inférieur pour la méthode prédictive, qui est d'environ 15\%, démontrant que la réduction des échanges d'informations entre les robots permet de réduire la charge CPU.
 Il est toutefois possible de constater, hors du périmètre strict du projet, que le robot d'Artagnan, fonctionnant sous Ubuntu Server, présente une consommation de RAM environ deux fois plus faible que les autres robots.
+
+\subsection{Tableau récapitulatif des }
+
+\begin{table}[H]
+    \centering
+    \caption{Tableau récapitulatif des performances par méthode}
+    \label{tab:comparaison-methodes}
+    \begin{tabular}{|l|c|c|c|}
+        \hline
+        Critère & Classique & Événementielle & Prédictive \\
+        \hline
+        Temps de parcours [s] & & & \\
+        Nombre total de commandes calculées  & & & \\
+        Nombre total d'échanges de données  & & & \\
+        Temps de convergence [s] & & & \\
+        Utilisation CPU [\%] & & & \\
+        Utilisation RAM [MB] & & & \\
+        \hline
+    \end{tabular}
+\end{table}
+
+En conclusion, la méthode prédictive est la plus efficace, elle permet de réduire considérablement le nombre d'échange de données, tout en maintenant des performances similaires à la méthode classique. De plus, elle nécessite moins de ressources CPU, ce qui peut être avantageux pour des systèmes embarqués avec des ressources limitées tels que les drones. Il aurait été pertinent de mesurer la consommation électrique des moteurs. Cela n'a malheureusement pas été possible durant le stage car cela nécessitait l'installation et l'utilisation de capteurs de courant. Un schéma éléctrique de l'installation est disponible en annexe %\ref{chap:elec:}.
+

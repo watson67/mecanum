@@ -28,9 +28,18 @@ La Figure \ref{fig:ev_essaim_trajectory2} illustre les trajectoires de chaque ro
     \label{fig:ev_inter_distances}
     
 \end{figure}
+\begin{figure}[H]
+    \vspace{-0.5cm}
+    \centering
+    \includegraphics[width=0.8\textwidth]{11-Résultats/pic/ev/chronogramme.pdf}
+    \vspace{-1cm}
+    \caption{Chronogramme du calcul des commandes}
+    \label{fig:chronogramme_ev}
+    
+\end{figure}
 
-La formation et les interdistances sont également maintenus tout au long du parcours. De plus, il est possible de constater grâce à la Figure \ref{fig:ev_essaim_trajectory2} que les commandes ne sont pas calculées lors des lignes droites ; la formation est conservée. Cela s'explique simplement par le fait que les trajectoires individuelles théoriques de chaque robot sont parallèles, ce qui implique une conservation des inter-distances.
-Il faut noter que les évènement sont surtout déclenchés lorsque l'on se rapproche du point-cible (chaque coin de carré). A ces moments, les robots doivent ralentir pour ne pas dépasser le point cible.
+La formation et les interdistances sont également maintenus tout au long du parcours. De plus, il est possible de constater grâce à la Figure \ref{fig:ev_essaim_trajectory2} que les commandes ne sont pas calculées lors des lignes droites ; la formation est conservée. Cela s'explique simplement par le fait que les trajectoires individuelles théoriques de chaque robot sont parallèles, ce qui implique une conservation des inter-distances. C'est également confirmé par la Figure \ref{fig:chronogramme_ev}, qui montre que les commandes ne sont calculées uniquement lorsque l'on est proche d'un point-cible (les lignes verticales représentent l'envoi d'un nouveau point-cible et par conséquent l'arrivé de l'essaim à un point).
+A ces moments, les robots doivent ralentir pour ne pas dépasser le point cible.
 Cependant, une information non-visible sur les figures ci-dessus est la vitesse de convergence. Les robots accélèrent et freinent très brusquement, sans transition pour adoucir leur mouvement avant ou après un événement. Cela peut entraîner des comportements peu naturels ou des à-coups dans la dynamique de l'essaim. Pour visualiser cela, il suffit de tracer les vitesses des robots au cours du temps, comme illustré dans la Figure \ref{fig:ev_essaim_speed}.
 
 \begin{figure}[H]
