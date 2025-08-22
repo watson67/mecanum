@@ -1,4 +1,19 @@
 \section{Perspectives}
 
-Dans cette section, la poursuite du projet sera discutée, en mettant en avant les améliorations possibles et les nouvelles fonctionnalités qui pourraient être implémentées.
-La première évolution serait de tester les différents programmes avec des drones réels
+Dans cette section, la poursuite du projet sera discutée, en mettant en avant les améliorations possibles et les nouvelles fonctionnalités qui pourraient être implémentées. La première évolution serait de tester les différents programmes avec des drones réels, afin de valider la robustesse hors simulation et d’affiner les paramètres.
+
+\begin{itemize}
+    \item Évitement d’obstacles embarqué : ajout de capteurs (LiDAR léger, caméras profondeur/mono, ToF, sonar) et d’algorithmes (DWA/MPC, VFH, champs potentiels, RRT*), avec fusion de données. Validation d’abord en simulation, puis en vol réel.
+    \item Remplacement du système de localisation motion capture : explorer des alternatives selon le contexte d’usage :
+        \begin{itemize}
+            \item VIO/SLAM visuel (p.\,ex. VINS-Fusion, ORB-SLAM3) pour l’intérieur sans GPS,
+            \item SLAM LiDAR (p.\,ex. Cartographer) si capteur disponible,
+            \item UWB ou balises visuelles (AprilTags) pour des environnements instrumentés,
+            \item GPS RTK pour l’extérieur.
+        \end{itemize}
+        Intégration via EKF/UKF avec IMU/baro, gestion de la dérive et relocalisation.
+    \item Fiabilité et sécurité : détection de perte capteur, modes dégradés et failsafe (atterrissage d’urgence), geofencing, vérifications batterie, watchdogs.
+    \item Outils et validation : pipeline simulation/SiL/HiL, enregistrement et télémétrie, tests automatisés et CI, scénarios reproductibles.
+    \item Expérience opérateur : supervision, visualisation temps réel et paramètres configurables.
+    \item Extensions : coordination multi-drone (évitement inter-agents, planification), optimisation énergétique et autonomie.
+\end{itemize}

@@ -4,7 +4,33 @@ Dans la section suivantes, les résultats des différentes méthodes de commande
 
 \subsection{Calcul de commande et nombre de messages échangés}
 
-Les résultats obtenus sont présentés dans le tableau suivant : 
+Le nombre de commandes calculées par chaque méthode est illustré dans la figure ci-dessous.
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{11-Résultats/pic/classic/Commandes_totales.pdf}
+        \caption{Nombre de commandes (classique)}
+        \label{fig:triple-1}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{11-Résultats/pic/ev/Commandes_totales.pdf}
+        \caption{Nombre de commandes (event)}
+        \label{fig:triple-2}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{11-Résultats/pic/pred/Commandes_totales.pdf}
+        \caption{Nombre de commandes (prédictive)}
+        \label{fig:triple-3}
+    \end{subfigure}
+    \label{fig:triple}
+\end{figure}
+On peut dès lors remarqué que la méthode événementielle à quasiment divisé par 5 le nombre de commandes calculées par 5 par rapport aux autres méthodes. Cela vient évidemment du fait que les commandes ne sont pas calculées en continu, mais aussi car l'essaim évenemmentielle est plus rapide que les autres. Les temps de parcours sont résumés dans le tableau (\ref{tab:comparaison-methodes}) ci-dessous.
+
+Le nombre de messages échangés est illustré dans la figure ci-dessous.
+
 \begin{table}[H]
     \centering
     \caption{Comparaison des méthodes selon plusieurs facteurs}
@@ -14,10 +40,11 @@ Les résultats obtenus sont présentés dans le tableau suivant :
         Facteur & Classique & Événementielle & Prédictive \\
         \hline
         Temps de parcours [s] & & & \\
-        Nombre de commandes total calculées & & & \\
-        Nombre de messages total partagés & & & \\
+        Nombre de commandes total calculées & 2083 & 390 & 2255\\
+        Nombre de messages total partagés & & & $55*2=110$ \\
         \hline
     \end{tabular}
+    \label{tab:comparaison-methodes}
 \end{table}
 
 \subsection{Performances CPU et consommation de mémoire}
