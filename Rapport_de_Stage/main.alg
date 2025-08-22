@@ -3,8 +3,10 @@ Scanning style file ./main.ist.............................done (29 attributes r
 Scanning input file main.acn...
 !! Input index error (file = main.acn, line = 1):
    -- Illegal page number .
-.done (30 entries accepted, 1 rejected).
-Sorting entries....done (164 comparisons).
-Generating output file main.acr....done (52 lines written, 0 warnings).
+!! Input index error (file = main.acn, line = 2):
+   -- Illegal page number .
+.done (42 entries accepted, 2 rejected).
+Sorting entries....done (265 comparisons).
+Generating output file main.acr....done (57 lines written, 0 warnings).
 Output written in main.acr.
 Transcript written in main.alg.
