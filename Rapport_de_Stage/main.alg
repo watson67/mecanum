@@ -5,8 +5,8 @@ Scanning input file main.acn...
    -- Illegal page number .
 !! Input index error (file = main.acn, line = 2):
    -- Illegal page number .
-.done (42 entries accepted, 2 rejected).
-Sorting entries....done (265 comparisons).
+.done (45 entries accepted, 2 rejected).
+Sorting entries....done (281 comparisons).
 Generating output file main.acr....done (57 lines written, 0 warnings).
 Output written in main.acr.
 Transcript written in main.alg.

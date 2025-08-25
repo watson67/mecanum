@@ -1,8 +1,74 @@
-\subsection{Définition de la commande événementielle prédictive}
+\section{Définition de la commande événementielle prédictive}
 \label{sec:cmd_pred}
 
-La commande événementielle prédictive est une approche différente de la commande événementielle classique décrite précédemment. Ici, l'objectif est de réduire non pas le nombre de calculs de commande, mais le nombre de communications entre les modules. Par exemple, dans le cadre d'un essaim de robots décentralisé, chaque robot doit communiquer avec ses voisins pour ajuster sa position (par exemple, il doit connaître la position de ses voisins pour éviter les collisions). Dans un système classques, les données sont partagées périodiquement. Ici, les échanges n’ont lieu que lorsque des conditions définies a priori sont satisfaites, d’où sa qualification d’approche événementielle. Pour compenser  le manque de communication, la commande est prédictive, c'est-à-dire que chaque module doit prédire les informations qu'il n'a pas reçues afin de calculer sa commande.
+La commande événementielle prédictive est une approche différente de la commande événementielle classique décrite précédemment. Ici, l'objectif est de réduire non pas le nombre de calculs de commande, mais le nombre de communications entre les modules. Par exemple, dans le cadre d'un essaim de robots décentralisé, chaque robot doit communiquer avec ses voisins pour ajuster sa position (par exemple, il doit connaître la position de ses voisins pour éviter les collisions). Dans un système classques, les données sont partagées périodiquement. Les échanges n’ont lieu que lorsque des conditions définies a priori sont satisfaites, d’où sa qualification d’approche événementielle. Pour compenser  le manque de communication, la commande est prédictive, c'est-à-dire que chaque module doit prédire les informations qu'il n'a pas reçues afin de calculer sa commande.
 La méthode est mentionnée dans \cite{aranda-escolastico_event-based_2020}.
 Pour un essaim de robots, la logique de la commande événementielle prédictive pourrait être la suivante : soit un ensemble de robots, chacun connaissant sa propre position $x_i$ et une vitesse $v_i$. Chaque robot $i$ doit prédire la position de ses voisins $j$ en fonction de sa propre vitesse et de l'intervalle de temps écoulé depuis la dernière communication. La commande est alors calculée en fonction de ces positions prédites, et les robots n'envoient des mises à jour que lorsque la différence entre leur position réelle et la position prédite dépasse un seuil défini.
+
+% --- Schéma TikZ : Robots identiques, prédicteurs (self + voisin), déclencheur, calcul de commande, envois {x, v} ---
+% Nécessite dans le préambule du document principal :
+% \usepackage{tikz}
+% \usetikzlibrary{arrows.meta,positioning,calc} % (pas de 'fit')
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+    font=\small,
+    block/.style={draw, thick, rounded corners, fill=white, align=center, inner sep=2.5pt, minimum height=9mm, text width=36mm},
+    line/.style={-{Stealth[length=2.5mm]}, thick},
+    msg/.style={-{Stealth[length=2.5mm]}, thick, dashed},
+    note/.style={align=center, inner sep=1pt}
+  ]
+
+    % --- Colonne Robot 1 ---
+    \node[block] (r1) at (0,0) {$x_1, v_1$ (réel)\\ $\Delta t$ (local)\\ Dernière pose voisine: $x_2(t_k), v_2(t_k)$};
+    \node[block, below=8mm of r1] (selfpred1) {Prédicteurs\\
+      Auto: $\hat{x}_1^{(1)} \leftarrow (x_1(t_k), v_1(t_k), \Delta t)$\\
+      Voisin: $\hat{x}_2^{(1)} \leftarrow (x_2(t_k), v_2(t_k), \Delta t)$};
+    \node[block, below=8mm of selfpred1, dashed] (trig1) {Déclencheur\\ $\|x_1 - \hat{x}_1^{(1)}\| > \sigma_1$ ?};
+    \node[block, below=8mm of trig1] (ctrl1) {Contrôleur 1\\ $u_1 = f(x_1,\ \hat{x}_2^{(1)})$};
+
+    % Flots verticaux (milieu-bas -> milieu-haut), sans croiser les boîtes
+    \draw[line] (r1.south) -- node[right,pos=0.55] {$x_1, v_1$} (selfpred1.north);
+    \draw[line] (selfpred1.south) -- (trig1.north);
+    \draw[line] (trig1.south) -- node[right,pos=0.45] {$x_1,\ \hat{x}_2^{(1)}$} (ctrl1.north);
+
+    % --- Colonne Robot 2 (identique) ---
+    \node[block, right=42mm of r1] (r2) {$x_2, v_2$ (réel)\\ $\Delta t$ (local)\\ Dernière pose voisine: $x_1(t_k), v_1(t_k)$};
+    \node[block, below=8mm of r2] (selfpred2) {Prédicteurs\\
+      Auto: $\hat{x}_2^{(2)} \leftarrow (x_2(t_k), v_2(t_k), \Delta t)$\\
+      Voisin: $\hat{x}_1^{(2)} \leftarrow (x_1(t_k), v_1(t_k), \Delta t)$};
+    \node[block, below=8mm of selfpred2, dashed] (trig2) {Déclencheur\\ $\|x_2 - \hat{x}_2^{(2)}\| > \sigma_2$ ?};
+    \node[block, below=8mm of trig2] (ctrl2) {Contrôleur 2\\ $u_2 = f(x_2,\ \hat{x}_1^{(2)})$};
+
+    % Flots verticaux (milieu-bas -> milieu-haut)
+    \draw[line] (r2.south) -- node[right,pos=0.55] {$x_2, v_2$} (selfpred2.north);
+    \draw[line] (selfpred2.south) -- (trig2.north);
+    \draw[line] (trig2.south) -- node[right,pos=0.45] {$x_2,\ \hat{x}_1^{(2)}$} (ctrl2.north);
+
+    % --- Communications événementielles (envoi {x, v} vers la boîte Robot opposée) ---
+    % flèche trig1 -> Robot 2 (1cm à droite, puis à la hauteur de r2, puis droite)
+    \coordinate (m1)    at ($ (trig1.east) + (1cm,0) $);
+    \coordinate (r2_in) at ($ (r2.west) + (0,2mm) $); % légèrement au-dessus du milieu
+    \draw[msg] (trig1.east) -- (m1) -- ($(m1 |- r2_in)$) -- node[above,pos=0.5] {si oui: envoi $\{x_1, v_1\}$} (r2_in);
+    % flèche trig2 -> Robot 1 (1cm à gauche, puis à la hauteur de r1, puis gauche)
+    \coordinate (m2)    at ($ (trig2.west) + (-1cm,0) $);
+    \coordinate (r1_in) at ($ (r1.east) + (0,-2mm) $); % légèrement au-dessous du milieu
+    \draw[msg] (trig2.west) -- (m2) -- ($(m2 |- r1_in)$) -- node[below,pos=0.5] {si oui: envoi $\{x_2, v_2\}$} (r1_in);
+
+    % --- Encadrements unifiés par robot (sans fit) ---
+    \coordinate (box1_nw) at ($ (r1.north west) + (-6mm, 6mm) $);
+    \coordinate (box1_se) at ($ (ctrl1.south east) + (6mm, -6mm) $);
+    \draw[dashed, rounded corners] (box1_nw) rectangle (box1_se);
+    \node[anchor=south west, font=\itshape] at ($ (box1_nw) + (1mm, 0mm) $) {Robot 1 };
+
+    \coordinate (box2_nw) at ($ (r2.north west) + (-6mm, 6mm) $);
+    \coordinate (box2_se) at ($ (ctrl2.south east) + (6mm, -6mm) $);
+    \draw[dashed, rounded corners] (box2_nw) rectangle (box2_se);
+    \node[anchor=south west, font=\itshape] at ($ (box2_nw) + (1mm, 0mm) $) {Robot 2 };
+
+  \end{tikzpicture}
+  \caption{Schéma explicatif de la commande événementielle prédictive pour un essaim de deux robots}
+  \label{fig:cmd_pred_tikz}
+\end{figure}
 
 
