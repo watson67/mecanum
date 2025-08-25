@@ -44,6 +44,8 @@ __pycache__/
 *.mkv
 *.webm
 *.MP4
+*.acr
+*.alg
 # VSCode ou autres éditeurs
 .vscode/
 Rapport_de_Stage/build/
