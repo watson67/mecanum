@@ -1,6 +1,25 @@
 \subsection{Problèmes rencontrés lors de la mise en place du système}
 
+\subsubsection{Architecture réseau}
+
 Le principal obstacle rencontré était dû à l’architecture réseau. Le système Motive de motion capture est géré sur un réseau privé généré par un routeur et diffuse, via VRPN, des données visibles uniquement depuis ce dernier. Conformément à la politique de sécurité de l’INSA Strasbourg, ce routeur ne pouvait pas être relié à Internet. Le développement s’en trouvait pénalisé : difficile de consulter la documentation en ligne tout en restant connecté aux robots. Le poste de développement a donc été relié simultanément au routeur (Ethernet) et au Wi‑Fi de l’INSA.
 
 Cette organisation restait toutefois contraignante, les robots étant privés d’Internet : mises à jour,  et accès à GitHub (pour récuperer les modifications du code) demeuraient impossibles. Un serveur Git local a donc dû être installé sur le poste de développement, et donc disponible sur le réseau Motion Capture. Il se synchronise automatiquement avec le dépôt distant dès qu’il est mis à jour, ce qui permet d’utiliser GitHub malgré l’absence de connexion Internet.
+
+\subsubsection{\gls{qos} \cite{noauthor_quality_nodate}}
+
+Les \gls{qos} sont des paramètres définis par le protocole \gls{dds} et utilisés par \gls{ros2} pour contrôler la livraison des messages (latence, pertes, historique, etc.). Par exemple, un nœud \gls{ros2} dont un \textit{subscriber} est paramétré avec certains \gls{qos} ne peut souscrire qu’à un topic publié par un \textit{publisher} aux \gls{qos} compatibles. Le paramètre important pour le projet eSWARM est la fiabilité (\textit{reliability}), qui peut prendre l’une des deux valeurs suivantes:
+\begin{itemize}
+    \item \textit{reliable} (fiable): livraison garantie via accusés de réception (ACK/NACK) et retransmissions; excellent taux de livraison mais coût en latence, bande passante et mémoire (tampons d’historique).
+    \item \textit{best effort} (au mieux): pas de garantie; les échantillons perdus ne sont pas retransmis; latence et surcharge minimales.
+\end{itemize}
+
+Il est possible de faire l’analogie suivante: \textit{reliable} se rapproche de \gls{tcp} (contrôle de flux, accusés de réception, retransmissions, garantie de livraison, risque de blocage en cas de pertes), tandis que \textit{best effort} ressemble à \gls{udp} (pas de garantie de livraison, pertes possibles mais latence plus faible).
+
+Dans le système, les données de motion capture sont publiées en \textit{best effort} afin de minimiser la latence et la surcharge réseau. À l’inverse, les paramètres par défaut de \gls{ros2} utilisent la fiabilité \textit{reliable}. Cette combinaison n’est pas compatible, il faut donc changer les \gls{qos} pour la récupération des données de position. 
+
+
+
+
+
 

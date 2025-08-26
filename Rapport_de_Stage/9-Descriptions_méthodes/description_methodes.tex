@@ -1,16 +1,18 @@
 \chapter{Descriptions des méthodes utilisées}
 
+\noindent Dans cette section, les différentes méthodes envisagées pour piloter l'essaim seront décrites et expliquées.
+
 % Justification du choix des méthodes proposées
 
 \section{Utilisations de robots holonomes terrestres}
 
-Le passage à des robots holonomes terrestres permet de passer à une cinématique strictement 2D (dans le plan), ce qui simplifie grandement l'ensemble du système et des programmes, ainsi que la planification (pas de gestion d’altitude) ; il y aura aussi moins de crashs et donc moins de casse notamment grâce à l’absence d’hélices exposées. Les essais seront aussi facilités grâce à une autonomie généralement plus grande et la possibilité de tests en alimentation filaire pour des sessions longues.
+Le passage à des robots holonomes terrestres permet de passer à une cinématique strictement 2D (dans le plan), ce qui simplifie grandement l'ensemble du système et des programmes, ainsi que la planification (pas de gestion d’altitude). En effet, avant de lancer un algorithme sur les drones, il faut d'abord faire une procédure de décollage (pareil pour l'atterissage), ce qui n'est évidemment pas nécessaire aec des robots terrestres. Il y aura aussi moins de crashs et donc moins de casse notamment grâce à l’absence d’hélices exposées. Les essais seront aussi facilités grâce à une autonomie généralement plus grande et la possibilité de tests en alimentation filaire pour des sessions longues.
 
 \section{Consensus pour le pilotage de l'essaim}
 
 % \input{9-Descriptions_méthodes/consensus.tex}
 
-L'algorithme retenu pour ce stage est celui de \cite{koung_consensus-based_2020}, qui est un algorithme de consensus distribué. Il s'inspire grandement de \cite{saif_distributed_2019}, qui est utilisé pour piloter un essaim de drones, ce qui permet de rester dans la continuité du projet eSWARM. De plus, l'algorithme est relativement simple à mettre en place, et est basé sur des PIDs, ce qui est un avantage pour la compréhension et la mise en œuvre. 
+L'algorithme retenu est celui de \cite{koung_consensus-based_2020}, qui est un algorithme de consensus distribué. Il s'inspire grandement de \cite{saif_distributed_2019}, qui est utilisé pour piloter un essaim de drones, ce qui permet de rester dans la continuité du projet eSWARM. De plus, l'algorithme est relativement simple à mettre en place, et est basé sur des PIDs, ce qui est un avantage pour la compréhension et la mise en œuvre. 
 
 \cite{koung_consensus-based_2020} s'utilise sur un système de type \textbf{int\'egrateur pur}. Cela signifie que la sortie est l'int\'egrale directe de l'entrée. En dimension 2, cela s'écrit :
 
