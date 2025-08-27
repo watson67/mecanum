@@ -43,6 +43,18 @@ Les vitesses dans le plan $V_X$, $V_Y$ sont directement commandables. Ce systèm
 
 Il n’est donc pas nécessaire de linéariser ce modèle ou d’introduire un point offset, ce qui simplifie la commande.
 
+La commande de chaque robot est décomposée en deux termes principaux, comme décrit dans \cite{koung_consensus-based_2020}. Le premier terme, $\mathbf{u}_i^{\alpha}$, est responsable du maintien de la formation, tandis que le second, $\mathbf{u}_i^{\gamma}$, guide l'essaim vers une cible. La commande totale est la somme de ces deux termes :
+\begin{equation}
+    \mathbf{u}_i = \mathbf{u}_i^{\alpha} + \mathbf{u}_i^{\gamma}.
+\end{equation}
+
+Le terme de formation $\mathbf{u}_i^{\alpha}$ est calculé à l'aide d'un correcteur PID pour réguler les distances entre les robots. Le terme de navigation $\mathbf{u}_i^{\gamma}$ utilise un correcteur proportionnel pour diriger le robot vers la cible. Les équations sont les suivantes :
+\begin{align}
+    \mathbf{u}_i^{\alpha} &= \sum_{j \in \mathcal{N}_i} \left( K_p \phi_{\alpha}(\| \mathbf{p}_j - \mathbf{p}_i \|_{\sigma}, d_{ij}) \mathbf{n}_{ij} + K_i \int_0^t \phi_{\alpha}(\| \mathbf{p}_j - \mathbf{p}_i \|_{\sigma}, d_{ij}) \mathbf{n}_{ij} d\tau \right) \\
+    \mathbf{u}_i^{\gamma} &= -c_{1, \gamma}(\mathbf{p}_i - \mathbf{p}_r),
+\end{align}
+où les termes $\phi_{\alpha}$, $\| \cdot \|_{\sigma}$, $\mathbf{n}_{ij}$ et les gains sont définis dans \cite{koung_consensus-based_2020}. $\mathbf{p}_j - \mathbf{p}_i$ est le vecteur position relative entre le robot $i$ et son voisin $j$, $d_{ij}$ est la distance désirée, et $\mathbf{p}_r$ est la position de la cible.
+
 \section{Commande événementielle}
 
 \input{9-Descriptions_méthodes/commande_ev_classique.tex}
