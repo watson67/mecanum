@@ -3,8 +3,9 @@
 Les principaux outils mobilisés durant le stage sont les suivants :
 \begin{itemize}
 \item Robots TurtleBot à roues Mecanum (holonomes), pilotés par des servomoteurs Dynamixel via une carte OpenCR et une Raspberry Pi 4, utilisés comme substituts des drones pour les expérimentations initiales ;
-\item ROS2 comme middleware de communication et d’orchestration, avec implémentation des algorithmes de contrôle en Python côté Raspberry Pi et utilisation de micro-ROS côté OpenCR ;
-\item Système de motion capture OptiTrack/Motive, fournissant en temps réel la pose des robots via VRPN, nécessaire aux algorithmes de contrôle d’essaim.
+\item ROS2 comme middleware de communication et d’orchestration, avec lequel les algorithmes de contrôle en Python ont été programmés;
+\item Système de motion capture OptiTrack/Motive, permettant d'obtenir en temps réel la position des robots via VRPN.
 \end{itemize}
 Les programmes réalisés sont disponibles sur le dépôt GitHub du projet :
-\href{https://github.com/watson67/mecanum}{github.com/watson67/mecanum}.\footnote{\url{https://github.com/watson67/mecanum}}
+\href{https://github.com/watson67/mecanum}{github.com/watson67/mecanum}.
+Aussi, un ensemble de noeuds ROS2 ont été développés pour enregistrer les données expérimentales sous forme de fichier CSV.

@@ -7,7 +7,6 @@ En contrôle distribué, le consensus désigne un mécanisme où chaque agent aj
 Dans ce cadre, l’algorithme calcule deux contributions de commande pour chaque agent : $u_i^\alpha$ (formation), qui régule les distances inter‑robots vers leurs valeurs désirées, et $u_i^\gamma$ (attraction), qui déplace le robot vers un point cible. La commande appliquée est la somme des deux : $u_i = u_i^\alpha + u_i^\gamma$.
 
 \cite{koung_consensus-based_2020} s'utilise sur un système de type \textbf{int\'egrateur pur}. Cela signifie que la sortie est l'int\'egrale directe de l'entrée. En dimension 2, cela s'écrit : $\dot{\mathbf{p}} = \mathbf{u}$,
-
 où $\mathbf{p} \in \mathbb{R}^2$ est par exemple la position, et $\mathbf{u} \in \mathbb{R}^2$ est la vitesse d'entrée. 
 Un robot holonome est un système de type intégrateur pur ce qui fait que l'algorithme peut être directement appliqué.
 
