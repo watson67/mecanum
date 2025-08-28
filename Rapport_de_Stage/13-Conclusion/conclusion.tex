@@ -1,1 +1,24 @@
 \chapter{Conclusion}
+
+Au cours de mon projet de fin d'études réalisé au laboratoire ICube, j'ai eu l'opportunité de développer et d'optimiser des algorithmes de contrôle distribué pour un essaim de robots terrestres holonomes. Ces derniers ont pour objectif d'être ensuite remplacés par des drones quadricoptères.
+
+Les travaux réalisés ont été variés. La première étape a consisté à mettre en place la plateforme expérimentale : migration des robots de ROS1 vers ROS2, impliquant la reprogrammation de la carte OpenCR, ainsi que l'intégration du système de Motion Capture Optitrack dans l'architecture ROS2. Ensuite, un algorithme de contrôle d'essaim distribué, basé sur les travaux de \cite{koung_consensus-based_2020} initialement conçus pour des robots non-holonomes, a été adapté afin de piloter la formation de robots holonomes.
+
+Puis, le cœur du travail a été l'optimisation de la commande, avec deux paradigmes testés :
+\begin{itemize}
+    \item La commande événementielle classique, qui a permis une réduction du nombre de calculs de commande (environ cinq fois moins que la méthode traditionnelle).
+    \item La commande événementielle prédictive, qui a permis une réduction significative des échanges d'informations nécessaires (environ dix fois moins d'échanges que la méthode traditionnelle).
+\end{itemize}
+Les travaux réalisés sont en accord avec le cahier des charges : les robots fonctionnent sous ROS2, un algorithme d'essaim a été mis en place et optimisé.
+
+Les perspectives pour la suite du projet sont nombreuses. La première serait de tester les algorithmes sur des drones, et de poursuivre les travaux d'Augustin Bonnel \cite{bonnel_modeling_2024} sur la modélisation d'un système de drones modulaire et reconfigurable. 
+Le passage aux robots terrestres ouvre également la voie à d'autres perspectives : 
+\begin{itemize}
+    \item Installation de capteurs de courant sur les robots pour étudier la consommation énergétique.
+    \item Implémentation de l'algorithme dans un environnement sans motion capture, ce qui nécessitera donc un autre système de localisation (odométrie, Lidar, etc.).
+    \item Ajout de l’évitement d'obstacles, déjà présent dans \cite{koung_consensus-based_2020} mais omis durant le stage.
+    \item Implémentation d'une détection automatique des voisins.
+    \item Possibilité de changer la formation en cours de trajet. Actuellement, la formation peut prendre n'importe quelle forme, mais il n'est pas possible de la modifier en temps réel ; les inter-distances à maintenir sont toujours celles définies au lancement de l'algorithme.
+\end{itemize}
+
+Sur le plan personnel, ce projet de fin d'études a été une expérience très enrichissante. Il m'a offert une première incursion dans le monde de la recherche. Ce stage a également été l'occasion de consolider et d'approfondir mes compétences techniques, notamment en programmation en Python et dans la mise en œuvre d'algorithmes distribués. Enfin, j'ai pu développer une plus grande autonomie dans la gestion de projet et l'organisation de mon travail..

@@ -1,0 +1,18 @@
+\section{Détection automatique des voisins}
+Une étape importante pour le contrôle d'un essaim de robots est la détection automatique des voisins. En effet, pour qu'une formation soit conservée, il faut que chaque élément maintienne sa position par rapport aux autres les plus proches.
+Pour cela, il existe plusieurs méthodes (en supposant que les positions des robots soient connues).
+
+La méthode la plus simple est de définir un seuil de distance : si un robot est à une distance inférieure à ce seuil, il est considéré comme un voisin. Cette méthode peut être représentée en traçant un cercle de rayon égal à la distance seuil autour de chaque robot (le centre du cercle étant la position du robot). Tous les robots situés à l'intérieur de ce cercle sont alors considérés comme des voisins.
+Cependant, cette approche présente un inconvénient : il est possible que plusieurs robots soient alignés côte à côte; les robots situés aux extrémités seront alors considérés comme voisins, même s'ils ne sont pas directement connectés.
+
+La méthode de Delaunay \cite{noauthor_delaunay_2025,noauthor_pdf_2025} est une méthode de triangulation qui permet de diviser un ensemble de points en triangles, de manière à ce que le cercle circonscrit de chaque triangle ne contienne aucun autre point de l’ensemble. Cette propriété garantit que la triangulation maximise les angles minimums des triangles, ce qui évite d’obtenir des triangles trop "plats".
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{images/delaunay_example.png}
+    \caption{Exemple de triangulation de Delaunay : chaque triangle est construit de sorte qu'aucun point ne soit à l'intérieur du cercle circonscrit à un triangle.}
+    \label{fig:delaunay}
+\end{figure}
+
+Une fois construite, la triangulation de Delaunay permet de définir une relation de voisinage : deux points sont considérés comme voisins s’ils partagent une arête dans la triangulation.
+Cette méthode est très efficace pour les ensembles de robots mobiles terrestres, puisqu'elle ne nécessite pas de seuil de distance à fixer au préalable. En revanche, elle est moins adaptée aux drones, puisque l'ajout d'une dimension complique la triangulation.
