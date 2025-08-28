@@ -1,4 +1,4 @@
-\section{Methodologie}
+\section{Méthodologie}
 
 \subsection{Algorithme de contrôle d'essaim distribué}
 
@@ -6,9 +6,9 @@ L'algorithme retenu est celui de \cite{koung_consensus-based_2020}, qui est un a
 En contrôle distribué, le consensus désigne un mécanisme où chaque agent ajuste son état à partir de ceux de ses voisins de telle sorte que tous les états convergent vers une valeur commune, sans coordinateur central.
 Dans ce cadre, l’algorithme calcule deux contributions de commande pour chaque agent : $u_i^\alpha$ (formation), qui régule les distances inter‑robots vers leurs valeurs désirées, et $u_i^\gamma$ (attraction), qui déplace le robot vers un point cible. La commande appliquée est la somme des deux : $u_i = u_i^\alpha + u_i^\gamma$.
 
-\cite{koung_consensus-based_2020} s'utilise sur un système de type \textbf{int\'egrateur pur}. Cela signifie que la sortie est l'int\'egrale directe de l'entrée. En dimension 2, cela s'écrit : $\dot{\mathbf{p}} = \mathbf{u}$,
-où $\mathbf{p} \in \mathbb{R}^2$ est par exemple la position, et $\mathbf{u} \in \mathbb{R}^2$ est la vitesse d'entrée. 
-Un robot holonome est un système de type intégrateur pur ce qui fait que l'algorithme peut être directement appliqué.
+%\cite{koung_consensus-based_2020} s'utilise sur un système de type \textbf{int\'egrateur pur}. Cela signifie que la sortie est l'int\'egrale directe de l'entrée. En dimension 2, cela s'écrit : $\dot{\mathbf{p}} = \mathbf{u}$,
+%où $\mathbf{p} \in \mathbb{R}^2$ est par exemple la position, et $\mathbf{u} \in \mathbb{R}^2$ est la vitesse d'entrée. 
+%Un robot holonome est un système de type intégrateur pur ce qui fait que l'algorithme peut être directement appliqué.
 
 \subsection{Optimisation de la commande par contrôle événementiel}
 Afin de réduire la charge de calcul et le trafic réseau sans dégrader la stabilité du consensus, deux variantes de contrôle événementiel ont été considérées. La première cherche à limiter le nombre de calcul de commandes locales (commande événementielle classique). La seconde vise à limiter le nombre d'information partagé entre les différents robots de l'essaim.
@@ -96,4 +96,4 @@ La commande événementielle prédictive a pour objectif de limiter les échange
 
 Chaque robot utilise la même méthode de prédiction pour ses voisins : il estime leur position actuelle en ajoutant à leur dernière position publiée le produit de leur vitesse et du temps écoulé. Chaque robot connaît sa propre position réelle (mesurée) et sa position prédite (calculée avec la même méthode que pour ses voisins). Il peut donc comparer ces deux valeurs et déterminer précisément quand la prédiction devient trop imprécise, ce qui déclenche la publication de sa vraie position.
   
-%\input{3-Methodologie/outils.tex}
+\input{3-Methodologie/outils.tex}
