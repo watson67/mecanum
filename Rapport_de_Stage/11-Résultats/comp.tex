@@ -2,10 +2,32 @@ Dans la section suivantes, les résultats des différentes méthodes de commande
 
 \subsection{Rapidité et robustesse des algorithmes}
 
+Les temps de parcours et de convergence pour chaque méthode sont résumés dans le tableau \ref{tab:temps-parcours-convergence}.
+
+\begin{table}[H]
+    \centering
+    \caption{Comparaison des temps de parcours et de convergence des différentes méthodes}
+    \label{tab:temps-parcours-convergence}
+    \begin{tabular}{|l|c|c|c|}
+        \hline
+        Critère & Classique & Événementielle & Prédictive \\
+        \hline
+        Temps de parcours [s] & 48 & 39 & 56 \\
+        \hline
+        Temps de convergence [s] & 13 & 26 & 15 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\underline{Remarque :} Il est difficile d'interpréter les temps de convergence, car ils dépendent de la perturbation intiale qui est créée manuellement. Elle n'est donc pas identique à chaque essai.
+
+On peut observer que les méthodes classiques et prédictives sont plus rapide, avec un temps similaire. En revanche, la méthode événementielle est la plus lente à converger, avec un temps de 26 secondes. La Figure \ref{ev_inter_distances} nous indique que l'amortissement des inter-distances est plus lent que dans les autres méthodes, ce qui explique ce temps de convergence plus long.
 \subsection{Calcul de commande et nombre de messages échangés}
 
-Le nombre de commandes calculées par chaque méthode est illustré dans la figure ci-dessous.
+\noindent Le nombre de commandes calculées par chaque méthode est illustré dans la figure ci-dessous.
+
 \begin{figure}[H]
+    \vspace{-0.4cm}
     \centering
     \begin{subfigure}[t]{0.32\linewidth}
         \centering
@@ -26,112 +48,134 @@ Le nombre de commandes calculées par chaque méthode est illustré dans la figu
         \label{fig:triple-3}
     \end{subfigure}
     \label{fig:triple}
+    \vspace{-0.4cm}
 \end{figure}
-On peut dès lors remarqué que la méthode événementielle à quasiment divisé par 5 le nombre de commandes calculées par 5 par rapport aux autres méthodes. Cela vient évidemment du fait que les commandes ne sont pas calculées en continu, mais aussi car l'essaim évenemmentielle est plus rapide que les autres. Les temps de parcours sont résumés dans le tableau (\ref{tab:comparaison-methodes}) ci-dessous.
-
-Le nombre de messages échangés est illustré dans la figure ci-dessous.
-
+La méthode événementielle réduit bien le nombre de commandes calculées (il y a environ cinq fois moins que les autres méthodes), ce qui était l'objectif principal de cette méthode.
+Pour les méthodes classique et prédictive, le nombre de commandes calculées est similaire pour chaque robot, car les calculs sont effectués périodiquement avec la même fréquence. Ce n'est pas le cas pour la méthode événementielle, où le nombre de commandes calculées varie d'un robot à l'autre, s'expliquant simplement par le fait que les conditions de déclenchement des événements ne sont pas toujours vérifiées en même temps pour chaque robot, car elles dépendent de perturbations aléatoires.
+\vspace{-0.2cm}
 \begin{table}[H]
     \centering
-    \caption{Comparaison des méthodes selon plusieurs facteurs}
+    \caption{Données de comparaison}
+    \vspace{-0.1cm}
     \label{tab:comparaison-facteurs}
     \begin{tabular}{|l|c|c|c|}
         \hline
         Facteur & Classique & Événementielle & Prédictive \\
         \hline
-        Temps de parcours [s] & & & \\
-        Nombre de commandes total calculées & 2083 & 390 & 2255\\
-        Nombre de messages total partagés & & & $55*2=110$ \\
+        Temps de parcours [s] & 48 & 39 & 56 \\
+        Nombre de commandes total calculées & 1932 & 442 & 2187 \\
+        Nombre total de positions reçues par mocap & 19348 & 15760 & 22607 \\
+        Nombre total d'échanges de données & 966 & 780 & 110 \\
         \hline
     \end{tabular}
-    \label{tab:comparaison-methodes}
 \end{table}
+\vspace{-0.2cm}
+La ligne \textit{Nombre total d'échanges de données} correspond au nombre total de fois qu'un robot a besoin des informations de position (position et vitesse pour la méthode prédictive) de ses voisins pour calculer sa commande.
+Pour la commande classique, les commandes sont calculées à une fréquence de 10 Hz. À chaque calcul, le robot a besoin de la position de ses 2 voisins. Le nombre total d'échanges de données réellement nécessaire est donc de $10 \text{ Hz} \times 48 \text{ s} \times 2 \text{ voisins} \approx 966$.
+Dans le cas de la méthode événementielle, les conditions de déclenchement sont aussi vérifiées à une fréquence de 10 Hz, ce qui signifie que chaque robot a besoin de la position de ses voisins à cette fréquence. Le nombre d'échanges est donc de $10 \text{ Hz} \times 39 \text{ s} \times 2 \text{ voisins} = 780$.
 
-\subsection{Performances CPU et consommation de mémoire}
+La durée du parcours est une information importante à cause du caractère périodique de la méthode classique et événementielle. Pour obtenir une comparaison plus équitable, il est pertinent de calculer le nombre moyen d'échanges par seconde :
+\begin{itemize}
+    \item \textbf{Classique :} $966 \text{ échanges} / 48 \text{ s} \approx 20.1$ échanges/s.
+    \item \textbf{Événementielle :} $780 \text{ échanges} / 39 \text{ s} = 20$ échanges/s.
+    \item \textbf{Prédictive :} $110 \text{ échanges} / 56 \text{ s} \approx 1.96$ échanges/s.
+\end{itemize}
 
-\underline{Rappel :} Le système d'exploitation du robot d'Artagnan est Ubuntu 22.04 version Server, tandis que les autres robots utilisent Ubuntu 22.04 version Desktop, ce qui explique les fortes différences de consommation, car la version Server est plus légère et consomme moins de ressources. Les configurations des robots ont été données précédemment (Tableau \ref{tab:config-robots}).
+Ces résultats normalisés confirment encore l'efficacité de la méthode prédictive pour réduire les communications. Elle nécessite environ 10 fois moins d'échanges de données par seconde que les deux autres approches.
+De la même manière, il est possible de normaliser le nombre de calculs de commande par seconde :
+\begin{itemize}
+    \item \textbf{Classique :} $1932 \text{ calculs} / 48 \text{ s} \approx 40.3$ calculs/s.
+    \item \textbf{Événementielle :} $442 \text{ calculs} / 39 \text{ s} \approx 11.3$ calculs/s.
+    \item \textbf{Prédictive :} $2187 \text{ calculs} / 56 \text{ s} \approx 39.1$ calculs/s.
+\end{itemize}
+Cette normalisation met en évidence la réduction du nombre de calculs de commande pour la méthode événementielle, qui en effectue environ 3.5 fois moins que les autres méthodes.
 
-% Requires \usepackage{float} in the preamble for [H]
+\subsection{Performances \gls{cpu} et consommation de mémoire}
+
 \begin{figure}[H]
     \centering
-    \begin{subfigure}[t]{0.495\linewidth}
+    \begin{subfigure}[t]{0.48\linewidth}
         \centering
-        \includegraphics[width=\linewidth,height=6cm,keepaspectratio]{11-Résultats/pic/classic/cpu_ram.pdf}
-        \caption{Méthode classique}
+        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{11-Résultats/pic/classic/cpu_ram.pdf}
+        \caption{Pourcentage \gls{cpu} et \gls{ram} utilisé (Classique)}
         \label{fig:cpu-ram-classic}
-    \end{subfigure}%
-    \begin{subfigure}[t]{0.495\linewidth}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.48\linewidth}
         \centering
-        \includegraphics[width=\linewidth,height=6cm,keepaspectratio]{11-Résultats/pic/ev/cpu_ram.pdf}
-        \caption{Méthode événementielle}
-        \label{fig:cpu-ram-ev}
+        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{11-Résultats/pic/classic/ram_used.pdf}
+        \caption{Quantité de \gls{ram} utilisée (Classique)}
+        \label{fig:ram-classic}
     \end{subfigure}
 
-    \vspace{0.2em}
+    \vspace{1em} % Espace vertical entre les lignes
 
     \begin{subfigure}[t]{0.48\linewidth}
         \centering
-        \includegraphics[width=\linewidth,height=6cm,keepaspectratio]{11-Résultats/pic/pred/cpu_ram.pdf}
-        \caption{Méthode prédictive}
-        \label{fig:cpu-ram-pred}
-    \end{subfigure}
-
-    \caption{Utilisation CPU et RAM par robot}
-    \label{fig:consommation-ram-robots}
-\end{figure}
-
-
-
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[t]{0.495\linewidth}
+        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{11-Résultats/pic/ev/cpu_ram.pdf}
+        \caption{Pourcentage \gls{cpu} et \gls{ram} utilisé (Événementielle)}
+        \label{fig:cpu-ram-ev}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.48\linewidth}
         \centering
-        \includegraphics[width=\linewidth,height=6cm,keepaspectratio]{11-Résultats/pic/classic/ram_used.pdf}
-        \caption{Méthode classique}
-        \label{fig:ram-classic}
-    \end{subfigure}%
-    \begin{subfigure}[t]{0.495\linewidth}
-        \centering
-        \includegraphics[width=\linewidth,height=6cm,keepaspectratio]{11-Résultats/pic/ev/ram_used.pdf}
-        \caption{Méthode événementielle}
+        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{11-Résultats/pic/ev/ram_used.pdf}
+        \caption{Quantité de \gls{ram} utilisée (Événementielle)}
         \label{fig:ram-ev}
     \end{subfigure}
 
-    \vspace{0.2em}
+    \vspace{1em} % Espace vertical entre les lignes
 
     \begin{subfigure}[t]{0.48\linewidth}
         \centering
-        \includegraphics[width=\linewidth,height=6cm,keepaspectratio]{11-Résultats/pic/pred/ram_used.pdf}
-        \caption{Méthode prédictive}
+        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{11-Résultats/pic/pred/cpu_ram.pdf}
+        \caption{Pourcentage \gls{cpu} et \gls{ram} utilisé (Prédictive)}
+        \label{fig:cpu-ram-pred}
+    \end{subfigure}\hfill
+    \begin{subfigure}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth,height=5cm,keepaspectratio]{11-Résultats/pic/pred/ram_used.pdf}
+        \caption{Quantité de \gls{ram} utilisée (Prédictive)}
         \label{fig:ram-pred}
     \end{subfigure}
 
-    \caption{RAM par robot}
-    \label{fig:ram-robots}
+    \caption{Utilisation \gls{cpu} et \gls{ram} par robot pour chaque méthode}
+    \label{fig:consommation-cpu-ram}
 \end{figure}
 
-Ces courbes permettent de visualiser que la quantité de RAM utilisés par les robots pour les trois méthodes est similaire. Pour ce qui est de l'utilisation CPU, elle est d'environ 20\% pour la méthode classique et événementielle, et légèrement inférieur pour la méthode prédictive, qui est d'environ 15\%, démontrant que la réduction des échanges d'informations entre les robots permet de réduire la charge CPU.
-Il est toutefois possible de constater, hors du périmètre strict du projet, que le robot d'Artagnan, fonctionnant sous Ubuntu Server, présente une consommation de RAM environ deux fois plus faible que les autres robots.
+\noindent \underline{Rappel :} Le système d'exploitation du robot d'Artagnan est Ubuntu 22.04 version Server, tandis que les autres robots utilisent Ubuntu 22.04 version Desktop, ce qui explique les fortes différences de consommation, car la version Server est plus légère et consomme moins de ressources. De plus, d'Artagnan possède seulement 2 \gls{go} de \gls{ram}, contre 4 pour les autres. Les configurations des robots ont été données précédemment (Tableau \ref{tab:config-robots}).
+
+Ces courbes permettent de visualiser que la quantité de \gls{ram} utilisés par les robots pour les trois méthodes est similaire. Pour ce qui est de l'utilisation \gls{cpu}, elle est d'environ 20\% pour la méthode classique et événementielle, et légèrement inférieur pour la méthode prédictive, qui est d'environ 15\%, démontrant que la réduction des échanges d'informations entre les robots permet de réduire la charge \gls{cpu}.
+Il est toutefois possible de constater, hors du périmètre strict du projet, que le robot d'Artagnan, fonctionnant sous Ubuntu Server, présente une consommation de \gls{ram} environ deux fois plus faible que les autres robots.
 
 \subsection{Tableau récapitulatif des résultats }
 
 \begin{table}[H]
     \centering
     \caption{Tableau récapitulatif des performances par méthode}
-    \label{tab:comparaison-methodes}
+    \label{tab:recap-perf}
     \begin{tabular}{|l|c|c|c|}
         \hline
         Critère & Classique & Événementielle & Prédictive \\
         \hline
-        Temps de parcours [s] & & & \\
-        Nombre total de commandes calculées  & & & \\
-        Nombre total d'échanges de données  & & & \\
-        Temps de convergence [s] & & & \\
-        Utilisation CPU [\%] & & & \\
-        Utilisation RAM [MB] & & & \\
+        Temps de parcours [s] & 48 & 39 & 56 \\
+        Temps de convergence [s] & 13 & 26 & 15 \\
+        \hline
+        Nombre total de commandes calculées  & 1932 & 442 & 2187 \\
+        Calculs de commande par seconde & $\approx$ 40.3 & $\approx$ 11.3 & $\approx$ 39.1 \\
+        \hline
+        Nombre total d'échanges de données  & 966 & 780 & 110 \\
+        Échanges de données par seconde & $\approx$ 20.1 & 20 & $\approx$ 1.96 \\
+        \hline
+        Utilisation \gls{cpu} [\%] & $\approx$ 20 & $\approx$ 20 & $\approx$ 15 \\
+        Utilisation \gls{ram} [Mo] & $\approx$ 470 & $\approx$ 470 & $\approx$ 470 \\
         \hline
     \end{tabular}
 \end{table}
 
-En conclusion, la méthode prédictive est la plus efficace, elle permet de réduire considérablement le nombre d'échange de données, tout en maintenant des performances similaires à la méthode classique. De plus, elle nécessite moins de ressources CPU, ce qui peut être avantageux pour des systèmes embarqués avec des ressources limitées tels que les drones. Il aurait été pertinent de mesurer la consommation électrique des moteurs. Cela n'a malheureusement pas été possible durant le stage car cela nécessitait l'installation et l'utilisation de capteurs de courant. Un schéma éléctrique de l'installation est disponible en annexe %\ref{chap:elec:}.
+En conclusion, les résultats obtenus sont satisfaisants et chaque méthode a répondu à ses objectifs principaux.
+
+La méthode prédictive a réduit considérablement le nombre d'échanges de données tout en maintenant des performances de suivi de trajectoire similaires à la méthode classique. De plus, elle a permis de diminuer la charge \gls{cpu}. L'intérêt de cette méthode est donc prouvé, particulièrement dans le contexte d'un essaim de grande taille. En effet, la réduction des communications est cruciale pour le passage à l'échelle : elle limite la surchage du réseau, réduisant ainsi le risque de problèmes lié au réseau.
+
+La méthode événementielle a quant à elle bien réduit le nombre de calculs de commande. Cependant, l'intérêt de cette approche est plus discutable, car la charge \gls{cpu} n'a pas diminué par rapport à la méthode classique. Pour évaluer un potentiel gain, il aurait été pertinent de mesurer la consommation énergétique des moteurs. L'hypothèse serait que le maintien d'une vitesse constante plus fréquente réduirait la consommation, bien que les accélérations brusques lors des mises à jour de commande puissent avoir l'effet inverse. Malheureusement, cette mesure n'a pas été possible durant le stage, faute de capteurs de courant. 
+
+\noindent Aussi, la quantité de RAM utilisée reste similaire quelle que soit la méthode. %\ref{chap:elec:}.
 

@@ -1,10 +1,38 @@
 \section{Définition de la commande événementielle prédictive}
 \label{sec:cmd_pred}
 
-La commande événementielle prédictive est une approche différente de la commande événementielle classique décrite précédemment. Ici, l'objectif est de réduire non pas le nombre de calculs de commande, mais le nombre de communications entre les modules. Par exemple, dans le cadre d'un essaim de robots décentralisé, chaque robot doit communiquer avec ses voisins pour ajuster sa position (par exemple, il doit connaître la position de ses voisins pour éviter les collisions). Dans un système classques, les données sont partagées périodiquement. Les échanges n’ont lieu que lorsque des conditions définies a priori sont satisfaites, d’où sa qualification d’approche événementielle. Pour compenser  le manque de communication, la commande est prédictive, c'est-à-dire que chaque module doit prédire les informations qu'il n'a pas reçues afin de calculer sa commande.
-La méthode est mentionnée dans \cite{aranda-escolastico_event-based_2020}.
-Pour un essaim de robots, la logique de la commande événementielle prédictive pourrait être la suivante : soit un ensemble de robots, chacun connaissant sa propre position $x_i$ et une vitesse $v_i$. Chaque robot $i$ doit prédire la position de ses voisins $j$ en fonction de sa propre vitesse et de l'intervalle de temps écoulé depuis la dernière communication. La commande est alors calculée en fonction de ces positions prédites, et les robots n'envoient des mises à jour que lorsque la différence entre leur position réelle et la position prédite dépasse un seuil défini.
+La commande événementielle prédictive \cite{ding_overview_2018, aranda-escolastico_event-based_2020} est une approche différente de la commande événementielle classique décrite précédemment. Ici, l'objectif est de réduire non pas le nombre de calculs de commande, mais le nombre de communications entre les modules. Par exemple, dans le cadre d'un essaim de robots décentralisé, chaque robot doit communiquer avec ses voisins pour ajuster sa position (par exemple, il doit connaître la position de ses voisins pour éviter les collisions). Dans un système classique, les données sont partagées périodiquement. Avec une approche événementielle, les échanges n’ont lieu que lorsque des conditions définies a priori sont satisfaites. Pour compenser le manque de communication, la commande est prédictive, c'est-à-dire que chaque module doit prédire les informations qu'il n'a pas reçues afin de calculer sa commande.
 
+Le principe général est que chaque agent (ou robot) estime l'état de ses voisins. À partir des dernières données reçues, il reconstruit ou prédit l’évolution de leurs états (par exemple, position, vitesse) en utilisant un modèle dynamique connu. Cela permet d’éviter un besoin de communication continue.
+
+Le mécanisme de déclenchement est simple : si l’écart entre l’état réel d’un agent et son état prédit par ses voisins dépasse un certain seuil, l’agent envoie une mise à jour.
+Deux grandes variantes existent pour la prédiction :
+\begin{itemize}
+  \item \textbf{Estimation en boucle ouverte (Open-loop estimation) :} La prédiction est calculée en utilisant le modèle dynamique du voisin à partir de son dernier état connu. Par exemple, il est supposé que l'agent voisin maintient sa trajectoire avec la même vitesse que lors de la dernière communication. Cette approche est simple et requiert peu d'informations, mais sa précision se dégrade rapidement si le comportement du voisin dévie du modèle.
+  
+  \item \textbf{Estimation en boucle fermée (Closed-loop estimation) :} La prédiction est affinée en intégrant non seulement le dernier état connu, mais aussi les commandes appliquées par le voisin (par exemple, ses consignes de vitesse ou de direction). La trajectoire prédite est ainsi plus fidèle à la réalité, ce qui permet de réduire la fréquence des mises à jour. En contrepartie, cette méthode exige que les agents partagent davantage d'informations, ce qui peut augmenter la charge de communication.
+\end{itemize}
+
+\begin{table}[h!]
+  \centering
+  \caption{Avantages et inconvénients de la commande événementielle prédictive.}
+  \begin{tabular}{|p{0.45\linewidth}|p{0.45\linewidth}|}
+  \hline
+  \textbf{Avantages} & \textbf{Inconvénients} \\
+  \hline
+  Réduction significative du trafic réseau (communication uniquement aux instants d'événement). \newline
+  Adaptée aux systèmes distribués de grande taille où la communication permanente est coûteuse.
+  & 
+  Complexité et coût de calcul croissants avec la taille du réseau (un estimateur par voisin). \newline
+  La performance dépend fortement de la qualité du modèle de prédiction. \newline
+  Dégradation possible en présence de perturbations ou de dynamiques non modélisées. \\
+  \hline
+  \end{tabular}
+  \label{tab:avantages_inconvenients_cmd_pred}
+  \end{table}
+
+Pour un essaim de robots, la logique de la commande événementielle prédictive pourrait être la suivante : soit un ensemble de robots, chacun connaissant sa propre position $x_i$ et une vitesse $v_i$. Chaque robot $i$ doit prédire la position de ses voisins $j$ en fonction de sa propre vitesse et de l'intervalle de temps écoulé depuis la dernière communication. La commande est alors calculée en fonction de ces positions prédites, et les robots n'envoient des mises à jour que lorsque la différence entre leur position réelle et la position prédite dépasse un seuil défini.
+Cette méthode peut être schématisé comme suit: 
 % --- Schéma TikZ : Robots identiques, prédicteurs (self + voisin), déclencheur, calcul de commande, envois {x, v} ---
 % Nécessite dans le préambule du document principal :
 % \usepackage{tikz}
@@ -12,6 +40,7 @@ Pour un essaim de robots, la logique de la commande événementielle prédictive
 \begin{figure}[htbp]
   \centering
   \begin{tikzpicture}[
+    scale=0.9, transform shape,
     font=\small,
     block/.style={draw, thick, rounded corners, fill=white, align=center, inner sep=2.5pt, minimum height=9mm, text width=36mm},
     line/.style={-{Stealth[length=2.5mm]}, thick},
@@ -71,4 +100,5 @@ Pour un essaim de robots, la logique de la commande événementielle prédictive
   \label{fig:cmd_pred_tikz}
 \end{figure}
 
+Cette approche permet d’éliminer la nécessité d’une communication continue entre voisins, contrairement aux méthodes événementielles classiques qui requièrent parfois un suivi en temps réel. Elle peut être appliquée même lorsque la dynamique des agents n’est pas stable, grâce à l’usage des estimateurs. Elle garantit dans de nombreux cas la convergence vers un consensus borné (les états des agents restent proches mais pas toujours identiques si un seuil non nul est introduit). Les travaux montrent que le comportement de Zeno (infinis événements en un temps fini) peut être évité si un seuil strictement positif est choisi.
 

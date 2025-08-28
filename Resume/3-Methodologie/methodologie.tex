@@ -2,7 +2,7 @@
 
 \subsection{Algorithme de contrôle d'essaim distribué}
 
-L'algorithme retenu est celui de \cite{koung_consensus-based_2020}, qui est un algorithme de consensus distribué. Il s'inspire grandement de \cite{saif_distributed_2019}, qui est utilisé pour piloter un essaim de drones, ce qui permet de rester dans la continuité du projet eSWARM. De plus, l'algorithme est relativement simple à mettre en place, et est basé sur des PIDs, ce qui est un avantage pour la compréhension et la mise en œuvre. 
+L'algorithme retenu est celui de \cite{koung_consensus-based_2020}, qui est un algorithme de consensus distribué. Il s'inspire grandement de \cite{saif_distributed_2019}, qui est utilisé pour piloter un essaim de drones, ce qui permet de rester dans la continuité du projet eSWARM. De plus, l'algorithme est relativement simple à mettre en place, puisqu'il est basé sur l'utilisation de PIDs. 
 En contrôle distribué, le consensus désigne un mécanisme où chaque agent ajuste son état à partir de ceux de ses voisins de telle sorte que tous les états convergent vers une valeur commune, sans coordinateur central.
 Dans ce cadre, l’algorithme calcule deux contributions de commande pour chaque agent : $u_i^\alpha$ (formation), qui régule les distances inter‑robots vers leurs valeurs désirées, et $u_i^\gamma$ (attraction), qui déplace le robot vers un point cible. La commande appliquée est la somme des deux : $u_i = u_i^\alpha + u_i^\gamma$.
 
@@ -11,10 +11,10 @@ où $\mathbf{p} \in \mathbb{R}^2$ est par exemple la position, et $\mathbf{u} \i
 Un robot holonome est un système de type intégrateur pur ce qui fait que l'algorithme peut être directement appliqué.
 
 \subsection{Optimisation de la commande par contrôle événementiel}
-Afin de réduire la charge de calcul et le trafic réseau sans dégrader la stabilité du consensus, deux variantes de contrôle événementiel ont été considérées. La première cherche à limiter le nombre de calcul de commandes locales(commande événementielle classique). La seconde vise à limiter le nombre d'information partagé entre les différents robots de l'essaim.
+Afin de réduire la charge de calcul et le trafic réseau sans dégrader la stabilité du consensus, deux variantes de contrôle événementiel ont été considérées. La première cherche à limiter le nombre de calcul de commandes locales (commande événementielle classique). La seconde vise à limiter le nombre d'information partagé entre les différents robots de l'essaim.
 
 \subsubsection{Commande événementielle classique}
-Cette stratégie consiste à ne recalculer les deux composantes de commande $u_i^\alpha$ (formation) et $u_i^\gamma$ (attraction) que uniquement lorsque c’est réellement utile. Concrètement, chaque robot surveille deux indicateurs simples : 
+Cette stratégie consiste à ne recalculer les deux composantes de commande $u_i^\alpha$ (formation) et $u_i^\gamma$ (attraction) uniquement lorsque c’est réellement utile. Concrètement, chaque robot surveille deux indicateurs simples : 
 \begin{itemize}
     \item $\delta_d$ (formation) : mise à jour si, pour au moins un voisin $j$, l’écart de distance dépasse le seuil
     \[
@@ -23,10 +23,6 @@ Cette stratégie consiste à ne recalculer les deux composantes de commande $u_i
     \item $\delta_c$ (cible) : mise à jour à l’approche de la cible, ce qui permet au robot de ne pas dépasser la cible
     \[
         \|\mathbf{p}_i-\mathbf{p}_i^*\|<\delta_c \;
-    \]
-    \item $\delta_t$ (variation vers la cible) : mise à jour si la variation de la distance à la cible est significative
-    \[
-        \big|\;\|\mathbf{p}_i-\mathbf{p}_i^*\|-\|\mathbf{p}_i^{\,\text{old}}-\mathbf{p}_i^{*,\,\text{old}}\|\;\big|>\delta_t \;
     \]
     \item \textit{Condition non seuil} : changement de la cible globale $\mathbf{g}$ \;
 \end{itemize}
@@ -96,8 +92,8 @@ Tant que ces écarts restent sous des seuils fixés, la dernière commande est c
     \label{fig:cmd_pred_tikz}
     \vspace{-10pt} % Adjust vertical spacing if needed
 \end{wrapfigure}
-La commande événementielle prédictive a pour objectif de limiter les échanges d'informations entre les robots. Ici, chaque robot a besoin de la position de ses voisins pour calculer sa commande. Ainsi, la logique de la commande événementielle prédictive est la suivante : chaque robot prédit la position de ses voisins à partir de leur dernière position publiée et de leur vitesse. Une nouvelle position n'est publiée que si l'erreur de prédiction dépasse un certain seuil.
+La commande événementielle prédictive a pour objectif de limiter les échanges d'informations entre les robots. La logique est la suivante : chaque robot prédit la position de ses voisins à partir de leur dernière position publiée et de leur vitesse et utilise cette prédiction pour calculer sa propre commande. Une nouvelle position n'est publiée que si l'erreur de prédiction dépasse un certain seuil.
 
-Chaque robot utilise la même méthode de prédiction pour ses voisins : il estime leur position actuelle en ajoutant à leur dernière position publiée le produit de leur vitesse et du temps écoulé. De plus, chaque robot connaît sa propre position réelle (mesurée) et sa position prédite (calculée comme pour ses voisins). Il peut donc comparer ces deux valeurs et déterminer précisément quand la prédiction devient trop imprécise, ce qui déclenche la publication de sa vraie position.
+Chaque robot utilise la même méthode de prédiction pour ses voisins : il estime leur position actuelle en ajoutant à leur dernière position publiée le produit de leur vitesse et du temps écoulé. Chaque robot connaît sa propre position réelle (mesurée) et sa position prédite (calculée avec la même méthode que pour ses voisins). Il peut donc comparer ces deux valeurs et déterminer précisément quand la prédiction devient trop imprécise, ce qui déclenche la publication de sa vraie position.
   
-\input{3-Methodologie/outils.tex}
+%\input{3-Methodologie/outils.tex}
