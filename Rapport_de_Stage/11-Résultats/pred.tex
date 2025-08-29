@@ -31,7 +31,7 @@ La Figure \ref{fig:pred_essaim_trajectory2} illustre les trajectoires de chaque 
     
 \end{figure}
 
-Il est possible de remarquer que les inter-distances sont plus ou moins maintenu le long du parcours (elles sont toujours à +/-5 cm de la valeur cible. Les figures \ref{fig:pred_essaim_trajectory} et \ref{fig:pred_inter_distances} montrent que les trajectoires suivient ne sont plus rectilignes, les erreurs de positionnement ne sont jamais complètement corrigées.
+Il est possible de remarquer que les inter-distances sont plus ou moins maintenu le long du parcours (elles sont toujours à +/-3 cm de la valeur cible). Globalement, la formation est maintenue, mais avec un peu plus de variation que la méthode classique.
 Le nombre de messages échangés au cours du parcours est donné dans la figure ci-dessous : 
 \begin{figure}[H]
     \vspace{-0.5cm}
@@ -59,6 +59,5 @@ La robustesse de l'algorithme est ensuite à nouveau testée.
         \label{fig:pred_inter_distances_perturbation}
     \end{minipage}
 \end{figure}
-Lors de la perturbation, la condition de déclenchement sur les écarts de distance est atteinte, ce qui entraîne le recalcul des commandes pour certains robots. 
-Comme les commandes ne sont recalculées que lorsque l'écart dépasse $\pm 5$~cm, il n'y a pas assez de corrections/calculs de commande pour permettre une convergence précise vers la valeur souhaitée. 
+Lors de la perturbation, la condition de déclenchement sur les écarts de distance est atteinte, ce qui entraîne le recalcul des commandes pour certains robots. L'algorithme parvient globalement à corriger l'erreur. 
 

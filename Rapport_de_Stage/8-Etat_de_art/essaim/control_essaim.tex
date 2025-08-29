@@ -45,7 +45,6 @@ Cette méthode possède plusieurs inconvénients majeurs :
 \begin{itemize}
     \item Il faut être en mesure de pouvoir commander individuellement chaque moteurs du système, ce qui peut être complexe  dans l'optique d'une implémentation avec des drones
     \item Il faut connaître la configuration, et en déterminer le nouveau modèle (c'est-à-dire quels moteurs formeront un module)
-    \item Elle nécessite que les différents modules soient attachés physiquement, il n'y a pas d'asservissement de l'inter-distance entre les modules
 \end{itemize}
 
 \subsubsection*{Loi de consensus}
@@ -83,14 +82,11 @@ Dans cette méthode, chaque robot follower $i$ adapte sa position $x_i(t)$ en fo
 %-----------------------------------------------------------------------------
 % Transition commande évennementielle
 
-\begin{wrapfigure}{r}{0.4\textwidth}
-    \vspace{-0.2cm} 
-    \centering
-    \includegraphics[width=\linewidth]{8-Etat_de_art/essaim/pic/meth_swarm.jpg}
-    \caption{Comparaison des méthodes de contrôle \cite{oh_survey_2015}}
-    \label{fig:met_swarm}
-    \vspace{-3cm} 
-\end{wrapfigure}
-
 L'article \cite{oh_survey_2015} fait également mention des avantages et inconvénients de chaque méthode de commande d'essaim, en mettant l'accent sur la complexités de capteur à mettre en place et la quantité de données à transmettre. Par exemple, le contrôle par position nécessite des capteurs plus complexes, mais les échanges de données sont moins nombreux. L'inverse s'applique pour le contrôle basé sur la distance. Il serait donc pertinent d'utiliser une commande évènementielle dans ce cas la afin d'améliorer les performances.
 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.4\textwidth]{8-Etat_de_art/essaim/pic/meth_swarm.jpg}
+    \caption{Comparaison des méthodes de contrôle \cite{oh_survey_2015}}
+    \label{fig:met_swarm}
+\end{figure}

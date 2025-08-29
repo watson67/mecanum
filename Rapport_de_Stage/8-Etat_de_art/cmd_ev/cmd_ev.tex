@@ -22,17 +22,14 @@ où \( e(t_k) \) est l'erreur actuelle, \( e(t_s) \) est l'erreur précédente, 
 
 Plusieurs versions améliorées de ce même contrôleur sont proposées en 2009 \cite{durand_further_2009}, l'une supprimant par exemple la condition $h_{\text{act}} \geq h_{\text{max}}$, simplifiant ainsi le système.
 
-Pour ce qui est de la commande auto-déclenchée, elle est décrite dans \cite{aranda-escolastico_event-based_2020}  . Par exemple, \cite{trimpe_event-based_2015} propose, dans un cas simple où un ordinateur/opérateur communique avec un robot, d'implémenter des modèles de prédiction, tels qu'un filtre de Kalman étendu \cite{gangloff_mooc_2023, li_kalman_2015}, afin de réduire davantage les échanges d'informations. Dans ce cadre, le robot et l'opérateur utilisent ces prédictions pour déterminer la distribution de probabilité de l'état du robot, qui transmet ensuite ses mises à jour uniquement lorsque la prédiction de l'opérateur devient trop imprécise. 
-
-Pour ce qui est de la commande auto-déclenchée, elle est décrite dans \cite{aranda-escolastico_event-based_2020}. Par exemple, \cite{trimpe_event-based_2015} propose, dans un cas simple où un ordinateur distant communique avec un robot, d'utiliser des modèles de prédiction pour réduire les échanges d'information. Dans ce cadre, un filtre de Kalman étendu (EKF) \cite{gangloff_mooc_2023, li_kalman_2015} est mis en œuvre à la fois pour estimer l’état courant et prédire l’état futur du robot à partir de son modèle dynamique. Cette prédiction permet à l'opérateur, qui ne reçoit pas systématiquement les nouvelles estimations du robot, de s'appuyer alors sur une estimation locale qu’il met à jour uniquement lorsque la divergence avec l’estimation réelle dépasse un certain seuil. 
-
+Pour ce qui est de la commande auto-déclenchée, elle est décrite dans \cite{aranda-escolastico_event-based_2020}  . Par exemple, \cite{trimpe_event-based_2015} propose, dans un cas simple où un ordinateur/opérateur communique avec un robot, d'implémenter des modèles de prédiction, afin de réduire davantage les échanges d'informations. Dans ce cadre, le robot et l'opérateur utilisent ces prédictions pour déterminer la distribution de probabilité de l'état du robot, qui transmet ensuite ses mises à jour uniquement lorsque la prédiction de l'opérateur devient trop imprécise. 
 
 
 \newpage
 
 \subsection{Exemples d'application}
 
-Une application de la commande événementielle pour piloter un quadcoptère a été réalisée \cite{durand_event-based_nodate} à l'aide d'un système de motion capture. L'objectif a été de donner plusieurs points-destinations au drone, et de l'asservir en position avec un contrôleur événementiel. Une comparaison est ensuite réalisée avec un asservissement classique, démontrant ainsi l'intérêt de la commande événementielle, puisque le nombre d'échantillons nécessaire pour asservir le drone diminue sans perte de performance avec le nouveau type de commande (à condition de ne pas mettre un seuil de déclenchement $e_{lim}$ trop grand).
+Une application de la commande événementielle pour piloter un quadricoptère a été réalisée \cite{durand_event-based_nodate} à l'aide d'un système de motion capture. L'objectif a été de donner plusieurs points-destinations au drone, et de l'asservir en position avec un contrôleur événementiel. Une comparaison est ensuite réalisée avec un asservissement classique, démontrant ainsi l'intérêt de la commande événementielle, puisque le nombre d'échantillons nécessaire pour asservir le drone diminue sans perte de performance avec le nouveau type de commande (à condition de ne pas mettre un seuil de déclenchement $e_{lim}$ trop grand).
 
 Un autre article mettant en œuvre une commande événementielle dans un projet lié à la robotique est \cite{postoyan_event-triggered_2015}. Ici, les résultats montrent que cette approche permet une réduction significative des communication par rapport aux méthodes traditionnelles à déclenchement périodique. 
 
@@ -44,7 +41,7 @@ Ce document met également en avant les difficultés de l'implémentation de la 
 
 \subsection{Intégration}
 
-En vue d'une implémentation de la commande événementielle dans la commande d'un essaim de robot, il convient de noter que les méthodes basées sur le consensus (\cite{koung_consensus-based_2020}), sur la logique leader-follower (\cite{yang_adaptive_2021})  décrites précédemment, peuvent utiliser un PID pour asservir les différents modules de l'essaim. 
+En vue d'une implémentation de la commande événementielle dans la commande d'un essaim de robot, il convient de rappeler que les méthodes basées sur le consensus (\cite{koung_consensus-based_2020}), sur la logique leader-follower (\cite{yang_adaptive_2021})  décrites précédemment, peuvent utiliser un PID pour asservir les différents modules de l'essaim. 
 Dans cette optique, le schéma bloc classique d'un PID événementielle, tel que défini par Karl-Erik Årzén \cite{aarzen_simple_1999} est donnée Fig [\ref{fig:schema_event_based}] :
 \begin{figure}[H]  % H force l'affichage à cet endroit précis
     \centering

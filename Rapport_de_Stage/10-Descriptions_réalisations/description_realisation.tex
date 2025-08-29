@@ -14,18 +14,18 @@ Le système mis en place est illustré par le graphe ROS présenté en Figure \r
 La logique de fonctionnement est la suivante :
 \begin{itemize}
     \item Le noeud \textit{master\_control\_node} permet, via la pression de la touche espace du clavier, de publier un message sur le topic \textit{/master}. Ce message indique à l’ensemble des noeuds de démarrer ou d’arrêter leur activité. Lorsque le parcours de l'essaim est terminé, un nouveau message est publié pour arrêter les robots.
-    \item Plusieurs \textit{logger}s sont utilisés pour enregistrer les données des robots et les messages du topic \textit{/master}. Ils sont abonnés aux différents topics et sauvegardent les valeurs dans des fichiers CSV. L’enregistrement des données n’a lieu que lorsqu’un message est reçu sur le topic \textit{/master}, et prend fin après réception d’un nouveau message; on ne conserve ainsi que les informations correspondant au parcours de l’essaim. Ces fichiers sont ensuite utilisés pour tracer les graphiques (via MATLAB) présentés en partie \ref{chap:resultats}. Bien qu’il existe une bibliothèque nommée \textit{ROS2\_bag} pour enregistrer les données, il a été choisi de ne pas l’utiliser par souci de simplicité : les fichiers CSV sont plus simples à utiliser et permettent d’enregistrer exactement les données voulues, surtout au moment souhaité, grâce au pilotage via le topic \textit{/master}.
+    \item Plusieurs \textit{logger}s sont utilisés pour enregistrer les données des robots et les messages du topic \textit{/master}. Ils sont abonnés aux différents topics et sauvegardent les valeurs dans des fichiers CSV. L’enregistrement des données ne commence que lorsqu’un message est reçu sur le topic \textit{/master}, et prend fin après réception d’un nouveau message sur ce même topic; seules les informations correspondantes au parcours de l’essaim sont sauvergardées. Ces fichiers sont ensuite utilisés pour tracer les graphiques (via MATLAB) présentés en partie \ref{chap:resultats}. Bien qu’il existe une bibliothèque nommée \textit{ROS2\_bag} pour enregistrer les données, il a été choisi de ne pas l’utiliser par souci de simplicité : les fichiers CSV sont plus simples à utiliser et permettent d’enregistrer exactement les données voulues, surtout au moment souhaité, grâce au pilotage via le topic \textit{/master}.
     \item Le noeud \textit{swarm\_controller\_node} constitue le coeur de l’algorithme de contrôle. Chaque robot dispose de son propre noeud \textit{swarm\_controller}, assurant ainsi une logique distribuée.  
 \end{itemize}
 
 \subsection{Modularité, adaptabilité et réutilisabilité du code}
 
-Le système a été conçu pour être modulaire et facilement reconfigurable : la formation n’est pas figée et la définition des voisinages peut évoluer sans modifier le code. La topologie de l’essaim est décrite dans un fichier de configuration au format \textit{.yaml}, qui définit:
+Le système a été conçu pour être modulaire et facilement reconfigurable : la formation n’est pas figée et la définition des voisinages/de la structure peut être modifiée facilement. La topologie de l’essaim est décrite dans un fichier de configuration au format \textit{.yaml}, qui définit:
 \begin{itemize}
     \item liste complète des robots de l’essaim (les identifiants doivent correspondre aux \textit{rigid bodies} du système de motion capture) ;
     \item pour chaque robot, la liste de ses voisins (graphe d’adjacence).
 \end{itemize}
-Au démarrage, chaque unité exécute le même algorithme distribué et s’autoconfigure selon les étapes suivantes :
+Au démarrage de l'algorithme, chaque unité exécute le même algorithme distribué et s’autoconfigure selon les étapes suivantes :
 \begin{itemize}
     \item récupération du nom du robot via le \textit{hostname} Ubuntu ;
     \item lecture du fichier \textit{.yaml} ;
@@ -102,7 +102,7 @@ La formule de passage d'un repère à l'autre est donné par : :
 Une fois l’ensemble en place et opérationnel, il a été décidé de commencer par une implémentation centralisée afin de faciliter les essais : il était fastidieux de récupérer et d’exécuter le code sur chaque robot. Cette nouvelle approche repose sur une simple boucle \textit{for} itérant sur chaque robot. Une fois l’algorithme validé, la version distribuée a été mise en œuvre. Cette méthode a été appliquée pour l'ensemble des algorithmes développés.
 
 \subsection{RosGraph}
-Il est possible de visualiser l'ensemble du système ROS2 en utilisant l'outil \textit{rqt\_graph}. Cet outil affiche un graphe dynamique des nœuds et des topics, permettant de vévoirrifier les connexions entre les différents composants du système. La Figure \ref{fig:rqt_graph} montre le graphe du système.
+Il est possible de visualiser l'ensemble du système ROS2 en utilisant l'outil \textit{rqt\_graph}. Cet outil affiche un graphe dynamique des nœuds et des topics, permettant de voir les connexions entre les différents composants du système. La Figure \ref{fig:rqt_graph} montre le graphe du système.
 \newpage
 \begin{figure}[H]
     \centering

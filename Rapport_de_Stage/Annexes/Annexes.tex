@@ -10,19 +10,20 @@
 
 \input{Annexes/Graph_Theory/graph_theory}
 
-\input{Annexes/Consensus/consensus}
+%\input{Annexes/Consensus/consensus}
 
 \input{Annexes/modele_mecanum}
 
 
+\clearpage
 \pagestyle{empty} % Supprime en-tête et pied
 
 %\chapter*{Annexe : Tutoriel Mecanum}
-\addcontentsline{toc}{chapter}{Tutoriel Mecanum}
 \label{chap:mecanum}
-\includepdf[pages=-, pagecommand={}]{Annexes/Mecanum_ROS2.pdf}
+\includepdf[pages=1, pagecommand={\thispagestyle{empty}\addcontentsline{toc}{chapter}{Tutoriel Mecanum}}]{Annexes/Mecanum_ROS2.pdf}
+\includepdf[pages=2-, pagecommand={\thispagestyle{empty}}]{Annexes/Mecanum_ROS2.pdf}
 
-\newpage
-\addcontentsline{toc}{chapter}{Tutoriel Crazyflie}
+\clearpage
 \label{chap:tuto_crazyflie}
-\includepdf[pages=-, pagecommand={}]{Annexes/Tutoriel_Crazyflie_ROS2.pdf}
+\includepdf[pages=1, pagecommand={\thispagestyle{empty}\addcontentsline{toc}{chapter}{Tutoriel Crazyflie}}]{Annexes/Tutoriel_Crazyflie_ROS2.pdf}
+\includepdf[pages=2-, pagecommand={\thispagestyle{empty}}]{Annexes/Tutoriel_Crazyflie_ROS2.pdf}

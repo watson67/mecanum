@@ -46,11 +46,11 @@
 		\setentrycounter[]{page}\glsnumberformat{25}}}%
 \glossentry{ros1}{\glossaryentrynumbers{\relax 
 		\setentrycounter[]{page}\glsnumberformat{25\delimN 26}\delimN 
-		\setentrycounter[]{page}\glsnumberformat{58}}}%
+		\setentrycounter[]{page}\glsnumberformat{56}}}%
 \glossentry{ros2}{\glossaryentrynumbers{\relax 
 		\setentrycounter[]{page}\glsnumberformat{25\delimN 26}\delimN 
 		\setentrycounter[]{page}\glsnumberformat{29}\delimN 
-		\setentrycounter[]{page}\glsnumberformat{58}}}\glsgroupskip
+		\setentrycounter[]{page}\glsnumberformat{56}}}\glsgroupskip
 \glsgroupheading{S}\relax \glsresetentrylist %
 \glossentry{siot}{\glossaryentrynumbers{\relax 
 		\setentrycounter[]{page}\glsnumberformat{1}}}\glsgroupskip

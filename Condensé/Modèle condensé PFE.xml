@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<indexing>
+ <object alt="" name="Image1" object_type="graphic"/>
+ <paragraph index="20" node_type="writer">Institut National des Sciences Appliquées de Strasbourg</paragraph>
+ <object index="22" name="Table1" object_type="table"/>
+ <paragraph index="24" node_type="writer" parent_index="22">PROJET DE FIN D’ETUDES</paragraph>
+ <paragraph index="30" node_type="writer" parent_index="22">Auteur : Thibaut WAECHTER</paragraph>
+ <paragraph index="33" node_type="writer" parent_index="22">Promotion : 2024-2025</paragraph>
+ <paragraph index="36" node_type="writer" parent_index="22">Titre : ESWARM</paragraph>
+ <paragraph index="39" node_type="writer" parent_index="22">Soutenance : 05/09/25</paragraph>
+ <paragraph index="42" node_type="writer" parent_index="22">Structure d’accueil : ICube</paragraph>
+ <paragraph index="45" node_type="writer" parent_index="22">Nb de volume(s) : 	Nb de pages : 116</paragraph>
+ <paragraph index="46" node_type="writer" parent_index="22">Nb de références bibliographiques : 48</paragraph>
+ <paragraph index="49" node_type="writer" parent_index="22">Résumé : </paragraph>
+ <paragraph index="51" node_type="writer" parent_index="22">Ce stage s’inscrit dans le cadre du projet eSWARM, initié en 2023, dont l’objectif est de développer un système de drones quadricoptères modulaires et reconfigurables, capables de s’assembler et de se désassembler pour former différentes structures.</paragraph>
+ <paragraph index="53" node_type="writer" parent_index="22">Afin de faciliter les expérimentations, une plateforme de robots terrestres holonomes a été mise en place en substitut aux drones aériens. Sur cette base, un algorithme distribué de contrôle d’essaim a été développé sous ROS2 en Python.</paragraph>
+ <paragraph index="55" node_type="writer" parent_index="22">La commande a ensuite été optimisée par l’implémentation de paradigmes de contrôle événementiel, incluant un déclenchement événementiel classique (mise à jour conditionnelle des commandes) et un déclenchement prédictif (échanges de données conditionnels). Des programmes d’acquisition et d’enregistrement de données expérimentales ont également été conçus, permettant une analyse  des performances.</paragraph>
+ <paragraph index="59" node_type="writer" parent_index="22">Mots clés : swarm, essaim, contrôle distribué, commande événementielle, robotique mobile, ROS2, Python, optimisation</paragraph>
+ <paragraph index="63" node_type="writer" parent_index="22">Traduction: </paragraph>
+ <paragraph index="65" node_type="writer" parent_index="22">This internship is part of the eSWARM project, launched in 2023, which aims to develop a system of modular and reconfigurable quadcopter drones capable of assembling and disassembling to form different structures.</paragraph>
+ <paragraph index="67" node_type="writer" parent_index="22">To facilitate experimentation, a platform of holonomic ground robot was implemented as a substitute for aerial drones. On this basis, a distributed swarm control algorithm was developed under ROS2 using Python.</paragraph>
+ <paragraph index="69" node_type="writer" parent_index="22">This control strategy was then optimized through the implementation of event-triggered control paradigms, including classical event-triggering (conditional command updates) and predictive triggering (conditional data exchanges). In addition, programs for experimental data acquisition and logging were designed, enabling performance analysis.</paragraph>
+</indexing>

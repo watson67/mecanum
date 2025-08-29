@@ -2,9 +2,9 @@
 
 %\section{Explication du projet eSWARM}
 
-Ce stage s'inscrit dans la continuité du projet eSWARM et poursuit les travaux d'Augustin Bonnel~\cite{bonnel_modeling_2024} et de Sylvain Boegeat, deux anciens étudiants de l'INSA\@. L'objectif de ce projet est de développer un système de drones quadricoptères modulaire et reconfigurable, capable de s'assembler en vol afin d'accomplir des missions qu'un drone seul ne pourrait réaliser, comme par exemple le transport de charges lourdes.
+Ce stage s'inscrit dans la continuité du projet eSWARM et poursuit les travaux d'Augustin Bonnel \cite{bonnel_modeling_2024} et de Sylvain Boegeat, deux anciens étudiants de l'INSA. L'objectif de ce projet est de développer un système de drones quadricoptères modulaire et reconfigurable, capable de s'assembler en vol afin d'accomplir des missions qu'un drone seul ne pourrait réaliser, comme par exemple le transport de charges lourdes.
 
-Le projet eSWARM est basé sur des essaims de robots dits reconfigurables et modulaires. Une définition de ce type de système est donnée dans \cite{seo_modular_2019} : "Les systèmes de robots modulaires reconfigurables (\gls{mrr}) sont constitués de nombreux modules (ou unités) répétés qui peuvent être réorganisés dans différentes configurations en fonction de la tâche que le robot doit accomplir." Une définition similaire est fournie dans \cite{brooks_overview_2021}.
+Une définition de ce type de système (reconfigurables et modulaires) est donnée dans \cite{seo_modular_2019} : "Les systèmes de robots modulaires reconfigurables (\gls{mrr}) sont constitués de nombreux modules (ou unités) répétés qui peuvent être réorganisés dans différentes configurations en fonction de la tâche que le robot doit accomplir." Une définition similaire est fournie dans \cite{brooks_overview_2021}.
 \begin{wrapfigure}{r}{0.35\textwidth}
     %\vspace{0.3cm} 
     \centering
@@ -15,9 +15,9 @@ Le projet eSWARM est basé sur des essaims de robots dits reconfigurables et mod
 \end{wrapfigure}
 Il est essentiel d'expliquer les deux termes : \textit{modulaire} et \textit{reconfigurable}. Le premier désigne une architecture composée de modules pouvant s'assembler de diverses manières. Le second caractérise la capacité du système à modifier sa structure au cours de son fonctionnement.
 
-
 L'une des principales sources d'inspiration pour ce projet est le projet ModQuad \cite{saldana_modquad_2018}, qui est un système d'essaim modulaire reconfigurable de drones quadricoptères. Il est composé de modules qui peuvent s'assembler pour former des structures plus grandes et plus complexes. Un exemple est donné ci-contre (Figure \ref{fig:Modquad2018}). 
-Globalement, le système peut être schématisé comme suit : 
+
+\noindent Globalement, le projet eSWARM peut être schématisé comme suit : 
 
 \begin{figure}[htbp]
     \centering
@@ -26,7 +26,7 @@ Globalement, le système peut être schématisé comme suit :
     \label{fig:schema_systeme}
 \end{figure}
 
-Il y a deux quadricoptères, représentés par les repères rouges $O_{bi}$ attachés ensemble. L'objectif est donc de développer la loi de commande permettant de piloter cette structure (repère $O_S$). Avec deux drones, il n'y a qu'une seule configuration possible, mais plus le nombre de drones augmente, plus le nombre de configurations possibles croît rapidement. Il s'agit donc de développer une méthode de calcul de commande pouvant s'adapter à n'importe quelle configuration.
+Il y a deux quadricoptères, représentés par les repères rouges $O_{bi}$ attachés ensemble. L'objectif est donc de développer la loi de commande permettant de piloter cette structure (repère $O_S$). Avec deux drones, il n'y a qu'une seule configuration possible, mais plus le nombre de drones augmente, plus le nombre de configurations possibles croît rapidement. Il s'agit donc de développer une méthode de calcul de commande pouvant s'adapter à n'importe quelle configuration, ou de d'établir un algorithme permettant d'adapter le modèle de commande en fonction de la configuration.
 
 
 %\begin{figure}[h]

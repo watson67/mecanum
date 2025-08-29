@@ -5,7 +5,7 @@ Cette section traite des systèmes d'essaims de robots et de drones reconfigurab
 
 \subsection{Exemples de systèmes modulaires}
 
-Parmi les systèmes modulaires, il est possible de définir deux catégories : les systèmes autonomes et non autonomes. Dans la seconde catégorie, le système doit être composé d'un nombre minimum de modules pour pouvoir fonctionner, contrairement à la première. Le système final visé dans le projet eSWARM est donc autonome, puisqu'il est constitué de quadcoptères indépendants.
+Parmi les systèmes modulaires, il est possible de définir deux catégories : les systèmes autonomes et non autonomes. Dans la seconde catégorie, le système doit être composé d'un nombre minimum de modules pour pouvoir fonctionner, contrairement à la première. Le système final visé dans le projet eSWARM est donc autonome, puisqu'il est constitué de quadricoptères indépendants pouvant voler individuellement.
 
 \subsubsection*{Systèmes non autonomes}
 
@@ -27,7 +27,7 @@ Il convient de noter que la plupart des systèmes aériens non autonomes sont co
 
 \subsubsection*{Systèmes autonomes}
 
-Les systèmes se rapprochant le plus du projet eSWARM sont les projets ModQuad \cite{saldana_modquad_2018} et ModQuad-DoF \cite{gabrich_modquad-dof_2020} (voir Fig. \ref{fig:Modquad} et Fig.\ref{fig:Modquad-DoF}). Il s'agit dans les deux cas de drones quadcoptères CrazyFlie (identiques à ceux utilisés par le passé pour le projet eSWARM  \cite{bonnel_modeling_2024,boegeat_rapport_2023}) modifiés, afin de pouvoir s'accrocher ou non en l'air, et ainsi former une structure de plusieurs quadcoptères. ModQuad-DoF (2020) correspond à une autre version du ModQuad (2018), avec un système d'accroche est modifié permettant un degrés de liberté entre les drones. 
+Les systèmes se rapprochant le plus du projet eSWARM sont les projets ModQuad \cite{saldana_modquad_2018} et ModQuad-DoF \cite{gabrich_modquad-dof_2020} (voir Fig. \ref{fig:Modquad} et Fig.\ref{fig:Modquad-DoF}). Il s'agit dans les deux cas de drones quadricoptères CrazyFlie (identiques à ceux utilisés par le passé pour le projet eSWARM  \cite{bonnel_modeling_2024,boegeat_rapport_2023}) modifiés, afin de pouvoir s'accrocher ou non en l'air, et ainsi former une structure de plusieurs quadricoptères. ModQuad-DoF (2020) correspond à une autre version du ModQuad (2018), avec un système d'accroche est modifié permettant un degrés de liberté entre les drones. 
 
 Les modèles de ces deux systèmes servent de référence pour le projet eSWARM et seront détaillés dans la partie \ref{part:control}. Ces projets appartiennent à la catégorie des systèmes modulaires reconfigurables.
 
@@ -51,7 +51,7 @@ Les modèles de ces deux systèmes servent de référence pour le projet eSWARM 
 \end{figure}
 Bien que les ModQuads puissent s'assembler en vol (voir vidéo \href{https://www.youtube.com/watch?v=25zKLyOCA3A&t=80s}{\underline{ici}}), le système rencontre encore des difficultés lors du désassemblage. Les forces magnétiques utilisées semblent trop puissantes pour un détachement fluide, comme mentionné dans \cite{sugihara_beatle_2024}, qui propose un mécanisme combinant aimants et connecteurs mécaniques.
 
-\cite{zhang_design_2024} décrit un projet similaire à eSWARM, l’un des plus récents à ce jour. Les drones utilisés sont des quadcoptères modifiés dont les rotors peuvent pivoter, ajoutant des degrés de liberté. Cette caractéristique permet de générer des forces directionnelles facilitant la séparation des modules tout en maintenant l'alignement des structures d'accroche. Une démonstration vidéo est disponible \href{https://www.youtube.com/watch?v=EtJYZaVobcI}{\underline{ici}}. Ainsi, les modules se séparent en douceur, évitant les déséquilibres et conservant leur stabilité. De plus, des électro-aimants, accompagnés d'un système mécanique sont utilisés pour accrocher deux modules, ce qui permet de piloter le système d'accroche avec un programme. 
+\cite{zhang_design_2024} décrit un projet similaire à eSWARM, l’un des plus récents à ce jour. Les drones utilisés sont des quadricoptères modifiés dont les rotors peuvent pivoter, ajoutant des degrés de liberté. Cette caractéristique permet de générer des forces directionnelles facilitant la séparation des modules tout en maintenant l'alignement des structures d'accroche. Une démonstration vidéo est disponible \href{https://www.youtube.com/watch?v=EtJYZaVobcI}{\underline{ici}}. Ainsi, les modules se séparent en douceur, évitant les déséquilibres et conservant leur stabilité. De plus, des électro-aimants, accompagnés d'un système mécanique sont utilisés pour accrocher deux modules, ce qui permet de piloter le système d'accroche avec un programme. 
 
 \begin{figure}[H]
     \centering
