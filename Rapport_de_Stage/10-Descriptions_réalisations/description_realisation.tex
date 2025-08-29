@@ -50,7 +50,7 @@ Concrètement, \textit{tf2} maintient un graphe temporel (un arbre) de repères 
 
 Cependant, avec l’augmentation du nombre de robots dans l’essaim, la fréquence de publication et de calcul des transformations \textit{tf2} s'en est retrouvé fortement diminuée. Chaque robot publiant ses propres repères, la charge de messages était très élevée, ce qui a introduit de la latence et rendu les positions disponibles sur \textit{tf} rapidement obsolètes. L'utilisation de \textit{tf2} a donc été abandonnée, et les transformations sont désormais gérées manuellement; par une simple matrice de rotation.
 
-\begin{figure}[ht]
+\begin{figure}[H]
     \centering
     \begin{tikzpicture}[scale=1]
         % Repère global
@@ -100,3 +100,13 @@ La formule de passage d'un repère à l'autre est donné par : :
     \end{equation}
 
 Une fois l’ensemble en place et opérationnel, il a été décidé de commencer par une implémentation centralisée afin de faciliter les essais : il était fastidieux de récupérer et d’exécuter le code sur chaque robot. Cette nouvelle approche repose sur une simple boucle \textit{for} itérant sur chaque robot. Une fois l’algorithme validé, la version distribuée a été mise en œuvre. Cette méthode a été appliquée pour l'ensemble des algorithmes développés.
+
+\subsection{RosGraph}
+Il est possible de visualiser l'ensemble du système ROS2 en utilisant l'outil \textit{rqt\_graph}. Cet outil affiche un graphe dynamique des nœuds et des topics, permettant de vévoirrifier les connexions entre les différents composants du système. La Figure \ref{fig:rqt_graph} montre le graphe du système.
+\newpage
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{10-Descriptions_réalisations/rosgraph.png}
+    \caption{Graphe ROS2}
+    \label{fig:rqt_graph}
+\end{figure}

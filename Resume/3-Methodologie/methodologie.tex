@@ -4,7 +4,7 @@
 
 L'algorithme retenu est celui de \cite{koung_consensus-based_2020}, qui est un algorithme de consensus distribué. Il s'inspire grandement de \cite{saif_distributed_2019}, qui est utilisé pour piloter un essaim de drones, ce qui permet de rester dans la continuité du projet eSWARM. De plus, l'algorithme est relativement simple à mettre en place, puisqu'il est basé sur l'utilisation de PIDs. 
 En contrôle distribué, le consensus désigne un mécanisme où chaque agent ajuste son état à partir de ceux de ses voisins de telle sorte que tous les états convergent vers une valeur commune, sans coordinateur central.
-Dans ce cadre, l’algorithme calcule deux contributions de commande pour chaque agent : $u_i^\alpha$ (formation), qui régule les distances inter‑robots vers leurs valeurs désirées, et $u_i^\gamma$ (attraction), qui déplace le robot vers un point cible. La commande appliquée est la somme des deux : $u_i = u_i^\alpha + u_i^\gamma$.
+Dans ce cadre, l’algorithme calcule deux contributions de commande pour chaque agent : $u_i^\alpha$, qui régule les distances inter‑robots vers leurs valeurs désirées, et $u_i^\gamma$, qui déplace le robot vers un point cible. La commande appliquée est la somme des deux : $u_i = u_i^\alpha + u_i^\gamma$.
 
 %\cite{koung_consensus-based_2020} s'utilise sur un système de type \textbf{int\'egrateur pur}. Cela signifie que la sortie est l'int\'egrale directe de l'entrée. En dimension 2, cela s'écrit : $\dot{\mathbf{p}} = \mathbf{u}$,
 %où $\mathbf{p} \in \mathbb{R}^2$ est par exemple la position, et $\mathbf{u} \in \mathbb{R}^2$ est la vitesse d'entrée. 
@@ -92,8 +92,8 @@ Tant que ces écarts restent sous des seuils fixés, la dernière commande est c
     \label{fig:cmd_pred_tikz}
     \vspace{-10pt} % Adjust vertical spacing if needed
 \end{wrapfigure}
-La commande événementielle prédictive a pour objectif de limiter les échanges d'informations entre les robots. La logique est la suivante : chaque robot prédit la position de ses voisins à partir de leur dernière position publiée et de leur vitesse et utilise cette prédiction pour calculer sa propre commande. Une nouvelle position n'est publiée que si l'erreur de prédiction dépasse un certain seuil.
+La commande événementielle prédictive a pour objectif de limiter les échanges d'informations entre les robots. La logique est la suivante : chaque robot prédit la position de ses voisins à partir de leur dernière position publiée et de leur vitesse et utilise cette prédiction pour calculer sa propre commande. 
 
-Chaque robot utilise la même méthode de prédiction pour ses voisins : il estime leur position actuelle en ajoutant à leur dernière position publiée le produit de leur vitesse et du temps écoulé. Chaque robot connaît sa propre position réelle (mesurée) et sa position prédite (calculée avec la même méthode que pour ses voisins). Il peut donc comparer ces deux valeurs et déterminer précisément quand la prédiction devient trop imprécise, ce qui déclenche la publication de sa vraie position.
+Chaque robot utilise la même méthode de prédiction pour ses voisins : il estime leur position actuelle en ajoutant à leur dernière position publiée le produit de leur vitesse et du temps écoulé. Chaque robot connaît sa propre position réelle (mesurée) et sa position prédite (calculée avec la même méthode que pour ses voisins). Il peut donc comparer ces deux valeurs et déterminer précisément quand la prédiction devient trop imprécise, ce qui déclenche la publication de sa vraie position, et la mise à jour des estimations de sa propre position par ses voisins.
   
 \input{3-Methodologie/outils.tex}

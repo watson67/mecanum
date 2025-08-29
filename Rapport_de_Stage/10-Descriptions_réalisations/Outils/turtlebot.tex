@@ -85,7 +85,7 @@ Le tutoriel de migration vers \gls{ros2} est disponible en annexe (annexe \ref{c
 
 \noindent \underline{Note :} Les Raspberry Pi des robots Athos, Porthos et Aramis ont une plus grande capacité de stockage que Dartagnan, Edmon et Mercedes, et sont programmés avec la version Desktop d'Ubuntu 22.04, tandis que les trois autres sont programmés avec la version Server. Cela n'a pas d'impact sur le fonctionnement direct des robots, mais cela implique des différences de consommation de ressources, notamment en mémoire vive (\gls*{ram}), car la version Server est beaucoup plus légère que la version Desktop.
 Un tableau récapitulatif des configurations des robots est donné ci-dessous (\ref{tab:config-robots}).
-\begin{table}[h]
+\begin{table}[H]
     \centering
     \small
     \begin{tabular}{|l|l|l|l|l|}
@@ -105,4 +105,19 @@ Un tableau récapitulatif des configurations des robots est donné ci-dessous (\
 \end{table}
 
 
+Les Turtlebots sont alimentés par une batterie LiPo 3S (11.1V) de 1800mAh. L'utilisation de ce type de batterie présente un risque non négligeable d'incendie ou d'explosion en cas de mauvaise manipulation, de surcharge ou de dommage physique. La figure \ref{fig:lipo-setup} montre le matériel utilisé pour la charge.
+Des procédures strictes ont été suivies :
+\begin{itemize}
+    \item Les batteries sont systématiquement chargées à l'aide d'un chargeur équilibreur adapté, à l'intérieur d'un sac de charge ignifugé.
+    \item Une batterie en charge n'a jamais été laissée sans surveillance.
+    \item Le stockage des batteries s'effectue dans un sac ignifugé, à l'écart de tout objet inflammable.
+    \item Avant chaque utilisation, un contrôle visuel est effectué pour détecter tout signe de gonflement ou de dommage.
+\end{itemize}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.49\textwidth]{10-Descriptions_réalisations/Outils/pic/batterie.JPEG}
+    \caption{Matériel de charge~: batterie LiPo, chargeur équilibreur et sac ignifugé.}
+    \label{fig:lipo-setup}
+\end{figure}
+La batterie se branche directement sur la carte OpenCR, qui intègre un régulateur de tension pour alimenter les moteurs et la Raspberry Pi. 

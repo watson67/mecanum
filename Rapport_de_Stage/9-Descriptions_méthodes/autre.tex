@@ -44,6 +44,32 @@ L'intérêt de cette approche est de préserver la formation relative des robots
 
 La Figure \ref{fig:relative_vector_target} ci-dessus illustre la méthode. Le vecteur relatif $\vec{v}$ permet de déterminer la cible individuelle du robot. Le vecteur $\vec{g}$ relie le barycentre au point cible global et symbolise le déplacement global de l'essaim.
 
+Cette ajout a été implémenté car initalement, le même point était envoyé à tous les robots, ce qui faisait qu'initialement, la composante $u_i^\gamma$ de chaque robot les faisait converger vers le même point, écrasant ainsi la formation. En utilisant cette méthode, chaque robot conserve sa position relative dans l'essaim tout en se dirigeant vers la cible globale. Si la formation a maintenir est la formation initiale, au lancement du programme, les erreurs sur les interdistances sont nulles, et donc la composante $u_i^\alpha$ est nulle. Ainsi, la trajectoire de chaque robot est uniquement guidée par $u_i^\gamma$, qui les fait alors se rapprocher les uns des autres, comme illustré dans la Figure \ref{fig:globaltargetcollapse}. Comme les robots vont se rapprocher, les erreurs sur les interdistances vont augmenter, et la composante $u_i^\alpha$ va alors entrer en jeu pour maintenir la formation. Le problème était qu'initialement, $u_i^\alpha$ ne corrigeait pas assez vite la formation, ce qui provoquait collisions. Ainsi, une solution pour régler ce problème est de ne pas envoyer le même point à tous les robots.
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[scale=1.2, every node/.style={font=\small}]
+        \usetikzlibrary{calc}
+        % Robots (carré, cercles blancs)
+        \filldraw[fill=white,draw=blue,thick] (0,0) circle (0.15) node[below left=-2pt] {Robot 1};
+        \filldraw[fill=white,draw=blue,thick] (2,0) circle (0.15) node[below right=-2pt] {Robot 2};
+        \filldraw[fill=white,draw=blue,thick] (2,2) circle (0.15) node[above right=-2pt] {Robot 3};
+        \filldraw[fill=white,draw=blue,thick] (0,2) circle (0.15) node[above left=-2pt] {Robot 4};
+        
+        % Point cible global (plus loin à droite)
+        \coordinate (cible) at (6,1);
+        \filldraw[fill=green!60,draw=green] (cible) circle (0.10);
+        \node[green!60!black] at (6,1.35) {Point cible globale};
+        
+        % Vecteurs de vitesse vers le point cible global
+        \draw[->,thick,red] (0,0) -- ($(0,0)!0.5!(cible)$) node[midway, above, sloped] {$u_1^\gamma$};
+        \draw[->,thick,red] (2,0) -- ($(2,0)!0.5!(cible)$) node[midway, below, sloped] {$u_2^\gamma$};
+        \draw[->,thick,red] (2,2) -- ($(2,2)!0.5!(cible)$) node[midway, below, sloped] {$u_3^\gamma$};
+        \draw[->,thick,red] (0,2) -- ($(0,2)!0.5!(cible)$) node[midway, above, sloped] {$u_4^\gamma$};
+
+    \end{tikzpicture}
+    \caption{Illustration du problème initial où tous les robots ciblent le même point global}
+    \label{fig:globaltargetcollapse}
+\end{figure}
 %----------------------------------------------------------------------------
 %----------------------------------------------------------------------------
 
