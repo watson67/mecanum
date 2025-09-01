@@ -1,0 +1,27 @@
+\begin{frame}{Méthode du consensus pour essaim}
+
+\textbf{Algorithme retenu :} Consensus distribué basé sur PID \cite{koung_consensus-based_2020}
+
+\textbf{Modèle intégrateur pur :} $\dot{\mathbf{p}}_i = \mathbf{u}_i$ (adapté aux robots holonomes)
+
+\textbf{Commande décomposée en deux termes :}
+\begin{equation}
+\mathbf{u}_i = \mathbf{u}_i^{\alpha} + \mathbf{u}_i^{\gamma}
+\end{equation}
+
+\begin{itemize}
+\item \textbf{Formation ($\mathbf{u}_i^{\alpha}$)} : Maintien des distances via PID
+\begin{equation}
+\mathbf{u}_i^{\alpha} = \sum_{j \in \mathcal{N}_i} \left( K_p \phi_{\alpha} \mathbf{n}_{ij} + K_i \int_0^t \phi_{\alpha} \mathbf{n}_{ij} d\tau \right)
+\end{equation}
+
+\item \textbf{Navigation ($\mathbf{u}_i^{\gamma}$)} : Guidage vers la cible
+\begin{equation}
+\mathbf{u}_i^{\gamma} = -c_{1, \gamma}(\mathbf{p}_i - \mathbf{p}_r)
+\end{equation}
+\end{itemize}
+
+\vspace{0.1cm}
+\small{Sources : \cite{koung_consensus-based_2020}, \cite{saif_distributed_2019}}
+
+\end{frame}

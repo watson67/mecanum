@@ -1,0 +1,34 @@
+\begin{frame}
+    \frametitle{Commande événementielle prédictive}
+    \framesubtitle{Principe et objectif}
+    
+    \begin{columns}
+        \begin{column}{0.45\textwidth}
+            \textbf{Objectif :} Limiter les échanges d'informations entre robots
+            
+            \vspace{0.3em}
+            \textbf{Principe :}
+            \begin{itemize}
+                \item Chaque robot prédit la position de ses voisins
+                \item Publication uniquement si erreur de prédiction > seuil
+                \item Utilisation de position + vitesse pour la prédiction
+            \end{itemize}
+            
+            \vspace{0.3em}
+            
+        \end{column}
+        
+        \begin{column}{0.55\textwidth}
+            \textbf{Formule de prédiction :}
+            \begin{align*}
+                \hat{\mathbf{p}}_i = \mathbf{p}_i^{\,\text{pub}} + \mathbf{v}_i \cdot (t_{\text{actuel}} - t_{\text{pub}})
+            \end{align*}
+            
+            \textbf{Condition de publication :}
+            \begin{align*}
+                \|\mathbf{p}_i - \hat{\mathbf{p}}_i\| > \delta_p
+            \end{align*}
+            Avec $\delta_p = 0.3 \text{cm}$ 
+        \end{column}
+    \end{columns}
+\end{frame}
