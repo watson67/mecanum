@@ -2,7 +2,13 @@
 \usetheme{metropolis}
 \usepackage{graphicx}
 \usepackage{multimedia}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 \usepackage[french]{babel}
+\usepackage{csquotes} % recommandé avec biblatex + babel
+\usepackage[backend=biber,style=numeric,sorting=none,doi=false,isbn=false,url=false,eprint=false]{biblatex}
+\addbibresource{PFE.bib}
 \usepackage{hyperref}
 \usepackage{fontspec}
 \IfFontExistsTF{Fira Sans}{
@@ -16,15 +22,36 @@
 }{
   \setsansfont{DejaVu Sans}
 }
+\setbeamertemplate{caption}[numbered]
 % Configuration de la numérotation des slides
 \setbeamertemplate{footline}{%
   \leavevmode%
   \hbox{%
-    \begin{beamercolorbox}[wd=\paperwidth,ht=2.25ex,dp=1ex,right]{date in head/foot}%
-      \usebeamerfont{date in head/foot}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+    \begin{beamercolorbox}[wd=\paperwidth,ht=2.25ex,dp=1ex]{author in head/foot}%
+      \hspace*{2ex}\usebeamerfont{author in head/foot}\insertsectionhead%
+      \hfill%
+      \usebeamerfont{date in head/foot}{\color{white}\insertframenumber{} / \inserttotalframenumber}\hspace*{2ex}%
     \end{beamercolorbox}%
   }%
   \vskip0pt%
+}
+
+% Afficher uniquement Auteur + Titre dans la bibliographie
+\renewbibmacro{in:}{} % supprime "In:"
+\AtEveryBibitem{%
+  \clearfield{subtitle}
+  \clearfield{titleaddon}
+  \clearfield{year}\clearfield{date}\clearfield{month}
+  \clearfield{edition}
+  \clearfield{series}
+  \clearfield{volume}\clearfield{number}\clearfield{issue}
+  \clearfield{pages}\clearfield{pagetotal}
+  \clearlist{publisher}\clearlist{location}\clearlist{language}
+  \clearfield{booktitle}\clearfield{maintitle}\clearfield{journaltitle}\clearfield{shortjournal}
+  \clearfield{organization}\clearfield{institution}
+  \clearfield{note}\clearfield{addendum}
+  \clearfield{isbn}\clearfield{issn}
+  \clearfield{doi}\clearfield{url}\clearfield{urldate}\clearfield{eprint}
 }
 
 \title{eSWARM}
@@ -41,7 +68,7 @@
 % Table des matières
 \begin{frame}
     \frametitle{Plan de la présentation}
-    \tableofcontents
+    \tableofcontents[hidesubsections=false]
 \end{frame}
 
 % Chapitres
@@ -51,6 +78,11 @@
 \input{5-Descriptions-realisations/descriptions-realisations.tex}
 \input{6-Resultats/resultats.tex}
 \input{7-Conclusion/conclusion.tex}
+
+\begin{frame}[allowframebreaks]
+    \frametitle{Bibliographie}
+    \printbibliography
+\end{frame}
 
 % Annexes
 \appendix

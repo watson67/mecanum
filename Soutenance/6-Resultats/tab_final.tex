@@ -1,0 +1,26 @@
+\begin{frame}{Tableau récapitulatif des performances}
+    
+    \begin{table} % Ou \centering
+    \centering
+    \caption{Tableau récapitulatif des performances par méthode}
+    \label{tab:recap-perf}
+    \vspace{-0.5cm}
+    \begin{tabular}{|l|c|c|c|}
+        \hline
+        Critère & Classique & Événementielle & Prédictive \\
+        \hline
+        Temps de parcours [s] & 48 & 39 & 56 \\
+        Temps de convergence [s] & 13 & 26 & 15 \\
+        \hline
+        Nombre total de commandes calculées  & 1932 & 442 & 2187 \\
+        Calculs de commande par seconde & $\approx$ 40.3 & $\approx$ 11.3 & $\approx$ 39.1 \\
+        \hline
+        Nombre total d'échanges de données  & 966 & 780 & 110 \\
+        Échanges de données par seconde & $\approx$ 20.1 & 20 & $\approx$ 1.96 \\
+        \hline
+        Utilisation CPU [\%] & $\approx$ 20 & $\approx$ 20 & $\approx$ 15 \\
+        Utilisation RAM [Mo] & $\approx$ 470 & $\approx$ 470 & $\approx$ 470 \\
+        \hline
+    \end{tabular}
+    \end{table}
+\end{frame}
