@@ -7,18 +7,6 @@
             \textbf{Objectif :} Limiter les échanges d'informations entre robots
             
             \vspace{0.3em}
-            \textbf{Principe :}
-            \begin{itemize}
-                \item Chaque robot prédit la position de ses voisins
-                \item Publication uniquement si erreur de prédiction > seuil
-                \item Utilisation de position + vitesse pour la prédiction
-            \end{itemize}
-            
-            \vspace{0.3em}
-            
-        \end{column}
-        
-        \begin{column}{0.55\textwidth}
             \textbf{Formule de prédiction :}
             \begin{align*}
                 \hat{\mathbf{p}}_i = \mathbf{p}_i^{\,\text{pub}} + \mathbf{v}_i \cdot (t_{\text{actuel}} - t_{\text{pub}})
@@ -29,6 +17,71 @@
                 \|\mathbf{p}_i - \hat{\mathbf{p}}_i\| > \delta_p
             \end{align*}
             Avec $\delta_p = 0.3 \text{cm}$ 
+            
+        \end{column}
+        
+        \begin{column}{0.55\textwidth}
+            \begin{figure}[htbp]
+                \centering
+                \begin{tikzpicture}[
+                  scale=0.80, transform shape,
+                  font=\tiny,
+                  block/.style={draw, thick, rounded corners, fill=white, align=center, inner sep=1.5pt, minimum height=7mm, text width=28mm},
+                  line/.style={-{Stealth[length=2mm]}, thick},
+                  msg/.style={-{Stealth[length=2mm]}, thick, dashed},
+                  note/.style={align=center, inner sep=1pt}
+                ]
+              
+                  % --- Colonne Robot 1 ---
+                  \node[block] (r1) at (0,0) {$x_1, v_1$ (réel)\\ $\Delta t$ (local)\\ Dernière pose: $x_2(t_k), v_2(t_k)$};
+                  \node[block, below=6mm of r1] (selfpred1) {Prédicteurs\\
+                    Auto: $\hat{x}_1^{(1)}$\\
+                    Voisin: $\hat{x}_2^{(1)}$};
+                  \node[block, below=6mm of selfpred1, dashed] (trig1) {Déclencheur\\ $\|x_1 - \hat{x}_1^{(1)}\| > \delta_p$ ?};
+                  \node[block, below=6mm of trig1] (ctrl1) {Contrôleur 1\\ $u_1 = f(x_1,\ \hat{x}_2^{(1)})$};
+              
+                  % Flots verticaux Robot 1
+                  \draw[line] (r1.south) -- (selfpred1.north);
+                  \draw[line] (selfpred1.south) -- (trig1.north);
+                  \draw[line] (trig1.south) -- (ctrl1.north);
+              
+                  % --- Colonne Robot 2 ---
+                  \node[block, right=32mm of r1] (r2) {$x_2, v_2$ (réel)\\ $\Delta t$ (local)\\ Dernière pose: $x_1(t_k), v_1(t_k)$};
+                  \node[block, below=6mm of r2] (selfpred2) {Prédicteurs\\
+                    Auto: $\hat{x}_2^{(2)}$\\
+                    Voisin: $\hat{x}_1^{(2)}$};
+                  \node[block, below=6mm of selfpred2, dashed] (trig2) {Déclencheur\\ $\|x_2 - \hat{x}_2^{(2)}\| > \delta_p$ ?};
+                  \node[block, below=6mm of trig2] (ctrl2) {Contrôleur 2\\ $u_2 = f(x_2,\ \hat{x}_1^{(2)})$};
+              
+                  % Flots verticaux Robot 2
+                  \draw[line] (r2.south) -- (selfpred2.north);
+                  \draw[line] (selfpred2.south) -- (trig2.north);
+                  \draw[line] (trig2.south) -- (ctrl2.north);
+              
+                  % --- Communications événementielles ---
+                  \coordinate (m1) at ($ (trig1.east) + (0.8cm,0) $);
+                  \coordinate (r2_in) at ($ (r2.west) + (0,1mm) $);
+                  \draw[msg] (trig1.east) -- (m1) -- ($(m1 |- r2_in)$) -- node[above,pos=0.5,font=\scriptsize] {$\{x_1, v_1\}$} (r2_in);
+                  
+                  \coordinate (m2) at ($ (trig2.west) + (-0.8cm,0) $);
+                  \coordinate (r1_in) at ($ (r1.east) + (0,-1mm) $);
+                  \draw[msg] (trig2.west) -- (m2) -- ($(m2 |- r1_in)$) -- node[below,pos=0.5,font=\scriptsize] {$\{x_2, v_2\}$} (r1_in);
+              
+                  % --- Encadrements ---
+                  \coordinate (box1_nw) at ($ (r1.north west) + (-4mm, 4mm) $);
+                  \coordinate (box1_se) at ($ (ctrl1.south east) + (4mm, -4mm) $);
+                  \draw[dashed, rounded corners] (box1_nw) rectangle (box1_se);
+                  \node[anchor=south west, font=\scriptsize\itshape] at ($ (box1_nw) + (1mm, 0mm) $) {Robot 1};
+              
+                  \coordinate (box2_nw) at ($ (r2.north west) + (-4mm, 4mm) $);
+                  \coordinate (box2_se) at ($ (ctrl2.south east) + (4mm, -4mm) $);
+                  \draw[dashed, rounded corners] (box2_nw) rectangle (box2_se);
+                  \node[anchor=south west, font=\scriptsize\itshape] at ($ (box2_nw) + (1mm, 0mm) $) {Robot 2};
+              
+                \end{tikzpicture}
+                \caption{\tiny Schéma de la commande événementielle prédictive}
+                \label{fig:cmd_pred_tikz}
+              \end{figure}
         \end{column}
     \end{columns}
 \end{frame}

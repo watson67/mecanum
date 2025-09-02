@@ -1,0 +1,46 @@
+
+\begin{frame}{Commande événementielle classique}
+    \begin{columns}
+        \begin{column}{0.6\textwidth}
+            \begin{block}{1. Écart de distance avec les voisins}
+                Pour chaque voisin $j$ de $i$ :
+                \begin{equation*}
+                    |d_{ij} - d_{ij}^*| > \delta_d = 0{,}05 \text{ m}
+                \end{equation*}
+            \end{block}
+            
+            \begin{block}{2. Changement du point cible global}
+                \begin{equation*}
+                    \mathbf{g}^{\,\text{new}} \neq \mathbf{g}^{\,\text{old}}
+                \end{equation*}
+            \end{block}
+            
+            \begin{block}{3. Proximité ou variation significative}
+                \begin{align*}
+                    \|\mathbf{p}_i - \mathbf{p}_i^*\| &< \delta_c = 0{,}1 \text{ m} \\
+                    \text{ou} \quad |\|\mathbf{p}_i - \mathbf{p}_i^*\| - \|\mathbf{p}_i^{\,\text{old}} - \mathbf{p}_i^{*,\,\text{old}}\|| &> \delta_t = 0{,}02 \text{ m}
+                \end{align*}
+            \end{block}
+        \end{column}
+        
+        \begin{column}{0.35\textwidth}
+            \begin{block}{Définitions}
+                \begin{itemize}
+                    \item[$d_{ij}$] Distance actuelle
+                    \item[$d_{ij}^*$] Distance désirée
+                    \item[$\mathbf{p}_i$] Position du robot $i$
+                    \item[$\mathbf{p}_i^*$] Position cible du robot $i$
+                    \item[$\mathbf{g}$] Point cible global
+                \end{itemize}
+            \end{block}
+            
+            \begin{block}{Seuils}
+                \begin{itemize}
+                    \item[$\delta_d$] Écart distance
+                    \item[$\delta_c$] Proximité cible
+                    \item[$\delta_t$] Variation position
+                \end{itemize}
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}

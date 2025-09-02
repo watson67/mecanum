@@ -1,0 +1,203 @@
+\begin{frame}{Détail des formules - Norme sigma}
+
+\textbf{Norme sigma :} Fonction de normalisation pour éviter les singularités
+
+\begin{equation}
+\|\mathbf{z}\|_\sigma = \frac{1}{\epsilon} \left( \sqrt{1 + \epsilon \|\mathbf{z}\|^2} - 1 \right)
+\end{equation}
+
+\textbf{Gradient sigma :} Version normalisée du vecteur
+\begin{equation}
+\sigma_\epsilon(\mathbf{z}) = \frac{\mathbf{z}}{1 + \epsilon \sigma_{\text{norm}}(\mathbf{z})}
+\end{equation}
+
+\textbf{Paramètres :}
+\begin{itemize}
+\item $\epsilon = 0.1$ : paramètre de régularisation
+\item Évite les divisions par zéro quand $\|\mathbf{z}\| \rightarrow 0$
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Détail des formules - Fonction de connectivité}
+
+\textbf{Fonction $\rho_h$ :} Assure la connectivité entre robots
+
+\begin{equation}
+\rho_h(s) = \begin{cases}
+1 & \text{si } 0 \leq s \leq h \\
+\frac{1}{2}\left(1 + \cos\left(\frac{\pi(s-h)}{1-h}\right)\right) & \text{si } h < s \leq 1 \\
+0 & \text{sinon}
+\end{cases}
+\end{equation}
+
+\textbf{Fonction $\sigma_1$ :} Saturation douce
+\begin{equation}
+\sigma_1(s) = \frac{s}{\sqrt{1 + s^2}}
+\end{equation}
+
+\textbf{Paramètres :}
+\begin{itemize}
+\item $h = 0.2$ : seuil de connectivité maximale
+\item Transition douce vers zéro pour éviter les déconnexions brusques
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Détail des formules - Terme de formation $\mathbf{u}_i^{\alpha}$}
+
+\textbf{Fonction potentielle $\phi_{\alpha}$ :} Force d'attraction/répulsion
+\begin{equation}
+\phi_{\alpha}(s,d) = \frac{1}{2} \rho_h\left(\frac{s}{\sigma_{\text{norm}}(c)}\right) \left[(a+b) \sigma_1(s - \sigma_{\text{norm}}(d) + e) + (a-b)\right]
+\end{equation}
+
+\textbf{Vecteur unitaire entre robots :}
+\begin{equation}
+\mathbf{n}_{ij} = \sigma_\epsilon(\mathbf{p}_j - \mathbf{p}_i)
+\end{equation}
+
+\textbf{Paramètres :}
+\begin{itemize}
+\item $a = b = 1$ : coefficients d'attraction/répulsion
+\item $e = \frac{|a-b|}{\sqrt{4ab}} = 0$ : paramètre d'asymétrie
+\item $c = 5$ : portée d'interaction entre robots
+\item $d$ : distance désirée entre robots
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Détail des formules - Contrôleur PID}
+
+\textbf{Terme de formation complet :}
+\begin{equation}
+\mathbf{u}_i^{\alpha} = \sum_{j \in \mathcal{N}_i} \left[ K_p \phi_{\alpha}(\|\mathbf{p}_j - \mathbf{p}_i\|_\sigma, d_{ij}) \mathbf{n}_{ij} + K_i \int_0^t \phi_{\alpha} \mathbf{n}_{ij} d\tau + K_d \frac{d}{dt}(\phi_{\alpha} \mathbf{n}_{ij}) \right]
+\end{equation}
+
+\textbf{Gains PID :}
+\begin{itemize}
+\item $K_p = 0.2$ : gain proportionnel (réaction immédiate à l'erreur)
+\item $K_i = 0.05$ : gain intégral (élimination erreur statique)
+\item $K_d = 0.0$ : gain dérivé (amortissement, désactivé)
+\end{itemize}
+
+\textbf{Rôle :} Maintien des distances désirées $d_{ij}$ entre robots voisins
+
+\end{frame}
+
+\begin{frame}{Détail des formules - Terme de navigation $\mathbf{u}_i^{\gamma}$}
+
+\textbf{Guidage vers la cible :}
+\begin{equation}
+\mathbf{u}_i^{\gamma} = -c_{1,\gamma}(\mathbf{p}_i - \mathbf{p}_r)
+\end{equation}
+
+\textbf{Adaptation dynamique du gain :}
+\begin{equation}
+c_{1,\gamma} = f(\text{proximité}, \text{angles}, \text{mode})
+\end{equation}
+
+\textbf{Modes de fonctionnement :}
+\begin{itemize}
+\item \textbf{Mode normal :} $c_{1,\gamma} = 0.25$
+\item \textbf{Mode rotation :} $c_{1,\gamma} = 0.2$
+\item \textbf{Adaptation :} Réduction si formation non respectée
+\end{itemize}
+
+\textbf{Lissage temporel :} $\alpha = 0.8$ pour éviter les transitions brusques
+
+\end{frame}
+
+\begin{frame}{Détail des formules - Évitement d'obstacles}
+
+\textbf{Terme d'évitement $\mathbf{u}_i^{\beta}$ :}
+\begin{equation}
+\mathbf{u}_i^{\beta} = c_{1,\beta} \sum_{k \in \mathcal{O}_i} \phi_{\beta}(\|\mathbf{p}_{ik} - \mathbf{p}_i\|_\sigma, d_{\beta}) \mathbf{n}_{ik}
+\end{equation}
+
+\textbf{Fonction répulsive :}
+\begin{equation}
+\phi_{\beta}(s, d_{\beta}) = \rho_h\left(\frac{s}{d_{\beta}}\right) \left(\sigma_1(s - d_{\beta}) - 1\right)
+\end{equation}
+
+\textbf{Facteur de pondération :}
+\begin{equation}
+b_{ik} = \rho_h\left(\frac{\|\mathbf{p}_{ik} - \mathbf{p}_i\|_\sigma}{d_{\beta}}\right)
+\end{equation}
+
+\textbf{Paramètres :}
+\begin{itemize}
+\item $c_{1,\beta} = 0.3$ : gain d'évitement
+\item $d_{\beta}$ : distance de sécurité aux obstacles
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Détail des formules - Saturation des commandes}
+
+\textbf{Fonction de saturation :}
+\begin{equation}
+\text{sat}(\mathbf{u}_i) = \begin{cases}
+u_{i,\min} & \text{si } u_i < u_{i,\min} \\
+u_i & \text{si } u_{i,\min} \leq u_i \leq u_{i,\max} \\
+u_{i,\max} & \text{si } u_i > u_{i,\max}
+\end{cases}
+\end{equation}
+
+\textbf{Limites physiques :}
+\begin{itemize}
+\item $u_{i,\min} = -0.04$ m/s : vitesse minimale
+\item $u_{i,\max} = 0.04$ m/s : vitesse maximale
+\end{itemize}
+
+\textbf{Commande finale saturée :}
+\begin{equation}
+\mathbf{u}_i^{\text{final}} = \text{sat}(\mathbf{u}_i^{\alpha} + \mathbf{u}_i^{\gamma} + \mathbf{u}_i^{\beta})
+\end{equation}
+
+\end{frame}
+
+\begin{frame}{Détail des formules - Adaptation de $c_1^\gamma$}
+
+\textbf{Conditions critiques (arrêt quasi-total) :}
+\begin{equation}
+r_{\min} < 0.3 \text{ ou } r_{\max} > 2.2 \Rightarrow c_1^\gamma \approx 0
+\end{equation}
+
+\textbf{Conditions pour valeur nominale :}
+\begin{align}
+(1 - \tau_d) &\leq r_{\min} \text{ et } r_{\max} \leq (1 + \tau_d) \\
+|\theta_{\text{erreur},j}| &\leq \tau_\theta \quad \forall j
+\end{align}
+
+\textbf{Réduction progressive :}
+\begin{equation}
+c_1^\gamma = c_{1,\text{base}}^\gamma \cdot \min(f_d, f_\theta)
+\end{equation}
+
+\textbf{Paramètres :} $\tau_d = \pm 15\%$, $\tau_\theta = \pm 15°$
+
+\end{frame}
+
+\begin{frame}{Détail des formules - Facteurs de réduction $c_1^\gamma$}
+
+\textbf{Facteur distance :}
+\begin{equation}
+f_d = f_{\text{proximité}} \cdot f_{\text{séparation}} \cdot f_{d,\text{add}}
+\end{equation}
+
+\textbf{Facteur angle :}
+\begin{equation}
+f_\theta = f_{\text{erreur angle}} \cdot f_{\theta,\text{add}}
+\end{equation}
+
+\textbf{Réductions exponentielles :}
+\begin{equation}
+f_{\text{proximité}} = \begin{cases}
+e^{-k_{\min} \cdot \delta_{\min}} & \text{si } r_{\min} < s_{\min} \\
+1 & \text{sinon}
+\end{cases}
+\end{equation}
+
+\textbf{Paramètres empiriques :} $s_{\min} = 0.90$, $s_{\max} = 1.10$, $k_{\min} = k_{\max} = 0.4$
+
+\end{frame}
