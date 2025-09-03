@@ -39,11 +39,9 @@ __pycache__/
 *.nav
 *.dvi
 *.ps
-*.mp4
 *.avi
 *.mkv
 *.webm
-*.MP4
 *.acr
 *.alg
 # VSCode ou autres éditeurs
