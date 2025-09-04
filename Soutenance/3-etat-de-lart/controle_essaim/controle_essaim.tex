@@ -1,6 +1,6 @@
 \subsection{Contrôle d'essaim}
 
-\begin{frame}[c]{Approches de contrôle}
+\begin{frame}[c]{Approches de contrôle \cite{jamshidpey_centralization_2024}}
     \vfill
     \begin{columns}[c,totalwidth=\textwidth]
         \column{0.5\textwidth}
@@ -25,10 +25,7 @@
         \item Implémentation centralisée (simplicité)
         \item Évolution vers une approche décentralisée
     \end{enumerate}
-    \vfill
-    
-    \vspace{0.3cm}
-    \footnotesize{\cite{jamshidpey_centralization_2024}}
+
 \end{frame}
 
 \begin{frame}[c]{Méthodes de contrôle d'essaim}
@@ -40,7 +37,8 @@
         \begin{itemize}
             \item \textbf{Loi de consensus} \cite{ali_practical_2018, koung_consensus-based_2020} :
             \begin{itemize}
-                \item $u_i(t) = \sum_{j=1}^{n} a_{ij}(t) [x_j(t) - x_i(t)]$
+                %\item $u_i(t) = \sum_{j=1}^{n} a_{ij}(t) [x_j(t) - x_i(t)]$
+                \item Les robots s'accordent sur une valeur commune (ex: position, vitesse) en communiquant avec leurs voisins.
             \end{itemize}
             \vspace{0.3cm}
             \item \textbf{Leader-follower} \cite{loria_leaderfollower_2016, yang_adaptive_2021} :

@@ -11,6 +11,12 @@
 \usepackage[backend=biber,style=numeric,sorting=none,doi=false,isbn=false,url=false,eprint=false]{biblatex}
 \addbibresource{PFE.bib}
 \usepackage{hyperref}
+
+% Custom command to display author and title for specific citations
+\newcommand{\citeauthortitle}[1]{%
+  \citeauthor{#1}, \citetitle{#1}%
+}
+
 \usepackage{fontspec}
 \IfFontExistsTF{Fira Sans}{
   \setsansfont{Fira Sans}[
