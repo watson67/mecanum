@@ -25,8 +25,10 @@
 #define DEBUG
 
 #define WHEEL_RADIUS                    0.0515      // meter
-#define WHEEL_SEPARATION_X              0.224    // 
-#define WHEEL_SEPARATION_Y              0.126     // 
+//#define WHEEL_SEPARATION_X              0.224    // 
+//#define WHEEL_SEPARATION_Y              0.126     // 
+#define WHEEL_SEPARATION_X              0.112    // 
+#define WHEEL_SEPARATION_Y              0.063     // 
 #define DISTANCE_CENTER_TO_WHEEL        0.127     // meter
 
 #define ENCODER_MIN                     -2147483648     // raw
